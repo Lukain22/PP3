@@ -1,0 +1,20 @@
+<div class="container pt-5">
+    <div class="row">
+        <div class="col-lg-6 offset-lg-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    
+                    <h3>Eliminar Empleado</h3>
+                    
+                    <p>¿Estás seguro de que deseas eliminar este empleado?</p>
+
+                    <div class="mt-4">
+                        <button class="btn btn-secondary btn-lg float-end" [routerLink]="['/list-empleados']">Cancelar</button>
+                        <button class="btn btn-danger btn-lg float-end" (click)="eliminarEmpleado()">Eliminar</button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

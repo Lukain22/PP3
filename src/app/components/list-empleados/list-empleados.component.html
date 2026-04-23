@@ -1,0 +1,76 @@
+
+<div class="container mt-5"> <!--- clase conteiner centra el contenido del div verticalmente --> 
+    <div class="card">
+
+        <div class="card-body">
+            <span class="h3"> Listado de Empelados</span>
+            <button class="btn btn-dark btn-lg float-end" [routerLink]="['/create-empleados']">Agregar</button>
+           
+            <table class="table mt-4">            
+            <tbody>
+                <tr *ngFor="let empleado of empleados; let i = index">
+                    <td scope="row">{{ i + 1 }}</td>
+                    <td>{{ empleado.nombre }}</td>
+                    <td>{{ empleado.apellido }}</td>
+                    <td>{{ empleado.profesion }}</td>
+                    <td>
+
+                        
+                        <!-- Botón Eliminar -->
+                        <i class="bi bi-trash-fill text-danger" (click)="eliminarEmpleado(empleado.id)"></i>
+            
+                        <!-- Botón Editar -->
+                        <i class="bi bi-pencil-square text-info" [routerLink]="['/edit-empleados', empleado.id]"></i>
+                    </td>
+                </tr>
+            </tbody>
+          
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+
+           <!--
+            <table class="table mt-5">
+                <thead>
+                    <tr>
+                        <th scope="col">#</th>
+                        <th scope="col">Nombre</th>
+                        <th scope="col">Apellido</th>
+                        <th scope="col">Profesión</th>
+                      
+                    
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td scope="row">1</td>
+                        <td>David</td  >
+                        <td>Yaps</td>
+                        <td>Profesor</td>
+                        <td>
+                            
+                           
+                            <i class="bi bi-trash-fill  text-danger"></i>
+                            <i class="bi bi-pencil-square text-info"></i>
+                        </td>
+
+                    </tr>
+                </tbody>       
+          
+            </table>
+-->
+
+
+        </div>
+
+    </div>
+</div>
