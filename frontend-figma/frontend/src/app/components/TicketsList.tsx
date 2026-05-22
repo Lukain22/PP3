@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useLocation } from 'react-router';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
@@ -18,119 +18,154 @@ import {
   TableHead,
   TableRow,
   Paper,
-  Chip
+  Chip,
+  CircularProgress,
+  TextField,
+  MenuItem
 } from '@mui/material';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import { toast } from 'sonner';
 
-interface TicketData {
-  id: string;
+const API_URL = 'http://localhost:3000';
+
+interface Ticket {
+  id: number;
   title: string;
   description: string;
-  status: 'open' | 'in-progress' | 'resolved';
-  priority: 'low' | 'medium' | 'high';
-  createdAt: string;
+  status: string;
+  priority: string;
+  created_at: string;
+  user_id: number;
 }
 
 export default function TicketsList() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<number | null>(null);
 
-  const [tickets] = useState<TicketData[]>([
-    {
-      id: 'T-001',
-      title: 'Página de inicio de sesión no responde',
-      description: 'Los usuarios no pueden iniciar sesión',
-      status: 'open',
-      priority: 'high',
-      createdAt: '2026-05-06'
-    },
-    {
-      id: 'T-002',
-      title: 'Tiempo de espera de conexión a base de datos',
-      description: 'La conexión se agota después de 30 segundos',
-      status: 'in-progress',
-      priority: 'high',
-      createdAt: '2026-05-05'
-    },
-    {
-      id: 'T-003',
-      title: 'Actualizar función de perfil de usuario',
-      description: 'Agregar capacidad para actualizar foto de perfil',
-      status: 'in-progress',
-      priority: 'medium',
-      createdAt: '2026-05-04'
-    },
-    {
-      id: 'T-004',
-      title: 'Corregir error tipográfico en panel',
-      description: 'Error ortográfico en el panel principal',
-      status: 'resolved',
-      priority: 'low',
-      createdAt: '2026-05-03'
-    },
-    {
-      id: 'T-005',
-      title: 'Notificación por correo no funciona',
-      description: 'Los usuarios no reciben notificaciones',
-      status: 'open',
-      priority: 'medium',
-      createdAt: '2026-05-02'
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/');
+      return;
     }
-  ]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'open':
-        return 'warning';
-      case 'in-progress':
-        return 'info';
-      case 'resolved':
-        return 'success';
-      default:
-        return 'default';
-    }
-  };
+    fetch(`${API_URL}/tickets`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(async (res) => {
+        if (res.status === 401) {
+          localStorage.removeItem('token');
+          navigate('/');
+          return [];
+        }
+        if (!res.ok) throw new Error();
+        return res.json();
+      })
+      .then((data) => setTickets(Array.isArray(data) ? data : []))
+      .catch(() => setTickets([]))
+      .finally(() => setLoading(false));
+  }, [navigate]);
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'open':
-        return 'ABIERTO';
-      case 'in-progress':
-        return 'EN PROGRESO';
-      case 'resolved':
-        return 'RESUELTO';
-      default:
-        return status.toUpperCase();
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return 'error';
-      case 'medium':
-        return 'warning';
-      case 'low':
-        return 'success';
-      default:
-        return 'default';
-    }
+  const getPriorityColor = (priority: string): 'error' | 'warning' | 'success' | 'default' => {
+    if (priority === 'high') return 'error';
+    if (priority === 'medium') return 'warning';
+    if (priority === 'low') return 'success';
+    return 'default';
   };
 
   const getPriorityLabel = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return 'ALTA';
-      case 'medium':
-        return 'MEDIA';
-      case 'low':
-        return 'BAJA';
-      default:
-        return priority.toUpperCase();
+    if (priority === 'high') return 'ALTA';
+    if (priority === 'medium') return 'MEDIA';
+    if (priority === 'low') return 'BAJA';
+    return priority.toUpperCase();
+  };
+
+  const formatDate = (date: string) =>
+    new Date(date).toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' });
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    navigate('/');
+  };
+
+  const apiCall = async (path: string, options: RequestInit = {}) => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/');
+      return null;
+    }
+
+    const response = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        ...options.headers
+      }
+    });
+
+    if (response.status === 401) {
+      localStorage.removeItem('token');
+      navigate('/');
+      return null;
+    }
+
+    const data = await response.json().catch(() => ({}));
+    return { response, data };
+  };
+
+  const handleStatusChange = async (ticketId: number, newStatus: string) => {
+    setBusyId(ticketId);
+
+    try {
+      const result = await apiCall(`/tickets/${ticketId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (!result) return;
+
+      if (!result.response.ok) {
+        toast.error(result.data.message || 'No se pudo actualizar');
+        return;
+      }
+
+      setTickets((prev) =>
+        prev.map((t) => (t.id === ticketId ? { ...t, status: newStatus } : t))
+      );
+      toast.success('Estado actualizado');
+    } catch {
+      toast.error('Error conectando con el backend');
+    } finally {
+      setBusyId(null);
     }
   };
 
-  const handleLogout = () => {
-    navigate('/');
+  const handleDelete = async (ticketId: number, title: string) => {
+    if (!window.confirm(`¿Eliminar el ticket "${title}"?`)) return;
+
+    setBusyId(ticketId);
+
+    try {
+      const result = await apiCall(`/tickets/${ticketId}`, { method: 'DELETE' });
+
+      if (!result) return;
+
+      if (!result.response.ok) {
+        toast.error(result.data.message || 'No se pudo eliminar');
+        return;
+      }
+
+      setTickets((prev) => prev.filter((t) => t.id !== ticketId));
+      toast.success('Ticket eliminado');
+    } catch {
+      toast.error('Error conectando con el backend');
+    } finally {
+      setBusyId(null);
+    }
   };
 
   const statusFilter = new URLSearchParams(location.search).get('status');
@@ -186,60 +221,89 @@ export default function TicketsList() {
             Lista de Tickets
           </Typography>
           <Box sx={{ display: 'flex', gap: 1.5 }}>
-            <Button
-              variant="outlined"
-              onClick={() => navigate('/dashboard')}
-            >
+            <Button variant="outlined" onClick={() => navigate('/dashboard')}>
               Volver
             </Button>
-            <Button
-              variant="contained"
-              onClick={() => navigate('/create-ticket')}
-              sx={{ px: 3 }}
-            >
+            <Button variant="contained" onClick={() => navigate('/create-ticket')} sx={{ px: 3 }}>
               + Nuevo Ticket
             </Button>
           </Box>
         </Box>
 
-        <TableContainer component={Paper} sx={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-          <Table>
-            <TableHead>
-              <TableRow sx={{ bgcolor: '#f5f7fa' }}>
-                <TableCell sx={{ fontWeight: 500 }}>ID</TableCell>
-                <TableCell sx={{ fontWeight: 500 }}>Título</TableCell>
-                <TableCell sx={{ fontWeight: 500 }}>Descripción</TableCell>
-                <TableCell sx={{ fontWeight: 500 }}>Estado</TableCell>
-                <TableCell sx={{ fontWeight: 500 }}>Prioridad</TableCell>
-                <TableCell sx={{ fontWeight: 500 }}>Fecha</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredTickets.map((ticket) => (
-                <TableRow key={ticket.id} hover>
-                  <TableCell>{ticket.id}</TableCell>
-                  <TableCell>{ticket.title}</TableCell>
-                  <TableCell>{ticket.description}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={getStatusLabel(ticket.status)}
-                      color={getStatusColor(ticket.status)}
-                      size="small"
-                    />
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+            <CircularProgress />
+          </Box>
+        ) : filteredTickets.length === 0 ? (
+          <Paper sx={{ p: 4, textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+            <Typography color="text.secondary">
+              {statusFilter ? 'No hay tickets con ese estado.' : 'No tienes tickets. Crea uno nuevo.'}
+            </Typography>
+          </Paper>
+        ) : (
+          <TableContainer component={Paper} sx={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+            <Table>
+              <TableHead>
+                <TableRow sx={{ bgcolor: '#f5f7fa' }}>
+                  <TableCell sx={{ fontWeight: 500 }}>ID</TableCell>
+                  <TableCell sx={{ fontWeight: 500 }}>Título</TableCell>
+                  <TableCell sx={{ fontWeight: 500 }}>Descripción</TableCell>
+                  <TableCell sx={{ fontWeight: 500 }}>Estado</TableCell>
+                  <TableCell sx={{ fontWeight: 500 }}>Prioridad</TableCell>
+                  <TableCell sx={{ fontWeight: 500 }}>Fecha</TableCell>
+                  <TableCell sx={{ fontWeight: 500 }} align="center">
+                    Acciones
                   </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={getPriorityLabel(ticket.priority)}
-                      color={getPriorityColor(ticket.priority)}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>{ticket.createdAt}</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              </TableHead>
+              <TableBody>
+                {filteredTickets.map((ticket) => (
+                  <TableRow key={ticket.id} hover>
+                    <TableCell>#{ticket.id}</TableCell>
+                    <TableCell>{ticket.title}</TableCell>
+                    <TableCell>{ticket.description}</TableCell>
+                    <TableCell sx={{ minWidth: 160 }}>
+                      <TextField
+                        select
+                        size="small"
+                        value={ticket.status}
+                        disabled={busyId === ticket.id}
+                        onChange={(e) => handleStatusChange(ticket.id, e.target.value)}
+                        sx={{ minWidth: 140 }}
+                      >
+                        <MenuItem value="open">Abierto</MenuItem>
+                        <MenuItem value="in-progress">En Proceso</MenuItem>
+                        <MenuItem value="resolved">Resuelto</MenuItem>
+                      </TextField>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={getPriorityLabel(ticket.priority)}
+                        color={getPriorityColor(ticket.priority)}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>{formatDate(ticket.created_at)}</TableCell>
+                    <TableCell align="center">
+                      <Tooltip title="Eliminar ticket">
+                        <span>
+                          <IconButton
+                            color="error"
+                            size="small"
+                            disabled={busyId === ticket.id}
+                            onClick={() => handleDelete(ticket.id, ticket.title)}
+                          >
+                            <DeleteOutlineIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
       </Container>
     </Box>
   );

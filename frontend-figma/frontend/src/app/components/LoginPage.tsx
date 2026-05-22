@@ -1,42 +1,102 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { TextField, Button, Card, CardContent, Typography, Box, Container } from '@mui/material';
+import {
+  TextField,
+  Button,
+  Card,
+  CardContent,
+  Typography,
+  Box,
+  Container,
+  Tabs,
+  Tab
+} from '@mui/material';
+import { toast } from 'sonner';
+
+const API_URL = 'http://localhost:3000/auth';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const [tab, setTab] = useState(0);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-  
+    setLoading(true);
+
     try {
-      const response = await fetch('http://localhost:3000/auth/login', {
+      const response = await fetch(`${API_URL}/login`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          email,
-          password
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
       });
-  
+
       const data = await response.json();
-  
+
       if (!response.ok) {
-        alert(data.message || 'Login incorrecto');
+        toast.error(data.message || 'Login incorrecto');
         return;
       }
-  
+
       localStorage.setItem('token', data.token);
-  
       navigate('/dashboard');
     } catch (error) {
       console.error(error);
-      alert('Error conectando con el backend');
+      toast.error('Error conectando con el backend');
+    } finally {
+      setLoading(false);
     }
   };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (password !== confirmPassword) {
+      toast.error('Las contraseñas no coinciden');
+      return;
+    }
+
+    if (password.length < 6) {
+      toast.error('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const message =
+          data.message ||
+          (data.code === 'ER_DUP_ENTRY'
+            ? 'Este correo ya está registrado'
+            : 'No se pudo registrar el usuario');
+        toast.error(message);
+        return;
+      }
+
+      toast.success(data.message || 'Usuario registrado');
+      setPassword('');
+      setConfirmPassword('');
+      setTab(0);
+    } catch (error) {
+      console.error(error);
+      toast.error('Error conectando con el backend');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Container maxWidth="sm" sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', px: 2 }}>
       <Card sx={{ width: '100%', maxWidth: 420, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
@@ -50,41 +110,97 @@ export default function LoginPage() {
           <Typography variant="h5" component="h1" align="center" sx={{ mb: 0.5, fontWeight: 500 }}>
             Sistema de Soporte Técnico
           </Typography>
-          <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
+          <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 2 }}>
             Portal de Tickets
           </Typography>
 
-          <form onSubmit={handleSubmit}>
-            <TextField
-              fullWidth
-              label="Correo Institucional"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              margin="normal"
-              required
-              autoFocus
-              size="medium"
-            />
-            <TextField
-              fullWidth
-              label="Contraseña"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              margin="normal"
-              required
-              size="medium"
-            />
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              sx={{ mt: 2.5, py: 1.2 }}
-            >
-              Iniciar Sesión
-            </Button>
-          </form>
+          <Tabs
+            value={tab}
+            onChange={(_, value) => setTab(value)}
+            variant="fullWidth"
+            sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
+          >
+            <Tab label="Iniciar sesión" />
+            <Tab label="Registro" />
+          </Tabs>
+
+          {tab === 0 ? (
+            <form onSubmit={handleLogin}>
+              <TextField
+                fullWidth
+                label="Correo Institucional"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                margin="normal"
+                required
+                autoFocus
+                size="medium"
+              />
+              <TextField
+                fullWidth
+                label="Contraseña"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                margin="normal"
+                required
+                size="medium"
+              />
+              <Button
+                type="submit"
+                fullWidth
+                variant="contained"
+                disabled={loading}
+                sx={{ mt: 2.5, py: 1.2 }}
+              >
+                {loading ? 'Ingresando...' : 'Iniciar Sesión'}
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handleRegister}>
+              <TextField
+                fullWidth
+                label="Correo Institucional"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                margin="normal"
+                required
+                autoFocus
+                size="medium"
+              />
+              <TextField
+                fullWidth
+                label="Contraseña"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                margin="normal"
+                required
+                size="medium"
+              />
+              <TextField
+                fullWidth
+                label="Confirmar contraseña"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                margin="normal"
+                required
+                size="medium"
+              />
+              <Button
+                type="submit"
+                fullWidth
+                variant="contained"
+                disabled={loading}
+                sx={{ mt: 2.5, py: 1.2 }}
+              >
+                {loading ? 'Registrando...' : 'Registrar usuario'}
+              </Button>
+            </form>
+          )}
         </CardContent>
       </Card>
     </Container>

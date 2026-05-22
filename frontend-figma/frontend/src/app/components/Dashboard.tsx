@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
   AppBar,
@@ -10,23 +11,88 @@ import {
   Container,
   Grid,
   Card,
-  CardContent
+  CardContent,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Chip,
+  CircularProgress
 } from '@mui/material';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
+const API_URL = 'http://localhost:3000';
+
+interface Ticket {
+  id: number;
+  title: string;
+  description: string;
+  status: string;
+  priority: string;
+  created_at: string;
+  user_id: number;
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/');
+      return;
+    }
+
+    fetch(`${API_URL}/tickets`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(async (res) => {
+        if (res.status === 401) {
+          localStorage.removeItem('token');
+          navigate('/');
+          return [];
+        }
+        if (!res.ok) throw new Error();
+        return res.json();
+      })
+      .then((data) => setTickets(Array.isArray(data) ? data : []))
+      .catch(() => setTickets([]))
+      .finally(() => setLoading(false));
+  }, [navigate]);
 
   const stats = [
-    { label: 'Total', value: 24, color: '#111827' },
-    { label: 'Abiertos', value: 8, color: '#b45309' },
-    { label: 'En Proceso', value: 10, color: '#1d4ed8' },
-    { label: 'Resueltos', value: 6, color: '#047857' }
+    { label: 'Total', value: tickets.length, color: '#111827' },
+    { label: 'Abiertos', value: tickets.filter((t) => t.status === 'open').length, color: '#b45309' },
+    { label: 'En Proceso', value: tickets.filter((t) => t.status === 'in-progress').length, color: '#1d4ed8' },
+    { label: 'Resueltos', value: tickets.filter((t) => t.status === 'resolved').length, color: '#047857' }
   ];
 
+  const formatDate = (date: string) =>
+    new Date(date).toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' });
+
+  const getStatusLabel = (status: string) => {
+    if (status === 'open') return 'ABIERTO';
+    if (status === 'in-progress') return 'EN PROGRESO';
+    if (status === 'resolved') return 'RESUELTO';
+    return status.toUpperCase();
+  };
+
+  const getStatusColor = (status: string): 'warning' | 'info' | 'success' | 'default' => {
+    if (status === 'open') return 'warning';
+    if (status === 'in-progress') return 'info';
+    if (status === 'resolved') return 'success';
+    return 'default';
+  };
+
   const handleLogout = () => {
+    localStorage.removeItem('token');
     navigate('/');
   };
+
+  const recentTickets = tickets.slice(0, 5);
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f8f9fa' }}>
@@ -98,7 +164,7 @@ export default function Dashboard() {
                     {stat.label}
                   </Typography>
                   <Typography variant="h3" sx={{ fontWeight: 600, mt: 0.75, color: stat.color }}>
-                    {stat.value}
+                    {loading ? '—' : stat.value}
                   </Typography>
                 </CardContent>
               </Card>
@@ -106,28 +172,57 @@ export default function Dashboard() {
           ))}
         </Grid>
 
+        <Card sx={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', mb: 3 }}>
+          <CardContent sx={{ p: 2.5 }}>
+            <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 500 }}>
+              Tickets Recientes
+            </Typography>
+            {loading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                <CircularProgress size={32} />
+              </Box>
+            ) : recentTickets.length === 0 ? (
+              <Typography color="text.secondary">No tienes tickets aún. Crea el primero.</Typography>
+            ) : (
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: '#f5f7fa' }}>
+                    <TableCell sx={{ fontWeight: 500 }}>ID</TableCell>
+                    <TableCell sx={{ fontWeight: 500 }}>Título</TableCell>
+                    <TableCell sx={{ fontWeight: 500 }}>Estado</TableCell>
+                    <TableCell sx={{ fontWeight: 500 }}>Fecha</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {recentTickets.map((ticket) => (
+                    <TableRow key={ticket.id} hover>
+                      <TableCell>#{ticket.id}</TableCell>
+                      <TableCell>{ticket.title}</TableCell>
+                      <TableCell>
+                        <Chip label={getStatusLabel(ticket.status)} color={getStatusColor(ticket.status)} size="small" />
+                      </TableCell>
+                      <TableCell>{formatDate(ticket.created_at)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+
         <Card sx={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
           <CardContent sx={{ p: 2.5 }}>
             <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 500 }}>
               Accesos Rápidos
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
-              <Button
-                variant="outlined"
-                onClick={() => navigate('/tickets')}
-              >
+              <Button variant="outlined" onClick={() => navigate('/tickets')}>
                 Ver Todos los Tickets
               </Button>
-              <Button
-                variant="outlined"
-                onClick={() => navigate('/tickets?status=open')}
-              >
+              <Button variant="outlined" onClick={() => navigate('/tickets?status=open')}>
                 Mis Tickets Abiertos
               </Button>
-              <Button
-                variant="outlined"
-                onClick={() => navigate('/tickets?status=resolved')}
-              >
+              <Button variant="outlined" onClick={() => navigate('/tickets?status=resolved')}>
                 Historial
               </Button>
             </Box>

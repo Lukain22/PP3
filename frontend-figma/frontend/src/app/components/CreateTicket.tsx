@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
   AppBar,
@@ -16,14 +16,23 @@ import {
 import { toast } from 'sonner';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
+const API_URL = 'http://localhost:3000';
+
 export default function CreateTicket() {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     priority: 'medium',
     status: 'open'
   });
+
+  useEffect(() => {
+    if (!localStorage.getItem('token')) {
+      navigate('/');
+    }
+  }, [navigate]);
 
   const handleChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -32,7 +41,7 @@ export default function CreateTicket() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.title || !formData.description) {
@@ -40,16 +49,48 @@ export default function CreateTicket() {
       return;
     }
 
-    // Mock ticket creation
-    toast.success('Solicitud enviada correctamente');
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/');
+      return;
+    }
 
-    // Redirect to tickets list after a short delay
-    setTimeout(() => {
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/tickets`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(formData)
+      });
+
+      const data = await response.json();
+
+      if (response.status === 401) {
+        localStorage.removeItem('token');
+        navigate('/');
+        return;
+      }
+
+      if (!response.ok) {
+        toast.error(data.message || 'No se pudo crear el ticket');
+        return;
+      }
+
+      toast.success(data.message || 'Ticket creado');
       navigate('/tickets');
-    }, 1000);
+    } catch {
+      toast.error('Error conectando con el backend');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('token');
     navigate('/');
   };
 
@@ -152,18 +193,10 @@ export default function CreateTicket() {
               </Box>
 
               <Box sx={{ display: 'flex', gap: 1.5, mt: 1 }}>
-                <Button
-                  type="submit"
-                  variant="contained"
-                  sx={{ flex: 1 }}
-                >
-                  Enviar Solicitud
+                <Button type="submit" variant="contained" disabled={loading} sx={{ flex: 1 }}>
+                  {loading ? 'Enviando...' : 'Enviar Solicitud'}
                 </Button>
-                <Button
-                  variant="outlined"
-                  onClick={() => navigate('/dashboard')}
-                  sx={{ px: 3 }}
-                >
+                <Button variant="outlined" onClick={() => navigate('/dashboard')} sx={{ px: 3 }}>
                   Cancelar
                 </Button>
               </Box>
