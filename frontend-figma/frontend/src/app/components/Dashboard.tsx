@@ -1,14 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
-  AppBar,
-  Toolbar,
-  Typography,
-  Button,
-  IconButton,
-  Tooltip,
   Box,
-  Container,
   Grid,
   Card,
   CardContent,
@@ -18,9 +11,14 @@ import {
   TableHead,
   TableRow,
   Chip,
-  CircularProgress
+  CircularProgress,
+  Button,
+  Paper,
+  Typography
 } from '@mui/material';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import AddIcon from '@mui/icons-material/Add';
+import ListAltIcon from '@mui/icons-material/ListAlt';
+import SupportShell from './SupportShell';
 
 const API_URL = 'http://localhost:3000';
 
@@ -64,20 +62,20 @@ export default function Dashboard() {
   }, [navigate]);
 
   const stats = [
-    { label: 'Total', value: tickets.length, color: '#111827' },
+    { label: 'Total', value: tickets.length, color: '#1e3a5f' },
     { label: 'Abiertos', value: tickets.filter((t) => t.status === 'open').length, color: '#b45309' },
-    { label: 'En Proceso', value: tickets.filter((t) => t.status === 'in-progress').length, color: '#1d4ed8' },
+    { label: 'En proceso', value: tickets.filter((t) => t.status === 'in-progress').length, color: '#1d4ed8' },
     { label: 'Resueltos', value: tickets.filter((t) => t.status === 'resolved').length, color: '#047857' }
   ];
 
   const formatDate = (date: string) =>
-    new Date(date).toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    new Date(date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
 
   const getStatusLabel = (status: string) => {
-    if (status === 'open') return 'ABIERTO';
-    if (status === 'in-progress') return 'EN PROGRESO';
-    if (status === 'resolved') return 'RESUELTO';
-    return status.toUpperCase();
+    if (status === 'open') return 'Abierto';
+    if (status === 'in-progress') return 'En proceso';
+    if (status === 'resolved') return 'Resuelto';
+    return status;
   };
 
   const getStatusColor = (status: string): 'warning' | 'info' | 'success' | 'default' => {
@@ -87,148 +85,93 @@ export default function Dashboard() {
     return 'default';
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    navigate('/');
-  };
-
   const recentTickets = tickets.slice(0, 5);
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f8f9fa' }}>
-      <AppBar position="static" color="primary" elevation={0} sx={{ boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-        <Toolbar>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexGrow: 1, minWidth: 0 }}>
-            <Box
-              component="img"
-              alt="Logo"
-              src="/logo-itb.png"
-              sx={{
-                height: 28,
-                width: 28,
-                borderRadius: 1,
-                bgcolor: 'rgba(255,255,255,0.92)',
-                p: 0.5
-              }}
-            />
-            <Typography variant="h6" component="div" sx={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              Soporte Técnico
-            </Typography>
-          </Box>
-
-          <Tooltip title="Créditos">
-            <IconButton
-              color="inherit"
-              onClick={() => navigate('/credits')}
-              size="small"
-              sx={{
-                mr: 0.75,
-                bgcolor: 'rgba(255,255,255,0.12)',
-                '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' }
-              }}
+    <SupportShell
+      title="Panel de soporte"
+      subtitle="Resumen de tus solicitudes y accesos rápidos."
+      breadcrumbs={[{ label: 'Inicio' }]}
+    >
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        {stats.map((stat) => (
+          <Grid item xs={6} md={3} key={stat.label}>
+            <Card
+              elevation={0}
+              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
             >
-              <HelpOutlineIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Button color="inherit" onClick={handleLogout}>
-            Cerrar Sesión
-          </Button>
-        </Toolbar>
-      </AppBar>
+              <CardContent sx={{ py: 2, px: 2.5 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  {stat.label}
+                </Typography>
+                <Typography variant="h4" sx={{ fontWeight: 700, mt: 0.5, color: stat.color }}>
+                  {loading ? '—' : stat.value}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
 
-      <Container maxWidth="lg" sx={{ py: 3 }}>
-        <Box sx={{ mb: 2.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h5" sx={{ fontWeight: 500 }}>
-            Mis Tickets
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mb: 3 }}>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/create-ticket')}>
+          Nueva solicitud
+        </Button>
+        <Button variant="outlined" startIcon={<ListAltIcon />} onClick={() => navigate('/tickets')}>
+          Ver todas
+        </Button>
+        <Button variant="outlined" onClick={() => navigate('/tickets?status=open')}>
+          Solo abiertos
+        </Button>
+      </Box>
+
+      <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
+        <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid', borderColor: 'divider', bgcolor: '#fafbfc' }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+            Actividad reciente
           </Typography>
-          <Button
-            variant="contained"
-            size="medium"
-            onClick={() => navigate('/create-ticket')}
-            sx={{ px: 3 }}
-          >
-            + Nuevo Ticket
-          </Button>
         </Box>
-
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          {stats.map((stat) => (
-            <Grid item xs={6} md={3} key={stat.label}>
-              <Card sx={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                <CardContent sx={{ py: 2, px: 2.5, textAlign: 'center' }}>
-                  <Typography
-                    variant="overline"
-                    color="text.secondary"
-                    sx={{ display: 'block', lineHeight: 1.2, letterSpacing: '0.08em' }}
-                  >
-                    {stat.label}
-                  </Typography>
-                  <Typography variant="h3" sx={{ fontWeight: 600, mt: 0.75, color: stat.color }}>
-                    {loading ? '—' : stat.value}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-
-        <Card sx={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', mb: 3 }}>
-          <CardContent sx={{ p: 2.5 }}>
-            <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 500 }}>
-              Tickets Recientes
-            </Typography>
-            {loading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-                <CircularProgress size={32} />
-              </Box>
-            ) : recentTickets.length === 0 ? (
-              <Typography color="text.secondary">No tienes tickets aún. Crea el primero.</Typography>
-            ) : (
-              <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ bgcolor: '#f5f7fa' }}>
-                    <TableCell sx={{ fontWeight: 500 }}>ID</TableCell>
-                    <TableCell sx={{ fontWeight: 500 }}>Título</TableCell>
-                    <TableCell sx={{ fontWeight: 500 }}>Estado</TableCell>
-                    <TableCell sx={{ fontWeight: 500 }}>Fecha</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {recentTickets.map((ticket) => (
-                    <TableRow key={ticket.id} hover>
-                      <TableCell>#{ticket.id}</TableCell>
-                      <TableCell>{ticket.title}</TableCell>
-                      <TableCell>
-                        <Chip label={getStatusLabel(ticket.status)} color={getStatusColor(ticket.status)} size="small" />
-                      </TableCell>
-                      <TableCell>{formatDate(ticket.created_at)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card sx={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-          <CardContent sx={{ p: 2.5 }}>
-            <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 500 }}>
-              Accesos Rápidos
-            </Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
-              <Button variant="outlined" onClick={() => navigate('/tickets')}>
-                Ver Todos los Tickets
-              </Button>
-              <Button variant="outlined" onClick={() => navigate('/tickets?status=open')}>
-                Mis Tickets Abiertos
-              </Button>
-              <Button variant="outlined" onClick={() => navigate('/tickets?status=resolved')}>
-                Historial
-              </Button>
-            </Box>
-          </CardContent>
-        </Card>
-      </Container>
-    </Box>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress size={32} />
+          </Box>
+        ) : recentTickets.length === 0 ? (
+          <Box sx={{ p: 3, textAlign: 'center' }}>
+            <Typography color="text.secondary">No hay solicitudes. Creá la primera.</Typography>
+            <Button sx={{ mt: 2 }} variant="contained" onClick={() => navigate('/create-ticket')}>
+              Crear solicitud
+            </Button>
+          </Box>
+        ) : (
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 600 }}>ID</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Título</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Estado</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Fecha</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {recentTickets.map((ticket) => (
+                <TableRow
+                  key={ticket.id}
+                  hover
+                  sx={{ cursor: 'pointer' }}
+                  onClick={() => navigate('/tickets')}
+                >
+                  <TableCell>{ticket.id}</TableCell>
+                  <TableCell>{ticket.title}</TableCell>
+                  <TableCell>
+                    <Chip label={getStatusLabel(ticket.status)} color={getStatusColor(ticket.status)} size="small" />
+                  </TableCell>
+                  <TableCell>{formatDate(ticket.created_at)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </Paper>
+    </SupportShell>
   );
 }

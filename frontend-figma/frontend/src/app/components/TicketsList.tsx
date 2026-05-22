@@ -1,32 +1,35 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useLocation } from 'react-router';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import {
-  AppBar,
-  Toolbar,
+  Box,
+  Paper,
   Typography,
   Button,
   IconButton,
   Tooltip,
-  Box,
-  Container,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
   Chip,
   CircularProgress,
   TextField,
-  MenuItem
+  MenuItem,
+  InputAdornment,
+  Stack
 } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import AddIcon from '@mui/icons-material/Add';
 import { toast } from 'sonner';
+import SupportShell from './SupportShell';
 
 const API_URL = 'http://localhost:3000';
+
+type SortOption = 'date-desc' | 'date-asc' | 'priority-desc' | 'priority-asc' | 'title-asc';
 
 interface Ticket {
   id: number;
@@ -38,12 +41,25 @@ interface Ticket {
   user_id: number;
 }
 
+const priorityWeight: Record<string, number> = { high: 3, medium: 2, low: 1 };
+
+const statusFilters = [
+  { value: '', label: 'Todos' },
+  { value: 'open', label: 'Abiertos' },
+  { value: 'in-progress', label: 'En proceso' },
+  { value: 'resolved', label: 'Resueltos' }
+];
+
 export default function TicketsList() {
   const navigate = useNavigate();
   const location = useLocation();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<SortOption>('date-desc');
+
+  const statusFilter = new URLSearchParams(location.search).get('status') || '';
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -69,6 +85,50 @@ export default function TicketsList() {
       .finally(() => setLoading(false));
   }, [navigate]);
 
+  const setStatusFilter = (status: string) => {
+    if (status) {
+      navigate(`/tickets?status=${status}`);
+    } else {
+      navigate('/tickets');
+    }
+  };
+
+  const displayTickets = useMemo(() => {
+    let list = [...tickets];
+
+    if (statusFilter) {
+      list = list.filter((t) => t.status === statusFilter);
+    }
+
+    const q = search.trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (t) =>
+          t.title.toLowerCase().includes(q) ||
+          t.description.toLowerCase().includes(q) ||
+          String(t.id).includes(q)
+      );
+    }
+
+    list.sort((a, b) => {
+      switch (sortBy) {
+        case 'date-asc':
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        case 'priority-desc':
+          return (priorityWeight[b.priority] || 0) - (priorityWeight[a.priority] || 0);
+        case 'priority-asc':
+          return (priorityWeight[a.priority] || 0) - (priorityWeight[b.priority] || 0);
+        case 'title-asc':
+          return a.title.localeCompare(b.title, 'es');
+        case 'date-desc':
+        default:
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+    });
+
+    return list;
+  }, [tickets, statusFilter, search, sortBy]);
+
   const getPriorityColor = (priority: string): 'error' | 'warning' | 'success' | 'default' => {
     if (priority === 'high') return 'error';
     if (priority === 'medium') return 'warning';
@@ -77,19 +137,17 @@ export default function TicketsList() {
   };
 
   const getPriorityLabel = (priority: string) => {
-    if (priority === 'high') return 'ALTA';
-    if (priority === 'medium') return 'MEDIA';
-    if (priority === 'low') return 'BAJA';
-    return priority.toUpperCase();
+    if (priority === 'high') return 'Alta';
+    if (priority === 'medium') return 'Media';
+    if (priority === 'low') return 'Baja';
+    return priority;
   };
 
   const formatDate = (date: string) =>
-    new Date(date).toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    new Date(date).toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' });
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    navigate('/');
-  };
+  const truncate = (text: string, max = 80) =>
+    text.length > max ? `${text.slice(0, max)}…` : text;
 
   const apiCall = async (path: string, options: RequestInit = {}) => {
     const token = localStorage.getItem('token');
@@ -119,23 +177,17 @@ export default function TicketsList() {
 
   const handleStatusChange = async (ticketId: number, newStatus: string) => {
     setBusyId(ticketId);
-
     try {
       const result = await apiCall(`/tickets/${ticketId}`, {
         method: 'PUT',
         body: JSON.stringify({ status: newStatus })
       });
-
       if (!result) return;
-
       if (!result.response.ok) {
         toast.error(result.data.message || 'No se pudo actualizar');
         return;
       }
-
-      setTickets((prev) =>
-        prev.map((t) => (t.id === ticketId ? { ...t, status: newStatus } : t))
-      );
+      setTickets((prev) => prev.map((t) => (t.id === ticketId ? { ...t, status: newStatus } : t)));
       toast.success('Estado actualizado');
     } catch {
       toast.error('Error conectando con el backend');
@@ -146,19 +198,14 @@ export default function TicketsList() {
 
   const handleDelete = async (ticketId: number, title: string) => {
     if (!window.confirm(`¿Eliminar el ticket "${title}"?`)) return;
-
     setBusyId(ticketId);
-
     try {
       const result = await apiCall(`/tickets/${ticketId}`, { method: 'DELETE' });
-
       if (!result) return;
-
       if (!result.response.ok) {
         toast.error(result.data.message || 'No se pudo eliminar');
         return;
       }
-
       setTickets((prev) => prev.filter((t) => t.id !== ticketId));
       toast.success('Ticket eliminado');
     } catch {
@@ -168,143 +215,162 @@ export default function TicketsList() {
     }
   };
 
-  const statusFilter = new URLSearchParams(location.search).get('status');
-  const filteredTickets = statusFilter
-    ? tickets.filter((t) => t.status === statusFilter)
-    : tickets;
-
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f8f9fa' }}>
-      <AppBar position="static" color="primary" elevation={0} sx={{ boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-        <Toolbar>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexGrow: 1, minWidth: 0 }}>
-            <Box
-              component="img"
-              alt="Logo"
-              src="/logo-itb.png"
-              sx={{
-                height: 28,
-                width: 28,
-                borderRadius: 1,
-                bgcolor: 'rgba(255,255,255,0.92)',
-                p: 0.5
-              }}
-            />
-            <Typography variant="h6" component="div" sx={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              Soporte Técnico
-            </Typography>
-          </Box>
-
-          <Tooltip title="Créditos">
-            <IconButton
-              color="inherit"
-              onClick={() => navigate('/credits')}
-              size="small"
-              sx={{
-                mr: 0.75,
-                bgcolor: 'rgba(255,255,255,0.12)',
-                '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' }
-              }}
-            >
-              <HelpOutlineIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Button color="inherit" onClick={handleLogout}>
-            Cerrar Sesión
+    <SupportShell
+      title="Mis solicitudes"
+      subtitle={
+        loading
+          ? 'Cargando...'
+          : `${displayTickets.length} ticket${displayTickets.length === 1 ? '' : 's'} mostrados`
+      }
+      breadcrumbs={[
+        { label: 'Inicio', to: '/dashboard' },
+        { label: 'Solicitudes' }
+      ]}
+    >
+      <Paper
+        elevation={0}
+        sx={{ p: 2, mb: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
+      >
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }}>
+          <TextField
+            size="small"
+            placeholder="Buscar por ID, título o descripción..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            sx={{ flex: 1, minWidth: 220 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" color="action" />
+                </InputAdornment>
+              )
+            }}
+          />
+          <TextField
+            select
+            size="small"
+            label="Ordenar"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortOption)}
+            sx={{ minWidth: 200 }}
+          >
+            <MenuItem value="date-desc">Más recientes</MenuItem>
+            <MenuItem value="date-asc">Más antiguos</MenuItem>
+            <MenuItem value="priority-desc">Prioridad alta primero</MenuItem>
+            <MenuItem value="priority-asc">Prioridad baja primero</MenuItem>
+            <MenuItem value="title-asc">Título A-Z</MenuItem>
+          </TextField>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/create-ticket')}>
+            Nueva solicitud
           </Button>
-        </Toolbar>
-      </AppBar>
+        </Stack>
 
-      <Container maxWidth="lg" sx={{ py: 3 }}>
-        <Box sx={{ mb: 2.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h5" sx={{ fontWeight: 500 }}>
-            Lista de Tickets
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1.5 }}>
-            <Button variant="outlined" onClick={() => navigate('/dashboard')}>
-              Volver
-            </Button>
-            <Button variant="contained" onClick={() => navigate('/create-ticket')} sx={{ px: 3 }}>
-              + Nuevo Ticket
-            </Button>
-          </Box>
+        <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mt: 2 }}>
+          {statusFilters.map((f) => (
+            <Chip
+              key={f.value || 'all'}
+              label={f.label}
+              onClick={() => setStatusFilter(f.value)}
+              color={statusFilter === f.value ? 'primary' : 'default'}
+              variant={statusFilter === f.value ? 'filled' : 'outlined'}
+            />
+          ))}
+        </Stack>
+      </Paper>
+
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+          <CircularProgress />
         </Box>
-
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-            <CircularProgress />
-          </Box>
-        ) : filteredTickets.length === 0 ? (
-          <Paper sx={{ p: 4, textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-            <Typography color="text.secondary">
-              {statusFilter ? 'No hay tickets con ese estado.' : 'No tienes tickets. Crea uno nuevo.'}
-            </Typography>
-          </Paper>
-        ) : (
-          <TableContainer component={Paper} sx={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-            <Table>
-              <TableHead>
-                <TableRow sx={{ bgcolor: '#f5f7fa' }}>
-                  <TableCell sx={{ fontWeight: 500 }}>ID</TableCell>
-                  <TableCell sx={{ fontWeight: 500 }}>Título</TableCell>
-                  <TableCell sx={{ fontWeight: 500 }}>Descripción</TableCell>
-                  <TableCell sx={{ fontWeight: 500 }}>Estado</TableCell>
-                  <TableCell sx={{ fontWeight: 500 }}>Prioridad</TableCell>
-                  <TableCell sx={{ fontWeight: 500 }}>Fecha</TableCell>
-                  <TableCell sx={{ fontWeight: 500 }} align="center">
-                    Acciones
+      ) : displayTickets.length === 0 ? (
+        <Paper sx={{ p: 5, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            Sin resultados
+          </Typography>
+          <Typography color="text.secondary" sx={{ mb: 2 }}>
+            {search
+              ? 'Probá con otras palabras o quitá el filtro.'
+              : statusFilter
+                ? 'No hay tickets con ese estado.'
+                : 'Creá tu primera solicitud de soporte.'}
+          </Typography>
+          <Button variant="contained" onClick={() => navigate('/create-ticket')}>
+            Crear solicitud
+          </Button>
+        </Paper>
+      ) : (
+        <TableContainer
+          component={Paper}
+          elevation={0}
+          sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
+        >
+          <Table>
+            <TableHead>
+              <TableRow sx={{ bgcolor: '#fafbfc' }}>
+                <TableCell sx={{ fontWeight: 600, width: 72 }}>#</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Solicitud</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: 150 }}>Estado</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: 100 }}>Prioridad</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: 120 }}>Fecha</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: 56 }} align="center" />
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {displayTickets.map((ticket) => (
+                <TableRow key={ticket.id} hover sx={{ '&:last-child td': { border: 0 } }}>
+                  <TableCell sx={{ color: 'text.secondary', fontWeight: 500 }}>{ticket.id}</TableCell>
+                  <TableCell>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {ticket.title}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {truncate(ticket.description)}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <TextField
+                      select
+                      size="small"
+                      value={ticket.status}
+                      disabled={busyId === ticket.id}
+                      onChange={(e) => handleStatusChange(ticket.id, e.target.value)}
+                      fullWidth
+                    >
+                      <MenuItem value="open">Abierto</MenuItem>
+                      <MenuItem value="in-progress">En proceso</MenuItem>
+                      <MenuItem value="resolved">Resuelto</MenuItem>
+                    </TextField>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={getPriorityLabel(ticket.priority)}
+                      color={getPriorityColor(ticket.priority)}
+                      size="small"
+                      variant="outlined"
+                    />
+                  </TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(ticket.created_at)}</TableCell>
+                  <TableCell align="center">
+                    <Tooltip title="Eliminar">
+                      <span>
+                        <IconButton
+                          color="error"
+                          size="small"
+                          disabled={busyId === ticket.id}
+                          onClick={() => handleDelete(ticket.id, ticket.title)}
+                        >
+                          <DeleteOutlineIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
                   </TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {filteredTickets.map((ticket) => (
-                  <TableRow key={ticket.id} hover>
-                    <TableCell>#{ticket.id}</TableCell>
-                    <TableCell>{ticket.title}</TableCell>
-                    <TableCell>{ticket.description}</TableCell>
-                    <TableCell sx={{ minWidth: 160 }}>
-                      <TextField
-                        select
-                        size="small"
-                        value={ticket.status}
-                        disabled={busyId === ticket.id}
-                        onChange={(e) => handleStatusChange(ticket.id, e.target.value)}
-                        sx={{ minWidth: 140 }}
-                      >
-                        <MenuItem value="open">Abierto</MenuItem>
-                        <MenuItem value="in-progress">En Proceso</MenuItem>
-                        <MenuItem value="resolved">Resuelto</MenuItem>
-                      </TextField>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={getPriorityLabel(ticket.priority)}
-                        color={getPriorityColor(ticket.priority)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>{formatDate(ticket.created_at)}</TableCell>
-                    <TableCell align="center">
-                      <Tooltip title="Eliminar ticket">
-                        <span>
-                          <IconButton
-                            color="error"
-                            size="small"
-                            disabled={busyId === ticket.id}
-                            onClick={() => handleDelete(ticket.id, ticket.title)}
-                          >
-                            <DeleteOutlineIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
-      </Container>
-    </Box>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </SupportShell>
   );
 }

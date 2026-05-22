@@ -1,22 +1,31 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
-  AppBar,
-  Toolbar,
-  Typography,
-  Button,
-  IconButton,
-  Tooltip,
   Box,
-  Container,
   Paper,
   TextField,
-  MenuItem
+  MenuItem,
+  Button,
+  Typography,
+  ToggleButton,
+  ToggleButtonGroup,
+  Divider,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText
 } from '@mui/material';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { toast } from 'sonner';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import SupportShell from './SupportShell';
 
 const API_URL = 'http://localhost:3000';
+
+const priorityOptions = [
+  { value: 'low', label: 'Baja', hint: 'Consulta general' },
+  { value: 'medium', label: 'Media', hint: 'Afecta tu trabajo' },
+  { value: 'high', label: 'Alta', hint: 'Bloqueo crítico' }
+];
 
 export default function CreateTicket() {
   const navigate = useNavigate();
@@ -29,23 +38,18 @@ export default function CreateTicket() {
   });
 
   useEffect(() => {
-    if (!localStorage.getItem('token')) {
-      navigate('/');
-    }
+    if (!localStorage.getItem('token')) navigate('/');
   }, [navigate]);
 
   const handleChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [field]: event.target.value
-    });
+    setFormData({ ...formData, [field]: event.target.value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.title || !formData.description) {
-      toast.error('Por favor completa todos los campos requeridos');
+    if (!formData.title.trim() || !formData.description.trim()) {
+      toast.error('Completá el asunto y la descripción');
       return;
     }
 
@@ -80,7 +84,7 @@ export default function CreateTicket() {
         return;
       }
 
-      toast.success(data.message || 'Ticket creado');
+      toast.success('Solicitud enviada correctamente');
       navigate('/tickets');
     } catch {
       toast.error('Error conectando con el backend');
@@ -89,121 +93,131 @@ export default function CreateTicket() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    navigate('/');
-  };
-
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f8f9fa' }}>
-      <AppBar position="static" color="primary" elevation={0} sx={{ boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-        <Toolbar>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexGrow: 1, minWidth: 0 }}>
-            <Box
-              component="img"
-              alt="Logo"
-              src="/logo-itb.png"
-              sx={{
-                height: 28,
-                width: 28,
-                borderRadius: 1,
-                bgcolor: 'rgba(255,255,255,0.92)',
-                p: 0.5
-              }}
-            />
-            <Typography variant="h6" component="div" sx={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              Soporte Técnico
-            </Typography>
-          </Box>
+    <SupportShell
+      maxWidth="lg"
+      title="Nueva solicitud"
+      subtitle="Describí el problema con el mayor detalle posible, como en un portal de soporte."
+      breadcrumbs={[
+        { label: 'Inicio', to: '/dashboard' },
+        { label: 'Nueva solicitud' }
+      ]}
+    >
+      <Box
+        component="form"
+        onSubmit={handleSubmit}
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: '1fr 320px' },
+          gap: 2.5,
+          alignItems: 'start'
+        }}
+      >
+        <Paper elevation={0} sx={{ p: { xs: 2, md: 3 }, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+          <Typography variant="overline" color="primary" sx={{ fontWeight: 600 }}>
+            Paso 1 — Detalle
+          </Typography>
+          <TextField
+            fullWidth
+            label="Asunto"
+            value={formData.title}
+            onChange={handleChange('title')}
+            required
+            placeholder="Ej: No puedo acceder al campus virtual"
+            sx={{ mt: 2, mb: 2.5 }}
+          />
+          <TextField
+            fullWidth
+            label="Descripción"
+            value={formData.description}
+            onChange={handleChange('description')}
+            required
+            multiline
+            minRows={8}
+            placeholder="¿Qué pasó? ¿Cuándo empezó? ¿Qué intentaste hacer?"
+            helperText="Incluí mensajes de error, navegador o dispositivo si aplica."
+          />
 
-          <Tooltip title="Créditos">
-            <IconButton
-              color="inherit"
-              onClick={() => navigate('/credits')}
-              size="small"
-              sx={{
-                mr: 0.75,
-                bgcolor: 'rgba(255,255,255,0.12)',
-                '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' }
-              }}
-            >
-              <HelpOutlineIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Button color="inherit" onClick={handleLogout}>
-            Cerrar Sesión
-          </Button>
-        </Toolbar>
-      </AppBar>
+          <Divider sx={{ my: 3 }} />
 
-      <Container maxWidth="md" sx={{ py: 3 }}>
-        <Typography variant="h5" sx={{ mb: 2.5, fontWeight: 500 }}>
-          Crear Nueva Solicitud de Soporte
-        </Typography>
+          <Typography variant="overline" color="primary" sx={{ fontWeight: 600 }}>
+            Paso 2 — Prioridad
+          </Typography>
+          <ToggleButtonGroup
+            exclusive
+            fullWidth
+            value={formData.priority}
+            onChange={(_, val) => val && setFormData({ ...formData, priority: val })}
+            sx={{ mt: 2 }}
+          >
+            {priorityOptions.map((p) => (
+              <ToggleButton key={p.value} value={p.value} sx={{ flex: 1, py: 1.25, flexDirection: 'column' }}>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  {p.label}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {p.hint}
+                </Typography>
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
 
-        <Paper sx={{ p: 3, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-          <form onSubmit={handleSubmit}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-              <TextField
-                fullWidth
-                label="Asunto"
-                value={formData.title}
-                onChange={handleChange('title')}
-                required
-                placeholder="Ej: Problema con acceso a plataforma"
-              />
-
-              <TextField
-                fullWidth
-                label="Descripción del problema"
-                value={formData.description}
-                onChange={handleChange('description')}
-                required
-                multiline
-                rows={5}
-                placeholder="Describe tu problema con el mayor detalle posible"
-              />
-
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <TextField
-                  fullWidth
-                  select
-                  label="Prioridad"
-                  value={formData.priority}
-                  onChange={handleChange('priority')}
-                  required
-                >
-                  <MenuItem value="low">Baja</MenuItem>
-                  <MenuItem value="medium">Media</MenuItem>
-                  <MenuItem value="high">Alta</MenuItem>
-                </TextField>
-
-                <TextField
-                  fullWidth
-                  select
-                  label="Estado"
-                  value={formData.status}
-                  onChange={handleChange('status')}
-                  required
-                >
-                  <MenuItem value="open">Abierto</MenuItem>
-                  <MenuItem value="in-progress">En Proceso</MenuItem>
-                  <MenuItem value="resolved">Resuelto</MenuItem>
-                </TextField>
-              </Box>
-
-              <Box sx={{ display: 'flex', gap: 1.5, mt: 1 }}>
-                <Button type="submit" variant="contained" disabled={loading} sx={{ flex: 1 }}>
-                  {loading ? 'Enviando...' : 'Enviar Solicitud'}
-                </Button>
-                <Button variant="outlined" onClick={() => navigate('/dashboard')} sx={{ px: 3 }}>
-                  Cancelar
-                </Button>
-              </Box>
-            </Box>
-          </form>
+          <TextField
+            fullWidth
+            select
+            label="Estado inicial"
+            value={formData.status}
+            onChange={handleChange('status')}
+            sx={{ mt: 2.5 }}
+            size="small"
+          >
+            <MenuItem value="open">Abierto</MenuItem>
+            <MenuItem value="in-progress">En proceso</MenuItem>
+            <MenuItem value="resolved">Resuelto</MenuItem>
+          </TextField>
         </Paper>
-      </Container>
-    </Box>
+
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Paper elevation={0} sx={{ p: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: '#fafbfc' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>
+              Antes de enviar
+            </Typography>
+            <List dense disablePadding>
+              {[
+                'Un asunto claro ayuda a priorizar tu caso.',
+                'Los tickets urgentes deben describir el impacto.',
+                'Podés adjuntar capturas en la descripción (texto).'
+              ].map((text) => (
+                <ListItem key={text} disableGutters sx={{ alignItems: 'flex-start' }}>
+                  <ListItemIcon sx={{ minWidth: 32, mt: 0.25 }}>
+                    <CheckCircleOutlineIcon color="primary" fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText primary={text} primaryTypographyProps={{ variant: 'body2' }} />
+                </ListItem>
+              ))}
+            </List>
+          </Paper>
+
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2,
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 2,
+              position: { md: 'sticky' },
+              top: 16
+            }}
+          >
+            <Button type="submit" variant="contained" fullWidth disabled={loading} size="large">
+              {loading ? 'Enviando...' : 'Enviar solicitud'}
+            </Button>
+            <Button fullWidth variant="text" sx={{ mt: 1 }} onClick={() => navigate('/dashboard')}>
+              Cancelar
+            </Button>
+          </Paper>
+        </Box>
+      </Box>
+    </SupportShell>
   );
 }
