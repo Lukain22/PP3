@@ -23,7 +23,9 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import AddIcon from '@mui/icons-material/Add';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
 
@@ -215,6 +217,30 @@ export default function TicketsList() {
     }
   };
 
+  const exportCsv = () => {
+    if (displayTickets.length === 0) return;
+    const rows = [
+      ['ID', 'Titulo', 'Descripcion', 'Estado', 'Prioridad', 'Fecha'],
+      ...displayTickets.map((t) => [
+        t.id,
+        `"${t.title.replace(/"/g, '""')}"`,
+        `"${t.description.replace(/"/g, '""')}"`,
+        t.status,
+        t.priority,
+        new Date(t.created_at).toISOString()
+      ])
+    ];
+    const csv = rows.map((r) => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'tickets.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success('Archivo CSV descargado');
+  };
+
   return (
     <SupportShell
       title="Mis solicitudes"
@@ -263,6 +289,14 @@ export default function TicketsList() {
           </TextField>
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/create-ticket')}>
             Nueva solicitud
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<FileDownloadIcon />}
+            onClick={exportCsv}
+            disabled={loading || displayTickets.length === 0}
+          >
+            Exportar CSV
           </Button>
         </Stack>
 
@@ -313,12 +347,19 @@ export default function TicketsList() {
                 <TableCell sx={{ fontWeight: 600, width: 150 }}>Estado</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 100 }}>Prioridad</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 120 }}>Fecha</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: 56 }} align="center" />
+                <TableCell sx={{ fontWeight: 600, width: 96 }} align="center">
+                  Acciones
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {displayTickets.map((ticket) => (
-                <TableRow key={ticket.id} hover sx={{ '&:last-child td': { border: 0 } }}>
+                <TableRow
+                  key={ticket.id}
+                  hover
+                  sx={{ '&:last-child td': { border: 0 }, cursor: 'pointer' }}
+                  onClick={() => navigate(`/tickets/${ticket.id}`)}
+                >
                   <TableCell sx={{ color: 'text.secondary', fontWeight: 500 }}>{ticket.id}</TableCell>
                   <TableCell>
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -328,7 +369,7 @@ export default function TicketsList() {
                       {truncate(ticket.description)}
                     </Typography>
                   </TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <TextField
                       select
                       size="small"
@@ -351,7 +392,12 @@ export default function TicketsList() {
                     />
                   </TableCell>
                   <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(ticket.created_at)}</TableCell>
-                  <TableCell align="center">
+                  <TableCell align="center" onClick={(e) => e.stopPropagation()}>
+                    <Tooltip title="Ver detalle">
+                      <IconButton size="small" onClick={() => navigate(`/tickets/${ticket.id}`)}>
+                        <VisibilityIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                     <Tooltip title="Eliminar">
                       <span>
                         <IconButton

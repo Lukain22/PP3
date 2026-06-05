@@ -5,9 +5,11 @@ import Dashboard from './components/Dashboard';
 import TicketsList from './components/TicketsList';
 import CreateTicket from './components/CreateTicket';
 import Credits from './components/Credits';
+import TicketDetail from './components/TicketDetail';
 import DashboardClassic from './components/legacy/Dashboard.classic';
 import TicketsListClassic from './components/legacy/TicketsList.classic';
 import CreateTicketClassic from './components/legacy/CreateTicket.classic';
+import TicketDetailClassic from './components/legacy/TicketDetail.classic';
 import { isClassicUi } from './components/SupportShell';
 
 function DashboardPage() {
@@ -22,6 +24,10 @@ function CreateTicketPage() {
   return isClassicUi() ? <CreateTicketClassic /> : <CreateTicket />;
 }
 
+function TicketDetailPage() {
+  return isClassicUi() ? <TicketDetailClassic /> : <TicketDetail />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -30,6 +36,7 @@ export default function App() {
           <Route path="/" element={<LoginPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/tickets" element={<TicketsPage />} />
+          <Route path="/tickets/:id" element={<TicketDetailPage />} />
           <Route path="/create-ticket" element={<CreateTicketPage />} />
           <Route path="/credits" element={<Credits />} />
           <Route path="*" element={<Navigate to="/" replace />} />

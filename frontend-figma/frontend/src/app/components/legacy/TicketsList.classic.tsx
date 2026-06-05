@@ -260,11 +260,16 @@ export default function TicketsList() {
               </TableHead>
               <TableBody>
                 {filteredTickets.map((ticket) => (
-                  <TableRow key={ticket.id} hover>
+                  <TableRow
+                    key={ticket.id}
+                    hover
+                    sx={{ cursor: 'pointer' }}
+                    onClick={() => navigate(`/tickets/${ticket.id}`)}
+                  >
                     <TableCell>#{ticket.id}</TableCell>
                     <TableCell>{ticket.title}</TableCell>
                     <TableCell>{ticket.description}</TableCell>
-                    <TableCell sx={{ minWidth: 160 }}>
+                    <TableCell sx={{ minWidth: 160 }} onClick={(e) => e.stopPropagation()}>
                       <TextField
                         select
                         size="small"
@@ -286,7 +291,7 @@ export default function TicketsList() {
                       />
                     </TableCell>
                     <TableCell>{formatDate(ticket.created_at)}</TableCell>
-                    <TableCell align="center">
+                    <TableCell align="center" onClick={(e) => e.stopPropagation()}>
                       <Tooltip title="Eliminar ticket">
                         <span>
                           <IconButton

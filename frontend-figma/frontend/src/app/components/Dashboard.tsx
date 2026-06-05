@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import ListAltIcon from '@mui/icons-material/ListAlt';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as RechartsTooltip } from 'recharts';
 import SupportShell from './SupportShell';
 
 const API_URL = 'http://localhost:3000';
@@ -87,6 +88,12 @@ export default function Dashboard() {
 
   const recentTickets = tickets.slice(0, 5);
 
+  const chartData = [
+    { name: 'Abiertos', value: tickets.filter((t) => t.status === 'open').length, color: '#f59e0b' },
+    { name: 'En proceso', value: tickets.filter((t) => t.status === 'in-progress').length, color: '#3b82f6' },
+    { name: 'Resueltos', value: tickets.filter((t) => t.status === 'resolved').length, color: '#10b981' }
+  ].filter((d) => d.value > 0);
+
   return (
     <SupportShell
       title="Panel de soporte"
@@ -117,13 +124,61 @@ export default function Dashboard() {
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/create-ticket')}>
           Nueva solicitud
         </Button>
-        <Button variant="outlined" startIcon={<ListAltIcon />} onClick={() => navigate('/tickets')}>
-          Ver todas
-        </Button>
+          <Button variant="outlined" startIcon={<ListAltIcon />} onClick={() => navigate('/tickets')}>
+            Ver todas
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={() => {
+              if (tickets.length === 0) return;
+              const rows = [
+                ['ID', 'Titulo', 'Estado', 'Prioridad', 'Fecha'],
+                ...tickets.map((t) => [
+                  t.id,
+                  `"${t.title.replace(/"/g, '""')}"`,
+                  t.status,
+                  t.priority,
+                  new Date(t.created_at).toISOString()
+                ])
+              ];
+              const csv = rows.map((r) => r.join(',')).join('\n');
+              const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = 'tickets.csv';
+              link.click();
+              URL.revokeObjectURL(url);
+            }}
+            disabled={loading || tickets.length === 0}
+          >
+            Exportar CSV
+          </Button>
         <Button variant="outlined" onClick={() => navigate('/tickets?status=open')}>
           Solo abiertos
         </Button>
       </Box>
+
+      {!loading && tickets.length > 0 && (
+        <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 2.5, mb: 3 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
+            Distribución por estado
+          </Typography>
+          <Box sx={{ height: 240 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+                  {chartData.map((entry) => (
+                    <Cell key={entry.name} fill={entry.color} />
+                  ))}
+                </Pie>
+                <RechartsTooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </Box>
+        </Paper>
+      )}
 
       <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
         <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid', borderColor: 'divider', bgcolor: '#fafbfc' }}>
@@ -158,7 +213,7 @@ export default function Dashboard() {
                   key={ticket.id}
                   hover
                   sx={{ cursor: 'pointer' }}
-                  onClick={() => navigate('/tickets')}
+                  onClick={() => navigate(`/tickets/${ticket.id}`)}
                 >
                   <TableCell>{ticket.id}</TableCell>
                   <TableCell>{ticket.title}</TableCell>

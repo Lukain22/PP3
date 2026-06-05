@@ -4,7 +4,7 @@ require('dotenv').config();
 
 const authRoutes = require('./routes/authRoutes');
 const ticketRoutes = require('./routes/ticketRoutes');
-const { initTicketsTable } = require('./controllers/ticketsController');
+const { initTicketsTable, initCommentsTable } = require('./controllers/ticketsController');
 
 const app = express();
 
@@ -15,6 +15,7 @@ app.use('/auth', authRoutes);
 app.use('/tickets', ticketRoutes);
 
 initTicketsTable();
+initCommentsTable();
 
 const PORT = process.env.PORT || 3000;
 
