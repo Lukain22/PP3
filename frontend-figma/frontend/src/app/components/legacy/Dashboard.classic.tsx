@@ -23,7 +23,7 @@ import {
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import UiModeToggle from '../UiModeToggle';
 
-const API_URL = 'http://localhost:3000';
+const API_URL = import.meta.env.VITE_API_URL as string;
 
 interface Ticket {
   id: number;

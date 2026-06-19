@@ -21,7 +21,7 @@ import ListAltIcon from '@mui/icons-material/ListAlt';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as RechartsTooltip } from 'recharts';
 import SupportShell from './SupportShell';
 
-const API_URL = 'http://localhost:3000';
+const API_URL = import.meta.env.VITE_API_URL as string;
 
 interface Ticket {
   id: number;

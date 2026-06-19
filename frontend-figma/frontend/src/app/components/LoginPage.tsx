@@ -12,8 +12,9 @@ import {
   Tab
 } from '@mui/material';
 import { toast } from 'sonner';
+import { setAuth, type UserRole } from '../../lib/auth';
 
-const API_URL = 'http://localhost:3000/auth';
+const API_URL = `${import.meta.env.VITE_API_URL as string}/auth`;
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -41,8 +42,8 @@ export default function LoginPage() {
         return;
       }
 
-      localStorage.setItem('token', data.token);
-      navigate('/dashboard');
+      setAuth(data.token, (data.role as UserRole) || 'user');
+      navigate(data.role === 'admin' ? '/admin' : '/dashboard');
     } catch (error) {
       console.error(error);
       toast.error('Error conectando con el backend');

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useLocation } from 'react-router';
 import {
   Box,
   Paper,
@@ -24,14 +23,13 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import VisibilityIcon from '@mui/icons-material/Visibility';
-import AddIcon from '@mui/icons-material/Add';
+import PeopleIcon from '@mui/icons-material/People';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
+import { getToken, clearAuth } from '../../lib/auth';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
-
-type SortOption = 'date-desc' | 'date-asc' | 'priority-desc' | 'priority-asc' | 'title-asc';
 
 interface Ticket {
   id: number;
@@ -39,11 +37,13 @@ interface Ticket {
   description: string;
   status: string;
   priority: string;
+  category?: string | null;
+  subcategory?: string | null;
   created_at: string;
+  updated_at?: string;
   user_id: number;
+  user_email: string;
 }
-
-const priorityWeight: Record<string, number> = { high: 3, medium: 2, low: 1 };
 
 const statusFilters = [
   { value: '', label: 'Todos' },
@@ -52,111 +52,20 @@ const statusFilters = [
   { value: 'resolved', label: 'Resueltos' }
 ];
 
-export default function TicketsList() {
+const priorityWeight: Record<string, number> = { high: 3, medium: 2, low: 1 };
+
+export default function AdminPanel() {
   const navigate = useNavigate();
-  const location = useLocation();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
-  const [sortBy, setSortBy] = useState<SortOption>('date-desc');
-
-  const statusFilter = new URLSearchParams(location.search).get('status') || '';
-
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/');
-      return;
-    }
-
-    fetch(`${API_URL}/tickets`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(async (res) => {
-        if (res.status === 401) {
-          localStorage.removeItem('token');
-          navigate('/');
-          return [];
-        }
-        if (!res.ok) throw new Error();
-        return res.json();
-      })
-      .then((data) => setTickets(Array.isArray(data) ? data : []))
-      .catch(() => setTickets([]))
-      .finally(() => setLoading(false));
-  }, [navigate]);
-
-  const setStatusFilter = (status: string) => {
-    if (status) {
-      navigate(`/tickets?status=${status}`);
-    } else {
-      navigate('/tickets');
-    }
-  };
-
-  const displayTickets = useMemo(() => {
-    let list = [...tickets];
-
-    if (statusFilter) {
-      list = list.filter((t) => t.status === statusFilter);
-    }
-
-    const q = search.trim().toLowerCase();
-    if (q) {
-      list = list.filter(
-        (t) =>
-          t.title.toLowerCase().includes(q) ||
-          t.description.toLowerCase().includes(q) ||
-          String(t.id).includes(q)
-      );
-    }
-
-    list.sort((a, b) => {
-      switch (sortBy) {
-        case 'date-asc':
-          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-        case 'priority-desc':
-          return (priorityWeight[b.priority] || 0) - (priorityWeight[a.priority] || 0);
-        case 'priority-asc':
-          return (priorityWeight[a.priority] || 0) - (priorityWeight[b.priority] || 0);
-        case 'title-asc':
-          return a.title.localeCompare(b.title, 'es');
-        case 'date-desc':
-        default:
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      }
-    });
-
-    return list;
-  }, [tickets, statusFilter, search, sortBy]);
-
-  const getPriorityColor = (priority: string): 'error' | 'warning' | 'success' | 'default' => {
-    if (priority === 'high') return 'error';
-    if (priority === 'medium') return 'warning';
-    if (priority === 'low') return 'success';
-    return 'default';
-  };
-
-  const getPriorityLabel = (priority: string) => {
-    if (priority === 'high') return 'Alta';
-    if (priority === 'medium') return 'Media';
-    if (priority === 'low') return 'Baja';
-    return priority;
-  };
-
-  const formatDate = (date: string) =>
-    new Date(date).toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' });
-
-  const truncate = (text: string, max = 80) =>
-    text.length > max ? `${text.slice(0, max)}…` : text;
+  const [statusFilter, setStatusFilter] = useState('');
+  const [sortBy, setSortBy] = useState('date-desc');
 
   const apiCall = async (path: string, options: RequestInit = {}) => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/');
-      return null;
-    }
+    const token = getToken();
+    if (!token) { navigate('/'); return null; }
 
     const response = await fetch(`${API_URL}${path}`, {
       ...options,
@@ -167,29 +76,61 @@ export default function TicketsList() {
       }
     });
 
-    if (response.status === 401) {
-      localStorage.removeItem('token');
-      navigate('/');
-      return null;
-    }
+    if (response.status === 401) { clearAuth(); navigate('/'); return null; }
+    if (response.status === 403) { navigate('/dashboard'); return null; }
 
     const data = await response.json().catch(() => ({}));
     return { response, data };
   };
 
+  const loadTickets = async () => {
+    const result = await apiCall('/admin/tickets');
+    if (!result) return;
+    if (result.response.ok) {
+      setTickets(Array.isArray(result.data) ? result.data : []);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { loadTickets(); }, []);
+
+  const displayTickets = useMemo(() => {
+    let list = [...tickets];
+
+    if (statusFilter) list = list.filter((t) => t.status === statusFilter);
+
+    const q = search.trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (t) =>
+          t.title.toLowerCase().includes(q) ||
+          t.user_email.toLowerCase().includes(q) ||
+          String(t.id).includes(q)
+      );
+    }
+
+    list.sort((a, b) => {
+      switch (sortBy) {
+        case 'date-asc': return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        case 'priority-desc': return (priorityWeight[b.priority] || 0) - (priorityWeight[a.priority] || 0);
+        case 'title-asc': return a.title.localeCompare(b.title, 'es');
+        default: return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+    });
+
+    return list;
+  }, [tickets, statusFilter, search, sortBy]);
+
   const handleStatusChange = async (ticketId: number, newStatus: string) => {
     setBusyId(ticketId);
     try {
-      const result = await apiCall(`/tickets/${ticketId}`, {
-        method: 'PUT',
+      const result = await apiCall(`/admin/tickets/${ticketId}`, {
+        method: 'PATCH',
         body: JSON.stringify({ status: newStatus })
       });
       if (!result) return;
-      if (!result.response.ok) {
-        toast.error(result.data.message || 'No se pudo actualizar');
-        return;
-      }
-      setTickets((prev) => prev.map((t) => (t.id === ticketId ? { ...t, status: newStatus } : t)));
+      if (!result.response.ok) { toast.error(result.data.message || 'No se pudo actualizar'); return; }
+      setTickets((prev) => prev.map((t) => t.id === ticketId ? { ...t, status: newStatus } : t));
       toast.success('Estado actualizado');
     } catch {
       toast.error('Error conectando con el backend');
@@ -202,12 +143,9 @@ export default function TicketsList() {
     if (!window.confirm(`¿Eliminar el ticket "${title}"?`)) return;
     setBusyId(ticketId);
     try {
-      const result = await apiCall(`/tickets/${ticketId}`, { method: 'DELETE' });
+      const result = await apiCall(`/admin/tickets/${ticketId}`, { method: 'DELETE' });
       if (!result) return;
-      if (!result.response.ok) {
-        toast.error(result.data.message || 'No se pudo eliminar');
-        return;
-      }
+      if (!result.response.ok) { toast.error(result.data.message || 'No se pudo eliminar'); return; }
       setTickets((prev) => prev.filter((t) => t.id !== ticketId));
       toast.success('Ticket eliminado');
     } catch {
@@ -220,11 +158,11 @@ export default function TicketsList() {
   const exportCsv = () => {
     if (displayTickets.length === 0) return;
     const rows = [
-      ['ID', 'Titulo', 'Descripcion', 'Estado', 'Prioridad', 'Fecha'],
+      ['ID', 'Usuario', 'Titulo', 'Estado', 'Prioridad', 'Fecha'],
       ...displayTickets.map((t) => [
         t.id,
+        `"${t.user_email}"`,
         `"${t.title.replace(/"/g, '""')}"`,
-        `"${t.description.replace(/"/g, '""')}"`,
         t.status,
         t.priority,
         new Date(t.created_at).toISOString()
@@ -235,33 +173,64 @@ export default function TicketsList() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'tickets.csv';
+    link.download = 'tickets-admin.csv';
     link.click();
     URL.revokeObjectURL(url);
-    toast.success('Archivo CSV descargado');
+    toast.success('CSV descargado');
   };
+
+  const getStatusColor = (status: string): 'warning' | 'info' | 'success' | 'default' => {
+    if (status === 'open') return 'warning';
+    if (status === 'in-progress') return 'info';
+    if (status === 'resolved') return 'success';
+    return 'default';
+  };
+
+  const getStatusLabel = (s: string) =>
+    s === 'open' ? 'Abierto' : s === 'in-progress' ? 'En proceso' : s === 'resolved' ? 'Resuelto' : s;
+
+  const getPriorityColor = (p: string): 'error' | 'warning' | 'success' | 'default' =>
+    p === 'high' ? 'error' : p === 'medium' ? 'warning' : p === 'low' ? 'success' : 'default';
+
+  const getPriorityLabel = (p: string) =>
+    p === 'high' ? 'Alta' : p === 'medium' ? 'Media' : p === 'low' ? 'Baja' : p;
+
+  const formatDate = (d: string) =>
+    new Date(d).toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' });
+
+  const stats = [
+    { label: 'Total', value: tickets.length, color: '#1e3a5f' },
+    { label: 'Abiertos', value: tickets.filter((t) => t.status === 'open').length, color: '#b45309' },
+    { label: 'En proceso', value: tickets.filter((t) => t.status === 'in-progress').length, color: '#1d4ed8' },
+    { label: 'Resueltos', value: tickets.filter((t) => t.status === 'resolved').length, color: '#047857' }
+  ];
 
   return (
     <SupportShell
-      title="Mis solicitudes"
-      subtitle={
-        loading
-          ? 'Cargando...'
-          : `${displayTickets.length} ticket${displayTickets.length === 1 ? '' : 's'} mostrados`
-      }
-      breadcrumbs={[
-        { label: 'Inicio', to: '/dashboard' },
-        { label: 'Solicitudes' }
-      ]}
+      title="Panel de administración"
+      subtitle="Gestión global de todos los tickets del sistema."
+      breadcrumbs={[{ label: 'Admin' }]}
     >
-      <Paper
-        elevation={0}
-        sx={{ p: 2, mb: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
-      >
+      {/* Estadísticas */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 2, mb: 3 }}>
+        {stats.map((s) => (
+          <Paper key={s.label} elevation={0} sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              {s.label}
+            </Typography>
+            <Typography variant="h4" sx={{ fontWeight: 700, mt: 0.5, color: s.color }}>
+              {loading ? '—' : s.value}
+            </Typography>
+          </Paper>
+        ))}
+      </Box>
+
+      {/* Toolbar */}
+      <Paper elevation={0} sx={{ p: 2, mb: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }}>
           <TextField
             size="small"
-            placeholder="Buscar por ID, título o descripción..."
+            placeholder="Buscar por ID, título o usuario..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             sx={{ flex: 1, minWidth: 220 }}
@@ -278,17 +247,20 @@ export default function TicketsList() {
             size="small"
             label="Ordenar"
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as SortOption)}
+            onChange={(e) => setSortBy(e.target.value)}
             sx={{ minWidth: 200 }}
           >
             <MenuItem value="date-desc">Más recientes</MenuItem>
             <MenuItem value="date-asc">Más antiguos</MenuItem>
             <MenuItem value="priority-desc">Prioridad alta primero</MenuItem>
-            <MenuItem value="priority-asc">Prioridad baja primero</MenuItem>
             <MenuItem value="title-asc">Título A-Z</MenuItem>
           </TextField>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/create-ticket')}>
-            Nueva solicitud
+          <Button
+            variant="outlined"
+            startIcon={<PeopleIcon />}
+            onClick={() => navigate('/admin/users')}
+          >
+            Usuarios
           </Button>
           <Button
             variant="outlined"
@@ -313,43 +285,30 @@ export default function TicketsList() {
         </Stack>
       </Paper>
 
+      {/* Tabla */}
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress />
         </Box>
       ) : displayTickets.length === 0 ? (
         <Paper sx={{ p: 5, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
-          <Typography variant="h6" sx={{ mb: 1 }}>
-            Sin resultados
+          <Typography color="text.secondary">
+            {search || statusFilter ? 'Sin resultados para esa búsqueda.' : 'No hay tickets en el sistema.'}
           </Typography>
-          <Typography color="text.secondary" sx={{ mb: 2 }}>
-            {search
-              ? 'Probá con otras palabras o quitá el filtro.'
-              : statusFilter
-                ? 'No hay tickets con ese estado.'
-                : 'Creá tu primera solicitud de soporte.'}
-          </Typography>
-          <Button variant="contained" onClick={() => navigate('/create-ticket')}>
-            Crear solicitud
-          </Button>
         </Paper>
       ) : (
-        <TableContainer
-          component={Paper}
-          elevation={0}
-          sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
-        >
+        <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
           <Table>
             <TableHead>
               <TableRow sx={{ bgcolor: '#fafbfc' }}>
-                <TableCell sx={{ fontWeight: 600, width: 72 }}>#</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Solicitud</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: 64 }}>#</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Ticket</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: 180 }}>Usuario</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 150 }}>Estado</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 100 }}>Prioridad</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: 130 }}>Categoría</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 120 }}>Fecha</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: 96 }} align="center">
-                  Acciones
-                </TableCell>
+                <TableCell sx={{ fontWeight: 600, width: 96 }} align="center">Acciones</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -365,8 +324,10 @@ export default function TicketsList() {
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
                       {ticket.title}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {truncate(ticket.description)}
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
+                      {ticket.user_email}
                     </Typography>
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
@@ -390,6 +351,22 @@ export default function TicketsList() {
                       size="small"
                       variant="outlined"
                     />
+                  </TableCell>
+                  <TableCell>
+                    {ticket.category ? (
+                      <Stack spacing={0.25}>
+                        <Typography variant="caption" sx={{ fontWeight: 600, lineHeight: 1.3 }}>
+                          {ticket.category}
+                        </Typography>
+                        {ticket.subcategory && (
+                          <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.3 }}>
+                            {ticket.subcategory}
+                          </Typography>
+                        )}
+                      </Stack>
+                    ) : (
+                      <Typography variant="caption" color="text.disabled">—</Typography>
+                    )}
                   </TableCell>
                   <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(ticket.created_at)}</TableCell>
                   <TableCell align="center" onClick={(e) => e.stopPropagation()}>

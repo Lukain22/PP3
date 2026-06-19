@@ -12,7 +12,9 @@ import {
   Link
 } from '@mui/material';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import UiModeToggle from './UiModeToggle';
+import { isAdmin, clearAuth } from '../../lib/auth';
 
 type Crumb = { label: string; to?: string };
 
@@ -74,6 +76,14 @@ export default function SupportShell({
 
           <UiModeToggle />
 
+          {isAdmin() && (
+            <Tooltip title="Panel de administración">
+              <IconButton onClick={() => navigate('/admin')} size="small" color="primary">
+                <AdminPanelSettingsIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+
           <Tooltip title="Créditos">
             <IconButton onClick={() => navigate('/credits')} size="small">
               <HelpOutlineIcon fontSize="small" />
@@ -83,7 +93,7 @@ export default function SupportShell({
             size="small"
             variant="outlined"
             onClick={() => {
-              localStorage.removeItem('token');
+              clearAuth();
               navigate('/');
             }}
           >

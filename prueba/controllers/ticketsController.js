@@ -68,20 +68,22 @@ exports.getTickets = (req, res) => {
 
 exports.getTicketById = (req, res) => {
   const { id } = req.params;
+  const isAdmin = req.user.role === 'admin';
 
-  db.query(
-    'SELECT id, title, description, status, priority, created_at, updated_at, user_id FROM tickets WHERE id = ? AND user_id = ?',
-    [id, req.user.id],
-    (err, results) => {
-      if (err) {
-        return res.status(500).json({ message: 'Error al obtener ticket' });
-      }
-      if (results.length === 0) {
-        return res.status(404).json({ message: 'Ticket no encontrado' });
-      }
-      res.json(results[0]);
+  const sql = isAdmin
+    ? 'SELECT id, title, description, status, priority, category, subcategory, created_at, updated_at, user_id FROM tickets WHERE id = ?'
+    : 'SELECT id, title, description, status, priority, created_at, updated_at, user_id FROM tickets WHERE id = ? AND user_id = ?';
+  const params = isAdmin ? [id] : [id, req.user.id];
+
+  db.query(sql, params, (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: 'Error al obtener ticket' });
     }
-  );
+    if (results.length === 0) {
+      return res.status(404).json({ message: 'Ticket no encontrado' });
+    }
+    res.json(results[0]);
+  });
 };
 
 exports.createTicket = (req, res) => {
@@ -116,24 +118,26 @@ exports.createTicket = (req, res) => {
 exports.updateTicketStatus = (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
+  const isAdmin = req.user.role === 'admin';
 
   if (!VALID_STATUSES.includes(status)) {
     return res.status(400).json({ message: 'Estado inválido' });
   }
 
-  db.query(
-    'UPDATE tickets SET status = ? WHERE id = ? AND user_id = ?',
-    [status, id, req.user.id],
-    (err, result) => {
-      if (err) {
-        return res.status(500).json({ message: 'Error al actualizar ticket' });
-      }
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ message: 'Ticket no encontrado' });
-      }
-      res.json({ message: 'Estado actualizado' });
+  const sql = isAdmin
+    ? 'UPDATE tickets SET status = ? WHERE id = ?'
+    : 'UPDATE tickets SET status = ? WHERE id = ? AND user_id = ?';
+  const params = isAdmin ? [status, id] : [status, id, req.user.id];
+
+  db.query(sql, params, (err, result) => {
+    if (err) {
+      return res.status(500).json({ message: 'Error al actualizar ticket' });
     }
-  );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Ticket no encontrado' });
+    }
+    res.json({ message: 'Estado actualizado' });
+  });
 };
 
 exports.updateTicket = (req, res) => {
@@ -177,10 +181,17 @@ exports.updateTicket = (req, res) => {
     return res.status(400).json({ message: 'No hay campos para actualizar' });
   }
 
-  values.push(id, req.user.id);
+  const isAdmin = req.user.role === 'admin';
+  if (isAdmin) {
+    values.push(id);
+  } else {
+    values.push(id, req.user.id);
+  }
+
+  const where = isAdmin ? 'WHERE id = ?' : 'WHERE id = ? AND user_id = ?';
 
   db.query(
-    `UPDATE tickets SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`,
+    `UPDATE tickets SET ${fields.join(', ')} ${where}`,
     values,
     (err, result) => {
       if (err) {
@@ -196,48 +207,53 @@ exports.updateTicket = (req, res) => {
 
 exports.getTicketComments = (req, res) => {
   const { id } = req.params;
+  const isAdmin = req.user.role === 'admin';
 
-  db.query(
-    'SELECT id FROM tickets WHERE id = ? AND user_id = ?',
-    [id, req.user.id],
-    (err, tickets) => {
-      if (err) {
-        return res.status(500).json({ message: 'Error al verificar ticket' });
-      }
-      if (tickets.length === 0) {
-        return res.status(404).json({ message: 'Ticket no encontrado' });
-      }
+  const checkSql = isAdmin
+    ? 'SELECT id FROM tickets WHERE id = ?'
+    : 'SELECT id FROM tickets WHERE id = ? AND user_id = ?';
+  const checkParams = isAdmin ? [id] : [id, req.user.id];
 
-      db.query(
-        `SELECT c.id, c.content, c.created_at, c.user_id, u.email
-         FROM ticket_comments c
-         JOIN users u ON u.id = c.user_id
-         WHERE c.ticket_id = ?
-         ORDER BY c.created_at ASC`,
-        [id],
-        (commentErr, comments) => {
-          if (commentErr) {
-            return res.status(500).json({ message: 'Error al obtener comentarios' });
-          }
-          res.json(comments);
-        }
-      );
+  db.query(checkSql, checkParams, (err, tickets) => {
+    if (err) {
+      return res.status(500).json({ message: 'Error al verificar ticket' });
     }
-  );
+    if (tickets.length === 0) {
+      return res.status(404).json({ message: 'Ticket no encontrado' });
+    }
+
+    db.query(
+      `SELECT c.id, c.content, c.created_at, c.user_id, u.email
+       FROM ticket_comments c
+       JOIN users u ON u.id = c.user_id
+       WHERE c.ticket_id = ?
+       ORDER BY c.created_at ASC`,
+      [id],
+      (commentErr, comments) => {
+        if (commentErr) {
+          return res.status(500).json({ message: 'Error al obtener comentarios' });
+        }
+        res.json(comments);
+      }
+    );
+  });
 };
 
 exports.addTicketComment = (req, res) => {
   const { id } = req.params;
   const { content } = req.body;
+  const isAdmin = req.user.role === 'admin';
 
   if (!content || !String(content).trim()) {
     return res.status(400).json({ message: 'El comentario no puede estar vacío' });
   }
 
-  db.query(
-    'SELECT id FROM tickets WHERE id = ? AND user_id = ?',
-    [id, req.user.id],
-    (err, tickets) => {
+  const checkSql = isAdmin
+    ? 'SELECT id FROM tickets WHERE id = ?'
+    : 'SELECT id FROM tickets WHERE id = ? AND user_id = ?';
+  const checkParams = isAdmin ? [id] : [id, req.user.id];
+
+  db.query(checkSql, checkParams, (err, tickets) => {
       if (err) {
         return res.status(500).json({ message: 'Error al verificar ticket' });
       }
@@ -265,11 +281,14 @@ exports.addTicketComment = (req, res) => {
 
 exports.deleteTicket = (req, res) => {
   const { id } = req.params;
+  const isAdmin = req.user.role === 'admin';
 
-  db.query(
-    'DELETE FROM tickets WHERE id = ? AND user_id = ?',
-    [id, req.user.id],
-    (err, result) => {
+  const sql = isAdmin
+    ? 'DELETE FROM tickets WHERE id = ?'
+    : 'DELETE FROM tickets WHERE id = ? AND user_id = ?';
+  const params = isAdmin ? [id] : [id, req.user.id];
+
+  db.query(sql, params, (err, result) => {
       if (err) {
         return res.status(500).json({ message: 'Error al eliminar ticket' });
       }
