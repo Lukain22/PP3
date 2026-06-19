@@ -15,7 +15,6 @@ import {
   Button,
   Stack
 } from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
 import { getToken, clearAuth } from '../../lib/auth';
@@ -104,9 +103,6 @@ export default function AdminUsers() {
         { label: 'Usuarios' }
       ]}
     >
-      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/admin')} sx={{ mb: 2 }}>
-        Volver al panel
-      </Button>
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>

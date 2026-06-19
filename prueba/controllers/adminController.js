@@ -21,19 +21,61 @@ const VALID_SUBCATEGORIES = {
 };
 
 exports.getAllTickets = (req, res) => {
+  const page  = Math.max(1, parseInt(req.query.page)  || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+  const offset = (page - 1) * limit;
+  const { status, user_email } = req.query;
+
+  const conditions = [];
+  const baseParams = [];
+
+  if (status && VALID_STATUSES.includes(status)) {
+    conditions.push('t.status = ?');
+    baseParams.push(status);
+  }
+  if (user_email && String(user_email).trim()) {
+    conditions.push('u.email LIKE ?');
+    baseParams.push(`%${String(user_email).trim()}%`);
+  }
+
+  const joinClause = 'JOIN users u ON u.id = t.user_id';
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
   db.query(
-    `SELECT t.id, t.title, t.description, t.status, t.priority,
-            t.category, t.subcategory,
-            t.created_at, t.updated_at, t.user_id, u.email AS user_email
-     FROM tickets t
-     JOIN users u ON u.id = t.user_id
-     ORDER BY t.created_at DESC`,
-    (err, results) => {
+    `SELECT COUNT(*) AS total FROM tickets t ${joinClause} ${whereClause}`,
+    baseParams,
+    (err, countResult) => {
       if (err) {
-        console.error('Error en getAllTickets:', err.code);
+        console.error('Error en getAllTickets count:', err.code);
         return res.status(500).json({ message: 'Error al obtener tickets' });
       }
-      res.json(results);
+
+      const total = countResult[0].total;
+
+      db.query(
+        `SELECT t.id, t.title, t.description, t.status, t.priority,
+                t.category, t.subcategory,
+                t.created_at, t.updated_at, t.user_id, u.email AS user_email
+         FROM tickets t
+         ${joinClause}
+         ${whereClause}
+         ORDER BY t.created_at DESC
+         LIMIT ? OFFSET ?`,
+        [...baseParams, limit, offset],
+        (err2, results) => {
+          if (err2) {
+            console.error('Error en getAllTickets data:', err2.code);
+            return res.status(500).json({ message: 'Error al obtener tickets' });
+          }
+          res.json({
+            data: results,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit)
+          });
+        }
+      );
     }
   );
 };
@@ -200,6 +242,49 @@ exports.getUsers = (req, res) => {
         return res.status(500).json({ message: 'Error al obtener usuarios' });
       }
       res.json(results);
+    }
+  );
+};
+
+exports.updateAnyComment = (req, res) => {
+  const { commentId } = req.params;
+  const { content } = req.body;
+
+  if (!content || !String(content).trim()) {
+    return res.status(400).json({ message: 'El comentario no puede estar vacío' });
+  }
+
+  db.query(
+    'UPDATE ticket_comments SET content = ? WHERE id = ?',
+    [String(content).trim(), commentId],
+    (err, result) => {
+      if (err) {
+        console.error('Error en updateAnyComment:', err.code);
+        return res.status(500).json({ message: 'Error al editar comentario' });
+      }
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ message: 'Comentario no encontrado' });
+      }
+      res.json({ message: 'Comentario actualizado' });
+    }
+  );
+};
+
+exports.deleteAnyComment = (req, res) => {
+  const { commentId } = req.params;
+
+  db.query(
+    'DELETE FROM ticket_comments WHERE id = ?',
+    [commentId],
+    (err, result) => {
+      if (err) {
+        console.error('Error en deleteAnyComment:', err.code);
+        return res.status(500).json({ message: 'Error al eliminar comentario' });
+      }
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ message: 'Comentario no encontrado' });
+      }
+      res.json({ message: 'Comentario eliminado' });
     }
   );
 };

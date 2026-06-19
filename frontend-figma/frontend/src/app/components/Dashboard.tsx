@@ -45,19 +45,19 @@ export default function Dashboard() {
       return;
     }
 
-    fetch(`${API_URL}/tickets`, {
+    fetch(`${API_URL}/tickets?limit=500`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(async (res) => {
         if (res.status === 401) {
           localStorage.removeItem('token');
           navigate('/');
-          return [];
+          return null;
         }
         if (!res.ok) throw new Error();
         return res.json();
       })
-      .then((data) => setTickets(Array.isArray(data) ? data : []))
+      .then((data) => setTickets(Array.isArray(data?.data) ? data.data : []))
       .catch(() => setTickets([]))
       .finally(() => setLoading(false));
   }, [navigate]);

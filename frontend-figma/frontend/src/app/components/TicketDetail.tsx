@@ -14,15 +14,14 @@ import {
   IconButton,
   Tooltip
 } from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import CloseIcon from '@mui/icons-material/Close';
 import SendIcon from '@mui/icons-material/Send';
-import LabelIcon from '@mui/icons-material/Label';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
-import { getToken, clearAuth, isAdmin } from '../../lib/auth';
+import { getToken, clearAuth, isAdmin, getEmail } from '../../lib/auth';
 import { CATEGORIES, SUBCATEGORIES, type Category } from '../../lib/categories';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
@@ -38,6 +37,7 @@ interface Ticket {
   created_at: string;
   updated_at?: string;
   user_id: number;
+  user_email?: string;
 }
 
 interface Comment {
@@ -61,6 +61,9 @@ export default function TicketDetail() {
   const [commentText, setCommentText] = useState('');
   const [postingComment, setPostingComment] = useState(false);
   const [savingClassif, setSavingClassif] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
+  const [editingCommentText, setEditingCommentText] = useState('');
+  const [busyCommentId, setBusyCommentId] = useState<number | null>(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -94,7 +97,7 @@ export default function TicketDetail() {
   };
 
   const loadTicket = async () => {
-    const result = await apiCall(`/tickets/${id}`);
+    const result = await apiCall(admin ? `/admin/tickets/${id}` : `/tickets/${id}`);
     if (!result) return;
     if (!result.response.ok) {
       toast.error(result.data.message || 'Ticket no encontrado');
@@ -187,6 +190,42 @@ export default function TicketDetail() {
     }
   };
 
+  const handleEditComment = async (commentId: number) => {
+    if (!editingCommentText.trim()) return;
+    setBusyCommentId(commentId);
+    try {
+      const result = await apiCall(`/admin/comments/${commentId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ content: editingCommentText.trim() })
+      });
+      if (!result) return;
+      if (!result.response.ok) { toast.error(result.data.message || 'No se pudo editar'); return; }
+      toast.success('Comentario actualizado');
+      setEditingCommentId(null);
+      await loadComments();
+    } catch {
+      toast.error('Error conectando con el backend');
+    } finally {
+      setBusyCommentId(null);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: number) => {
+    if (!window.confirm('¿Eliminar este comentario?')) return;
+    setBusyCommentId(commentId);
+    try {
+      const result = await apiCall(`/admin/comments/${commentId}`, { method: 'DELETE' });
+      if (!result) return;
+      if (!result.response.ok) { toast.error(result.data.message || 'No se pudo eliminar'); return; }
+      toast.success('Comentario eliminado');
+      await loadComments();
+    } catch {
+      toast.error('Error conectando con el backend');
+    } finally {
+      setBusyCommentId(null);
+    }
+  };
+
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!commentText.trim()) return;
@@ -208,12 +247,10 @@ export default function TicketDetail() {
     }
   };
 
-  const backPath = admin ? '/admin' : '/tickets';
-  const backLabel = admin ? 'Volver al panel' : 'Volver al listado';
 
   if (loading) {
     return (
-      <SupportShell title="Detalle del ticket" breadcrumbs={[
+      <SupportShell title="Cargando ticket..." breadcrumbs={[
         { label: admin ? 'Admin' : 'Inicio', to: admin ? '/admin' : '/dashboard' },
         { label: 'Cargando...' }
       ]}>
@@ -230,19 +267,26 @@ export default function TicketDetail() {
     ? SUBCATEGORIES[classif.category as Category] ?? []
     : [];
 
+  const authorEmail = admin ? (ticket.user_email || '—') : getEmail();
+
+  const metaSubtitle = [
+    `Por: ${authorEmail}`,
+    `Creado: ${formatDateTime(ticket.created_at)}`,
+    ticket.updated_at && ticket.updated_at !== ticket.created_at
+      ? `Actualizado: ${formatDateTime(ticket.updated_at)}`
+      : null
+  ].filter(Boolean).join('  ·  ');
+
   return (
     <SupportShell
-      title={`Ticket #${ticket.id}`}
-      subtitle={ticket.title}
+      title={`#${ticket.id} — ${ticket.title}`}
+      subtitle={metaSubtitle}
       breadcrumbs={[
         { label: admin ? 'Admin' : 'Inicio', to: admin ? '/admin' : '/dashboard' },
         ...(admin ? [] : [{ label: 'Solicitudes', to: '/tickets' }]),
         { label: `#${ticket.id}` }
       ]}
     >
-      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(backPath)} sx={{ mb: 2 }}>
-        {backLabel}
-      </Button>
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 360px' }, gap: 2.5, alignItems: 'start' }}>
 
@@ -254,11 +298,13 @@ export default function TicketDetail() {
               <Chip label={getPriorityLabel(ticket.priority)} variant="outlined" size="small" />
             </Stack>
             {!editing ? (
-              <Tooltip title="Editar ticket">
-                <IconButton size="small" onClick={() => setEditing(true)}>
-                  <EditIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
+              admin && (
+                <Tooltip title="Editar ticket">
+                  <IconButton size="small" onClick={() => setEditing(true)}>
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )
             ) : (
               <Stack direction="row" spacing={0.5}>
                 <Tooltip title="Guardar">
@@ -288,12 +334,14 @@ export default function TicketDetail() {
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 multiline minRows={6} />
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                <TextField select fullWidth label="Estado" value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}>
-                  <MenuItem value="open">Abierto</MenuItem>
-                  <MenuItem value="in-progress">En proceso</MenuItem>
-                  <MenuItem value="resolved">Resuelto</MenuItem>
-                </TextField>
+                {admin && (
+                  <TextField select fullWidth label="Estado" value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}>
+                    <MenuItem value="open">Abierto</MenuItem>
+                    <MenuItem value="in-progress">En proceso</MenuItem>
+                    <MenuItem value="resolved">Resuelto</MenuItem>
+                  </TextField>
+                )}
                 <TextField select fullWidth label="Prioridad" value={formData.priority}
                   onChange={(e) => setFormData({ ...formData, priority: e.target.value })}>
                   <MenuItem value="low">Baja</MenuItem>
@@ -303,18 +351,9 @@ export default function TicketDetail() {
               </Stack>
             </Stack>
           ) : (
-            <>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 1.5 }}>{ticket.title}</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap', mb: 2 }}>
-                {ticket.description}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Creado: {formatDateTime(ticket.created_at)}
-                {ticket.updated_at && ticket.updated_at !== ticket.created_at && (
-                  <> · Actualizado: {formatDateTime(ticket.updated_at)}</>
-                )}
-              </Typography>
-            </>
+            <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
+              {ticket.description}
+            </Typography>
           )}
         </Paper>
 
@@ -334,12 +373,51 @@ export default function TicketDetail() {
               ) : (
                 comments.map((comment) => (
                   <Box key={comment.id} sx={{ p: 1.5, bgcolor: '#fafbfc', borderRadius: 1.5 }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                      {comment.email} · {formatDateTime(comment.created_at)}
-                    </Typography>
-                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                      {comment.content}
-                    </Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        {comment.email} · {formatDateTime(comment.created_at)}
+                      </Typography>
+                      {admin && editingCommentId !== comment.id && (
+                        <Stack direction="row" spacing={0.25}>
+                          <Tooltip title="Editar">
+                            <IconButton size="small" disabled={busyCommentId === comment.id}
+                              onClick={() => { setEditingCommentId(comment.id); setEditingCommentText(comment.content); }}>
+                              <EditIcon sx={{ fontSize: 14 }} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Eliminar">
+                            <IconButton size="small" color="error" disabled={busyCommentId === comment.id}
+                              onClick={() => handleDeleteComment(comment.id)}>
+                              <DeleteOutlineIcon sx={{ fontSize: 14 }} />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
+                      )}
+                    </Box>
+                    {admin && editingCommentId === comment.id ? (
+                      <Stack spacing={1}>
+                        <TextField
+                          fullWidth multiline size="small"
+                          value={editingCommentText}
+                          onChange={(e) => setEditingCommentText(e.target.value)}
+                          autoFocus
+                        />
+                        <Stack direction="row" spacing={1}>
+                          <Button size="small" variant="contained" disabled={busyCommentId === comment.id}
+                            onClick={() => handleEditComment(comment.id)}>
+                            Guardar
+                          </Button>
+                          <Button size="small" variant="text"
+                            onClick={() => setEditingCommentId(null)}>
+                            Cancelar
+                          </Button>
+                        </Stack>
+                      </Stack>
+                    ) : (
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                        {comment.content}
+                      </Typography>
+                    )}
                   </Box>
                 ))
               )}
@@ -371,13 +449,6 @@ export default function TicketDetail() {
                 bgcolor: '#f5f8ff'
               }}
             >
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-                <LabelIcon fontSize="small" color="primary" />
-                <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'primary.main' }}>
-                  Clasificación interna
-                </Typography>
-              </Stack>
-
               <Stack spacing={2}>
                 <TextField
                   select

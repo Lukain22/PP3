@@ -54,14 +54,43 @@ const initCommentsTable = () => {
 };
 
 exports.getTickets = (req, res) => {
+  const page  = Math.max(1, parseInt(req.query.page)  || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+  const offset = (page - 1) * limit;
+  const { status } = req.query;
+
+  const baseWhere = status && VALID_STATUSES.includes(status)
+    ? 'WHERE user_id = ? AND status = ?'
+    : 'WHERE user_id = ?';
+  const baseParams = status && VALID_STATUSES.includes(status)
+    ? [req.user.id, status]
+    : [req.user.id];
+
   db.query(
-    'SELECT id, title, description, status, priority, created_at, user_id FROM tickets WHERE user_id = ? ORDER BY created_at DESC',
-    [req.user.id],
-    (err, results) => {
-      if (err) {
-        return res.status(500).json({ message: 'Error al obtener tickets' });
-      }
-      res.json(results);
+    `SELECT COUNT(*) AS total FROM tickets ${baseWhere}`,
+    baseParams,
+    (err, countResult) => {
+      if (err) return res.status(500).json({ message: 'Error al obtener tickets' });
+
+      const total = countResult[0].total;
+
+      db.query(
+        `SELECT id, title, description, status, priority, created_at, user_id
+         FROM tickets ${baseWhere}
+         ORDER BY created_at DESC
+         LIMIT ? OFFSET ?`,
+        [...baseParams, limit, offset],
+        (err2, results) => {
+          if (err2) return res.status(500).json({ message: 'Error al obtener tickets' });
+          res.json({
+            data: results,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit)
+          });
+        }
+      );
     }
   );
 };

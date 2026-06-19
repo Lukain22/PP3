@@ -74,7 +74,7 @@ export default function SupportShell({
             </Typography>
           </Box>
 
-          <UiModeToggle />
+          {/* <UiModeToggle /> */}
 
           {isAdmin() && (
             <Tooltip title="Panel de administración">

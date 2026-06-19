@@ -21,3 +21,14 @@ export function clearAuth(): void {
   localStorage.removeItem('token');
   localStorage.removeItem('role');
 }
+
+export function getEmail(): string {
+  const token = getToken();
+  if (!token) return '';
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.email || '';
+  } catch {
+    return '';
+  }
+}

@@ -18,7 +18,8 @@ import {
   TextField,
   MenuItem,
   InputAdornment,
-  Stack
+  Stack,
+  Pagination
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
@@ -56,12 +57,18 @@ const priorityWeight: Record<string, number> = { high: 3, medium: 2, low: 1 };
 
 export default function AdminPanel() {
   const navigate = useNavigate();
+  const PAGE_SIZE = 20;
+
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
+  const [userEmailFilter, setUserEmailFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [sortBy, setSortBy] = useState('date-desc');
+  const [page, setPage] = useState(1);
 
   const apiCall = async (path: string, options: RequestInit = {}) => {
     const token = getToken();
@@ -83,21 +90,26 @@ export default function AdminPanel() {
     return { response, data };
   };
 
-  const loadTickets = async () => {
-    const result = await apiCall('/admin/tickets');
+  const loadTickets = async (currentPage: number, currentStatus: string, currentUserEmail: string) => {
+    setLoading(true);
+    const params = new URLSearchParams({ page: String(currentPage), limit: String(PAGE_SIZE) });
+    if (currentStatus) params.set('status', currentStatus);
+    if (currentUserEmail.trim()) params.set('user_email', currentUserEmail.trim());
+
+    const result = await apiCall(`/admin/tickets?${params}`);
     if (!result) return;
     if (result.response.ok) {
-      setTickets(Array.isArray(result.data) ? result.data : []);
+      setTickets(Array.isArray(result.data.data) ? result.data.data : []);
+      setTotal(result.data.total ?? 0);
+      setTotalPages(result.data.totalPages ?? 1);
     }
     setLoading(false);
   };
 
-  useEffect(() => { loadTickets(); }, []);
+  useEffect(() => { loadTickets(page, statusFilter, userEmailFilter); }, [page, statusFilter, userEmailFilter]);
 
   const displayTickets = useMemo(() => {
     let list = [...tickets];
-
-    if (statusFilter) list = list.filter((t) => t.status === statusFilter);
 
     const q = search.trim().toLowerCase();
     if (q) {
@@ -146,8 +158,8 @@ export default function AdminPanel() {
       const result = await apiCall(`/admin/tickets/${ticketId}`, { method: 'DELETE' });
       if (!result) return;
       if (!result.response.ok) { toast.error(result.data.message || 'No se pudo eliminar'); return; }
-      setTickets((prev) => prev.filter((t) => t.id !== ticketId));
       toast.success('Ticket eliminado');
+      await loadTickets(page, statusFilter);
     } catch {
       toast.error('Error conectando con el backend');
     } finally {
@@ -198,42 +210,45 @@ export default function AdminPanel() {
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' });
 
-  const stats = [
-    { label: 'Total', value: tickets.length, color: '#1e3a5f' },
-    { label: 'Abiertos', value: tickets.filter((t) => t.status === 'open').length, color: '#b45309' },
-    { label: 'En proceso', value: tickets.filter((t) => t.status === 'in-progress').length, color: '#1d4ed8' },
-    { label: 'Resueltos', value: tickets.filter((t) => t.status === 'resolved').length, color: '#047857' }
-  ];
-
   return (
     <SupportShell
       title="Panel de administración"
-      subtitle="Gestión global de todos los tickets del sistema."
+      subtitle={loading ? 'Cargando...' : `${total} ticket${total === 1 ? '' : 's'}${userEmailFilter ? ` · usuario: ${userEmailFilter}` : ''} · pág. ${page}/${totalPages}`}
       breadcrumbs={[{ label: 'Admin' }]}
     >
-      {/* Estadísticas */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 2, mb: 3 }}>
-        {stats.map((s) => (
-          <Paper key={s.label} elevation={0} sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              {s.label}
-            </Typography>
-            <Typography variant="h4" sx={{ fontWeight: 700, mt: 0.5, color: s.color }}>
-              {loading ? '—' : s.value}
-            </Typography>
-          </Paper>
-        ))}
-      </Box>
 
       {/* Toolbar */}
       <Paper elevation={0} sx={{ p: 2, mb: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }}>
+          {/* Filtro por usuario — server-side */}
           <TextField
             size="small"
-            placeholder="Buscar por ID, título o usuario..."
+            placeholder="Filtrar por correo de usuario..."
+            value={userEmailFilter}
+            onChange={(e) => { setUserEmailFilter(e.target.value); setPage(1); }}
+            sx={{ flex: 1, minWidth: 220 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <PeopleIcon fontSize="small" color="action" />
+                </InputAdornment>
+              ),
+              endAdornment: userEmailFilter ? (
+                <InputAdornment position="end">
+                  <IconButton size="small" onClick={() => { setUserEmailFilter(''); setPage(1); }}>
+                    ✕
+                  </IconButton>
+                </InputAdornment>
+              ) : undefined
+            }}
+          />
+          {/* Búsqueda local (título / ID en la página actual) */}
+          <TextField
+            size="small"
+            placeholder="Buscar en esta página..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            sx={{ flex: 1, minWidth: 220 }}
+            sx={{ flex: 1, minWidth: 180 }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -277,7 +292,7 @@ export default function AdminPanel() {
             <Chip
               key={f.value || 'all'}
               label={f.label}
-              onClick={() => setStatusFilter(f.value)}
+              onClick={() => { setStatusFilter(f.value); setPage(1); setSearch(''); }}
               color={statusFilter === f.value ? 'primary' : 'default'}
               variant={statusFilter === f.value ? 'filled' : 'outlined'}
             />
@@ -393,6 +408,21 @@ export default function AdminPanel() {
             </TableBody>
           </Table>
         </TableContainer>
+      )}
+
+      {/* Paginación */}
+      {!loading && totalPages > 1 && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+          <Pagination
+            count={totalPages}
+            page={page}
+            onChange={(_, val) => { setPage(val); setSearch(''); }}
+            color="primary"
+            shape="rounded"
+            showFirstButton
+            showLastButton
+          />
+        </Box>
       )}
     </SupportShell>
   );

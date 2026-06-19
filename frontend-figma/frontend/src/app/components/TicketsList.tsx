@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
-import { useLocation } from 'react-router';
+import { useNavigate, useLocation } from 'react-router';
 import {
   Box,
   Paper,
@@ -19,7 +18,8 @@ import {
   TextField,
   MenuItem,
   InputAdornment,
-  Stack
+  Stack,
+  Pagination
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
@@ -28,8 +28,10 @@ import AddIcon from '@mui/icons-material/Add';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
+import { getToken, clearAuth, isAdmin } from '../../lib/auth';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
+const PAGE_SIZE = 20;
 
 type SortOption = 'date-desc' | 'date-asc' | 'priority-desc' | 'priority-asc' | 'title-asc';
 
@@ -56,51 +58,66 @@ export default function TicketsList() {
   const navigate = useNavigate();
   const location = useLocation();
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('date-desc');
+  const [page, setPage] = useState(1);
 
   const statusFilter = new URLSearchParams(location.search).get('status') || '';
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/');
-      return;
-    }
-
-    fetch(`${API_URL}/tickets`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(async (res) => {
-        if (res.status === 401) {
-          localStorage.removeItem('token');
-          navigate('/');
-          return [];
-        }
-        if (!res.ok) throw new Error();
-        return res.json();
-      })
-      .then((data) => setTickets(Array.isArray(data) ? data : []))
-      .catch(() => setTickets([]))
-      .finally(() => setLoading(false));
-  }, [navigate]);
-
   const setStatusFilter = (status: string) => {
-    if (status) {
-      navigate(`/tickets?status=${status}`);
-    } else {
-      navigate('/tickets');
-    }
+    setPage(1);
+    navigate(status ? `/tickets?status=${status}` : '/tickets');
   };
+
+  const apiCall = async (path: string, options: RequestInit = {}) => {
+    const token = getToken();
+    if (!token) { navigate('/'); return null; }
+
+    const response = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        ...options.headers
+      }
+    });
+
+    if (response.status === 401) { clearAuth(); navigate('/'); return null; }
+    const data = await response.json().catch(() => ({}));
+    return { response, data };
+  };
+
+  const loadTickets = async (currentPage: number, currentStatus: string) => {
+    setLoading(true);
+    const params = new URLSearchParams({ page: String(currentPage), limit: String(PAGE_SIZE) });
+    if (currentStatus) params.set('status', currentStatus);
+
+    const result = await apiCall(`/tickets?${params}`);
+    if (!result) return;
+    if (result.response.ok) {
+      setTickets(Array.isArray(result.data.data) ? result.data.data : []);
+      setTotal(result.data.total ?? 0);
+      setTotalPages(result.data.totalPages ?? 1);
+    }
+    setLoading(false);
+  };
+
+  // Recarga cuando cambia página o filtro de estado
+  useEffect(() => {
+    loadTickets(page, statusFilter);
+  }, [page, statusFilter]);
+
+  // Resetear a página 1 cuando cambia el filtro de URL
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter]);
 
   const displayTickets = useMemo(() => {
     let list = [...tickets];
-
-    if (statusFilter) {
-      list = list.filter((t) => t.status === statusFilter);
-    }
 
     const q = search.trim().toLowerCase();
     if (q) {
@@ -114,68 +131,28 @@ export default function TicketsList() {
 
     list.sort((a, b) => {
       switch (sortBy) {
-        case 'date-asc':
-          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-        case 'priority-desc':
-          return (priorityWeight[b.priority] || 0) - (priorityWeight[a.priority] || 0);
-        case 'priority-asc':
-          return (priorityWeight[a.priority] || 0) - (priorityWeight[b.priority] || 0);
-        case 'title-asc':
-          return a.title.localeCompare(b.title, 'es');
-        case 'date-desc':
-        default:
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case 'date-asc':      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        case 'priority-desc': return (priorityWeight[b.priority] || 0) - (priorityWeight[a.priority] || 0);
+        case 'priority-asc':  return (priorityWeight[a.priority] || 0) - (priorityWeight[b.priority] || 0);
+        case 'title-asc':     return a.title.localeCompare(b.title, 'es');
+        default:              return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       }
     });
 
     return list;
-  }, [tickets, statusFilter, search, sortBy]);
+  }, [tickets, search, sortBy]);
 
-  const getPriorityColor = (priority: string): 'error' | 'warning' | 'success' | 'default' => {
-    if (priority === 'high') return 'error';
-    if (priority === 'medium') return 'warning';
-    if (priority === 'low') return 'success';
-    return 'default';
-  };
+  const getPriorityColor = (p: string): 'error' | 'warning' | 'success' | 'default' =>
+    p === 'high' ? 'error' : p === 'medium' ? 'warning' : p === 'low' ? 'success' : 'default';
 
-  const getPriorityLabel = (priority: string) => {
-    if (priority === 'high') return 'Alta';
-    if (priority === 'medium') return 'Media';
-    if (priority === 'low') return 'Baja';
-    return priority;
-  };
+  const getPriorityLabel = (p: string) =>
+    p === 'high' ? 'Alta' : p === 'medium' ? 'Media' : p === 'low' ? 'Baja' : p;
 
-  const formatDate = (date: string) =>
-    new Date(date).toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' });
+  const formatDate = (d: string) =>
+    new Date(d).toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' });
 
   const truncate = (text: string, max = 80) =>
     text.length > max ? `${text.slice(0, max)}…` : text;
-
-  const apiCall = async (path: string, options: RequestInit = {}) => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/');
-      return null;
-    }
-
-    const response = await fetch(`${API_URL}${path}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        ...options.headers
-      }
-    });
-
-    if (response.status === 401) {
-      localStorage.removeItem('token');
-      navigate('/');
-      return null;
-    }
-
-    const data = await response.json().catch(() => ({}));
-    return { response, data };
-  };
 
   const handleStatusChange = async (ticketId: number, newStatus: string) => {
     setBusyId(ticketId);
@@ -185,11 +162,8 @@ export default function TicketsList() {
         body: JSON.stringify({ status: newStatus })
       });
       if (!result) return;
-      if (!result.response.ok) {
-        toast.error(result.data.message || 'No se pudo actualizar');
-        return;
-      }
-      setTickets((prev) => prev.map((t) => (t.id === ticketId ? { ...t, status: newStatus } : t)));
+      if (!result.response.ok) { toast.error(result.data.message || 'No se pudo actualizar'); return; }
+      setTickets((prev) => prev.map((t) => t.id === ticketId ? { ...t, status: newStatus } : t));
       toast.success('Estado actualizado');
     } catch {
       toast.error('Error conectando con el backend');
@@ -204,12 +178,9 @@ export default function TicketsList() {
     try {
       const result = await apiCall(`/tickets/${ticketId}`, { method: 'DELETE' });
       if (!result) return;
-      if (!result.response.ok) {
-        toast.error(result.data.message || 'No se pudo eliminar');
-        return;
-      }
-      setTickets((prev) => prev.filter((t) => t.id !== ticketId));
+      if (!result.response.ok) { toast.error(result.data.message || 'No se pudo eliminar'); return; }
       toast.success('Ticket eliminado');
+      await loadTickets(page, statusFilter);
     } catch {
       toast.error('Error conectando con el backend');
     } finally {
@@ -241,27 +212,22 @@ export default function TicketsList() {
     toast.success('Archivo CSV descargado');
   };
 
+  const subtitleText = loading
+    ? 'Cargando...'
+    : `${total} ticket${total === 1 ? '' : 's'} en total · página ${page} de ${totalPages}`;
+
   return (
     <SupportShell
       title="Mis solicitudes"
-      subtitle={
-        loading
-          ? 'Cargando...'
-          : `${displayTickets.length} ticket${displayTickets.length === 1 ? '' : 's'} mostrados`
-      }
-      breadcrumbs={[
-        { label: 'Inicio', to: '/dashboard' },
-        { label: 'Solicitudes' }
-      ]}
+      subtitle={subtitleText}
+      breadcrumbs={[{ label: 'Inicio', to: '/dashboard' }, { label: 'Solicitudes' }]}
     >
-      <Paper
-        elevation={0}
-        sx={{ p: 2, mb: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
-      >
+      {/* Barra de filtros */}
+      <Paper elevation={0} sx={{ p: 2, mb: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }}>
           <TextField
             size="small"
-            placeholder="Buscar por ID, título o descripción..."
+            placeholder="Buscar en esta página..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             sx={{ flex: 1, minWidth: 220 }}
@@ -274,10 +240,7 @@ export default function TicketsList() {
             }}
           />
           <TextField
-            select
-            size="small"
-            label="Ordenar"
-            value={sortBy}
+            select size="small" label="Ordenar" value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortOption)}
             sx={{ minWidth: 200 }}
           >
@@ -291,10 +254,8 @@ export default function TicketsList() {
             Nueva solicitud
           </Button>
           <Button
-            variant="outlined"
-            startIcon={<FileDownloadIcon />}
-            onClick={exportCsv}
-            disabled={loading || displayTickets.length === 0}
+            variant="outlined" startIcon={<FileDownloadIcon />}
+            onClick={exportCsv} disabled={loading || displayTickets.length === 0}
           >
             Exportar CSV
           </Button>
@@ -313,15 +274,14 @@ export default function TicketsList() {
         </Stack>
       </Paper>
 
+      {/* Tabla */}
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress />
         </Box>
       ) : displayTickets.length === 0 ? (
         <Paper sx={{ p: 5, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
-          <Typography variant="h6" sx={{ mb: 1 }}>
-            Sin resultados
-          </Typography>
+          <Typography variant="h6" sx={{ mb: 1 }}>Sin resultados</Typography>
           <Typography color="text.secondary" sx={{ mb: 2 }}>
             {search
               ? 'Probá con otras palabras o quitá el filtro.'
@@ -334,11 +294,7 @@ export default function TicketsList() {
           </Button>
         </Paper>
       ) : (
-        <TableContainer
-          component={Paper}
-          elevation={0}
-          sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
-        >
+        <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
           <Table>
             <TableHead>
               <TableRow sx={{ bgcolor: '#fafbfc' }}>
@@ -347,75 +303,82 @@ export default function TicketsList() {
                 <TableCell sx={{ fontWeight: 600, width: 150 }}>Estado</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 100 }}>Prioridad</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 120 }}>Fecha</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: 96 }} align="center">
-                  Acciones
-                </TableCell>
+                {isAdmin() && <TableCell sx={{ fontWeight: 600, width: 96 }} align="center">Acciones</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
               {displayTickets.map((ticket) => (
                 <TableRow
-                  key={ticket.id}
-                  hover
+                  key={ticket.id} hover
                   sx={{ '&:last-child td': { border: 0 }, cursor: 'pointer' }}
                   onClick={() => navigate(`/tickets/${ticket.id}`)}
                 >
                   <TableCell sx={{ color: 'text.secondary', fontWeight: 500 }}>{ticket.id}</TableCell>
                   <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {ticket.title}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {truncate(ticket.description)}
-                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{ticket.title}</Typography>
+                    <Typography variant="caption" color="text.secondary">{truncate(ticket.description)}</Typography>
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
-                    <TextField
-                      select
-                      size="small"
-                      value={ticket.status}
-                      disabled={busyId === ticket.id}
-                      onChange={(e) => handleStatusChange(ticket.id, e.target.value)}
-                      fullWidth
-                    >
-                      <MenuItem value="open">Abierto</MenuItem>
-                      <MenuItem value="in-progress">En proceso</MenuItem>
-                      <MenuItem value="resolved">Resuelto</MenuItem>
-                    </TextField>
+                    {isAdmin() ? (
+                      <TextField
+                        select size="small" value={ticket.status}
+                        disabled={busyId === ticket.id}
+                        onChange={(e) => handleStatusChange(ticket.id, e.target.value)}
+                        fullWidth
+                      >
+                        <MenuItem value="open">Abierto</MenuItem>
+                        <MenuItem value="in-progress">En proceso</MenuItem>
+                        <MenuItem value="resolved">Resuelto</MenuItem>
+                      </TextField>
+                    ) : (
+                      <Chip
+                        label={ticket.status === 'open' ? 'Abierto' : ticket.status === 'in-progress' ? 'En proceso' : 'Resuelto'}
+                        color={ticket.status === 'open' ? 'warning' : ticket.status === 'in-progress' ? 'info' : 'success'}
+                        size="small"
+                      />
+                    )}
                   </TableCell>
                   <TableCell>
-                    <Chip
-                      label={getPriorityLabel(ticket.priority)}
-                      color={getPriorityColor(ticket.priority)}
-                      size="small"
-                      variant="outlined"
-                    />
+                    <Chip label={getPriorityLabel(ticket.priority)} color={getPriorityColor(ticket.priority)} size="small" variant="outlined" />
                   </TableCell>
                   <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(ticket.created_at)}</TableCell>
-                  <TableCell align="center" onClick={(e) => e.stopPropagation()}>
-                    <Tooltip title="Ver detalle">
-                      <IconButton size="small" onClick={() => navigate(`/tickets/${ticket.id}`)}>
-                        <VisibilityIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Eliminar">
-                      <span>
-                        <IconButton
-                          color="error"
-                          size="small"
-                          disabled={busyId === ticket.id}
-                          onClick={() => handleDelete(ticket.id, ticket.title)}
-                        >
-                          <DeleteOutlineIcon fontSize="small" />
+                  {isAdmin() && (
+                    <TableCell align="center" onClick={(e) => e.stopPropagation()}>
+                      <Tooltip title="Ver detalle">
+                        <IconButton size="small" onClick={() => navigate(`/tickets/${ticket.id}`)}>
+                          <VisibilityIcon fontSize="small" />
                         </IconButton>
-                      </span>
-                    </Tooltip>
-                  </TableCell>
+                      </Tooltip>
+                      <Tooltip title="Eliminar">
+                        <span>
+                          <IconButton color="error" size="small" disabled={busyId === ticket.id}
+                            onClick={() => handleDelete(ticket.id, ticket.title)}>
+                            <DeleteOutlineIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </TableContainer>
+      )}
+
+      {/* Paginación */}
+      {!loading && totalPages > 1 && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+          <Pagination
+            count={totalPages}
+            page={page}
+            onChange={(_, val) => { setPage(val); setSearch(''); }}
+            color="primary"
+            shape="rounded"
+            showFirstButton
+            showLastButton
+          />
+        </Box>
       )}
     </SupportShell>
   );

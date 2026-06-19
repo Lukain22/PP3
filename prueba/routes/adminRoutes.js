@@ -9,6 +9,8 @@ const {
   deleteAnyTicket,
   getAnyTicketComments,
   addAnyTicketComment,
+  updateAnyComment,
+  deleteAnyComment,
   getUsers,
   updateUserRole
 } = require('../controllers/adminController');
@@ -21,6 +23,8 @@ router.patch('/tickets/:id', updateAnyTicket);
 router.delete('/tickets/:id', deleteAnyTicket);
 router.get('/tickets/:id/comments', getAnyTicketComments);
 router.post('/tickets/:id/comments', addAnyTicketComment);
+router.patch('/comments/:commentId', updateAnyComment);
+router.delete('/comments/:commentId', deleteAnyComment);
 
 router.get('/users', getUsers);
 router.patch('/users/:id/role', updateUserRole);

@@ -162,19 +162,6 @@ export default function CreateTicket() {
             ))}
           </ToggleButtonGroup>
 
-          <TextField
-            fullWidth
-            select
-            label="Estado inicial"
-            value={formData.status}
-            onChange={handleChange('status')}
-            sx={{ mt: 2.5 }}
-            size="small"
-          >
-            <MenuItem value="open">Abierto</MenuItem>
-            <MenuItem value="in-progress">En proceso</MenuItem>
-            <MenuItem value="resolved">Resuelto</MenuItem>
-          </TextField>
         </Paper>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

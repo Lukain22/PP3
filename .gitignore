@@ -1,1 +1,9 @@
 node_modules/
+
+# Variables de entorno — nunca commitear
+.env
+.env.local
+.env.*.local
+
+# Build del frontend
+frontend-figma/frontend/dist/
