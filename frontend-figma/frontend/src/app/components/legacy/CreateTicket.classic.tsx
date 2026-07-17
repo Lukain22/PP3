@@ -16,15 +16,19 @@ import {
 import { toast } from 'sonner';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import UiModeToggle from '../UiModeToggle';
+import { isAdmin } from '../../../lib/auth';
+import { TICKET_TYPE_OPTIONS } from '../../../lib/ticketTypes';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
 export default function CreateTicket() {
   const navigate = useNavigate();
+  const admin = isAdmin();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
+    type: 'incident',
     priority: 'medium',
     status: 'open'
   });
@@ -65,7 +69,16 @@ export default function CreateTicket() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(
+          admin
+            ? formData
+            : {
+                title: formData.title,
+                description: formData.description,
+                type: formData.type,
+                status: 'open'
+              }
+        )
       });
 
       const data = await response.json();
@@ -148,6 +161,19 @@ export default function CreateTicket() {
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
               <TextField
                 fullWidth
+                select
+                label="Tipo de solicitud"
+                value={formData.type}
+                onChange={handleChange('type')}
+                required
+              >
+                {TICKET_TYPE_OPTIONS.map((t) => (
+                  <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>
+                ))}
+              </TextField>
+
+              <TextField
+                fullWidth
                 label="Asunto"
                 value={formData.title}
                 onChange={handleChange('title')}
@@ -166,33 +192,35 @@ export default function CreateTicket() {
                 placeholder="Describe tu problema con el mayor detalle posible"
               />
 
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <TextField
-                  fullWidth
-                  select
-                  label="Prioridad"
-                  value={formData.priority}
-                  onChange={handleChange('priority')}
-                  required
-                >
-                  <MenuItem value="low">Baja</MenuItem>
-                  <MenuItem value="medium">Media</MenuItem>
-                  <MenuItem value="high">Alta</MenuItem>
-                </TextField>
+              {admin && (
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <TextField
+                    fullWidth
+                    select
+                    label="Prioridad"
+                    value={formData.priority}
+                    onChange={handleChange('priority')}
+                    required
+                  >
+                    <MenuItem value="low">Baja</MenuItem>
+                    <MenuItem value="medium">Media</MenuItem>
+                    <MenuItem value="high">Alta</MenuItem>
+                  </TextField>
 
-                <TextField
-                  fullWidth
-                  select
-                  label="Estado"
-                  value={formData.status}
-                  onChange={handleChange('status')}
-                  required
-                >
-                  <MenuItem value="open">Abierto</MenuItem>
-                  <MenuItem value="in-progress">En Proceso</MenuItem>
-                  <MenuItem value="resolved">Resuelto</MenuItem>
-                </TextField>
-              </Box>
+                  <TextField
+                    fullWidth
+                    select
+                    label="Estado"
+                    value={formData.status}
+                    onChange={handleChange('status')}
+                    required
+                  >
+                    <MenuItem value="open">Abierto</MenuItem>
+                    <MenuItem value="in-progress">En Proceso</MenuItem>
+                    <MenuItem value="resolved">Resuelto</MenuItem>
+                  </TextField>
+                </Box>
+              )}
 
               <Box sx={{ display: 'flex', gap: 1.5, mt: 1 }}>
                 <Button type="submit" variant="contained" disabled={loading} sx={{ flex: 1 }}>

@@ -23,6 +23,13 @@ import { toast } from 'sonner';
 import SupportShell from './SupportShell';
 import { getToken, clearAuth, isAdmin, getEmail } from '../../lib/auth';
 import { CATEGORIES, SUBCATEGORIES, type Category } from '../../lib/categories';
+import {
+  getTicketTypeLabel,
+  getTicketTypeColor,
+  TICKET_TYPE_OPTIONS,
+  HISTORY_FIELD_LABELS,
+  formatHistoryValue
+} from '../../lib/ticketTypes';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -32,6 +39,7 @@ interface Ticket {
   description: string;
   status: string;
   priority: string;
+  type: string;
   category?: string | null;
   subcategory?: string | null;
   created_at: string;
@@ -48,6 +56,16 @@ interface Comment {
   email: string;
 }
 
+interface HistoryEntry {
+  id: number;
+  action: string;
+  field_name: string | null;
+  old_value: string | null;
+  new_value: string | null;
+  created_at: string;
+  email: string;
+}
+
 export default function TicketDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -55,6 +73,7 @@ export default function TicketDetail() {
 
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -69,7 +88,8 @@ export default function TicketDetail() {
     title: '',
     description: '',
     status: 'open',
-    priority: 'medium'
+    priority: 'medium',
+    type: 'incident'
   });
 
   const [classif, setClassif] = useState<{ category: string; subcategory: string }>({
@@ -109,7 +129,8 @@ export default function TicketDetail() {
       title: result.data.title,
       description: result.data.description,
       status: result.data.status,
-      priority: result.data.priority
+      priority: result.data.priority,
+      type: result.data.type || 'incident'
     });
     if (admin) {
       setClassif({
@@ -127,9 +148,17 @@ export default function TicketDetail() {
     }
   };
 
+  const loadHistory = async () => {
+    const result = await apiCall(admin ? `/admin/tickets/${id}/history` : `/tickets/${id}/history`);
+    if (!result) return;
+    if (result.response.ok) {
+      setHistory(Array.isArray(result.data) ? result.data : []);
+    }
+  };
+
   useEffect(() => {
     if (!getToken()) { navigate('/'); return; }
-    Promise.all([loadTicket(), loadComments()]).finally(() => setLoading(false));
+    Promise.all([loadTicket(), loadComments(), loadHistory()]).finally(() => setLoading(false));
   }, [id]);
 
   const getStatusLabel = (s: string) =>
@@ -146,6 +175,20 @@ export default function TicketDetail() {
       year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
     });
 
+  const formatHistoryEntry = (entry: HistoryEntry) => {
+    if (entry.action === 'created') {
+      const field = entry.field_name ? HISTORY_FIELD_LABELS[entry.field_name] || entry.field_name : null;
+      if (field) {
+        return `Creación · ${field}: ${formatHistoryValue(entry.field_name, entry.new_value)}`;
+      }
+      return 'Ticket creado';
+    }
+    const field = entry.field_name ? HISTORY_FIELD_LABELS[entry.field_name] || entry.field_name : 'Campo';
+    const oldVal = formatHistoryValue(entry.field_name, entry.old_value);
+    const newVal = formatHistoryValue(entry.field_name, entry.new_value);
+    return `${field}: ${oldVal} → ${newVal}`;
+  };
+
   const handleSave = async () => {
     if (!formData.title.trim() || !formData.description.trim()) {
       toast.error('Título y descripción son requeridos');
@@ -161,7 +204,7 @@ export default function TicketDetail() {
       if (!result.response.ok) { toast.error(result.data.message || 'No se pudo guardar'); return; }
       toast.success('Ticket actualizado');
       setEditing(false);
-      await loadTicket();
+      await Promise.all([loadTicket(), loadHistory()]);
     } catch {
       toast.error('Error conectando con el backend');
     } finally {
@@ -182,7 +225,7 @@ export default function TicketDetail() {
       if (!result) return;
       if (!result.response.ok) { toast.error(result.data.message || 'No se pudo guardar la clasificación'); return; }
       toast.success('Clasificación guardada');
-      await loadTicket();
+      await Promise.all([loadTicket(), loadHistory()]);
     } catch {
       toast.error('Error conectando con el backend');
     } finally {
@@ -294,6 +337,11 @@ export default function TicketDetail() {
         <Paper elevation={0} sx={{ p: { xs: 2, md: 3 }, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
             <Stack direction="row" spacing={1} flexWrap="wrap">
+              <Chip
+                label={getTicketTypeLabel(ticket.type || 'incident')}
+                color={getTicketTypeColor(ticket.type || 'incident')}
+                size="small"
+              />
               <Chip label={getStatusLabel(ticket.status)} color={getStatusColor(ticket.status)} size="small" />
               <Chip label={getPriorityLabel(ticket.priority)} variant="outlined" size="small" />
             </Stack>
@@ -317,7 +365,13 @@ export default function TicketDetail() {
                 <Tooltip title="Cancelar">
                   <IconButton size="small" onClick={() => {
                     setEditing(false);
-                    setFormData({ title: ticket.title, description: ticket.description, status: ticket.status, priority: ticket.priority });
+                    setFormData({
+                      title: ticket.title,
+                      description: ticket.description,
+                      status: ticket.status,
+                      priority: ticket.priority,
+                      type: ticket.type || 'incident'
+                    });
                   }}>
                     <CloseIcon fontSize="small" />
                   </IconButton>
@@ -335,19 +389,27 @@ export default function TicketDetail() {
                 multiline minRows={6} />
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                 {admin && (
-                  <TextField select fullWidth label="Estado" value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}>
-                    <MenuItem value="open">Abierto</MenuItem>
-                    <MenuItem value="in-progress">En proceso</MenuItem>
-                    <MenuItem value="resolved">Resuelto</MenuItem>
-                  </TextField>
+                  <>
+                    <TextField select fullWidth label="Tipo" value={formData.type}
+                      onChange={(e) => setFormData({ ...formData, type: e.target.value })}>
+                      {TICKET_TYPE_OPTIONS.map((t) => (
+                        <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>
+                      ))}
+                    </TextField>
+                    <TextField select fullWidth label="Estado" value={formData.status}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}>
+                      <MenuItem value="open">Abierto</MenuItem>
+                      <MenuItem value="in-progress">En proceso</MenuItem>
+                      <MenuItem value="resolved">Resuelto</MenuItem>
+                    </TextField>
+                    <TextField select fullWidth label="Prioridad" value={formData.priority}
+                      onChange={(e) => setFormData({ ...formData, priority: e.target.value })}>
+                      <MenuItem value="low">Baja</MenuItem>
+                      <MenuItem value="medium">Media</MenuItem>
+                      <MenuItem value="high">Alta</MenuItem>
+                    </TextField>
+                  </>
                 )}
-                <TextField select fullWidth label="Prioridad" value={formData.priority}
-                  onChange={(e) => setFormData({ ...formData, priority: e.target.value })}>
-                  <MenuItem value="low">Baja</MenuItem>
-                  <MenuItem value="medium">Media</MenuItem>
-                  <MenuItem value="high">Alta</MenuItem>
-                </TextField>
               </Stack>
             </Stack>
           ) : (
@@ -435,6 +497,29 @@ export default function TicketDetail() {
                 {postingComment ? 'Enviando...' : 'Agregar comentario'}
               </Button>
             </Box>
+          </Paper>
+
+          {/* Historial de cambios */}
+          <Paper elevation={0} sx={{ p: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
+              Historial ({history.length})
+            </Typography>
+            <Stack spacing={1.5} sx={{ maxHeight: 280, overflowY: 'auto' }}>
+              {history.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  Sin registros todavía. Los cambios futuros quedarán acá.
+                </Typography>
+              ) : (
+                history.map((entry) => (
+                  <Box key={entry.id} sx={{ p: 1.5, bgcolor: '#fafbfc', borderRadius: 1.5 }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                      {entry.email} · {formatDateTime(entry.created_at)}
+                    </Typography>
+                    <Typography variant="body2">{formatHistoryEntry(entry)}</Typography>
+                  </Box>
+                ))
+              )}
+            </Stack>
           </Paper>
 
           {/* Clasificación interna — solo admin */}

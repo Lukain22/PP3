@@ -29,6 +29,7 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
 import { getToken, clearAuth, isAdmin } from '../../lib/auth';
+import { getTicketTypeLabel, getTicketTypeColor } from '../../lib/ticketTypes';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 const PAGE_SIZE = 20;
@@ -41,6 +42,7 @@ interface Ticket {
   description: string;
   status: string;
   priority: string;
+  type: string;
   created_at: string;
   user_id: number;
 }
@@ -300,6 +302,7 @@ export default function TicketsList() {
               <TableRow sx={{ bgcolor: '#fafbfc' }}>
                 <TableCell sx={{ fontWeight: 600, width: 72 }}>#</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Solicitud</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: 110 }}>Tipo</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 150 }}>Estado</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 100 }}>Prioridad</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 120 }}>Fecha</TableCell>
@@ -317,6 +320,14 @@ export default function TicketsList() {
                   <TableCell>
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>{ticket.title}</Typography>
                     <Typography variant="caption" color="text.secondary">{truncate(ticket.description)}</Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={getTicketTypeLabel(ticket.type || 'incident')}
+                      color={getTicketTypeColor(ticket.type || 'incident')}
+                      size="small"
+                      variant="outlined"
+                    />
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     {isAdmin() ? (

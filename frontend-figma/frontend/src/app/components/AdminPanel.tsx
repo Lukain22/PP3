@@ -23,12 +23,12 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import VisibilityIcon from '@mui/icons-material/Visibility';
 import PeopleIcon from '@mui/icons-material/People';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
 import { getToken, clearAuth } from '../../lib/auth';
+import { getTicketTypeLabel, getTicketTypeColor } from '../../lib/ticketTypes';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -38,6 +38,7 @@ interface Ticket {
   description: string;
   status: string;
   priority: string;
+  type: string;
   category?: string | null;
   subcategory?: string | null;
   created_at: string;
@@ -170,11 +171,12 @@ export default function AdminPanel() {
   const exportCsv = () => {
     if (displayTickets.length === 0) return;
     const rows = [
-      ['ID', 'Usuario', 'Titulo', 'Estado', 'Prioridad', 'Fecha'],
+      ['ID', 'Usuario', 'Titulo', 'Tipo', 'Estado', 'Prioridad', 'Fecha'],
       ...displayTickets.map((t) => [
         t.id,
         `"${t.user_email}"`,
         `"${t.title.replace(/"/g, '""')}"`,
+        t.type || 'incident',
         t.status,
         t.priority,
         new Date(t.created_at).toISOString()
@@ -318,6 +320,7 @@ export default function AdminPanel() {
               <TableRow sx={{ bgcolor: '#fafbfc' }}>
                 <TableCell sx={{ fontWeight: 600, width: 64 }}>#</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Ticket</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: 110 }}>Tipo</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 180 }}>Usuario</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 150 }}>Estado</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 100 }}>Prioridad</TableCell>
@@ -339,6 +342,14 @@ export default function AdminPanel() {
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
                       {ticket.title}
                     </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={getTicketTypeLabel(ticket.type || 'incident')}
+                      color={getTicketTypeColor(ticket.type || 'incident')}
+                      size="small"
+                      variant="outlined"
+                    />
                   </TableCell>
                   <TableCell>
                     <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
@@ -385,11 +396,6 @@ export default function AdminPanel() {
                   </TableCell>
                   <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(ticket.created_at)}</TableCell>
                   <TableCell align="center" onClick={(e) => e.stopPropagation()}>
-                    <Tooltip title="Ver detalle">
-                      <IconButton size="small" onClick={() => navigate(`/tickets/${ticket.id}`)}>
-                        <VisibilityIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
                     <Tooltip title="Eliminar">
                       <span>
                         <IconButton

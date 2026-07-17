@@ -6,6 +6,7 @@ const authRoutes = require('./routes/authRoutes');
 const ticketRoutes = require('./routes/ticketRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const { initTicketsTable, initCommentsTable } = require('./controllers/ticketsController');
+const { initTicketHistoryTable } = require('./utils/ticketHistory');
 const db = require('./db/db');
 
 const app = express();
@@ -43,6 +44,7 @@ const initUsersTable = () => {
         }
         initTicketsTable();
         initCommentsTable();
+        initTicketHistoryTable();
         runTicketMigrations();
       }
     );
@@ -56,6 +58,9 @@ const runTicketMigrations = () => {
   });
   db.query('ALTER TABLE tickets ADD COLUMN subcategory VARCHAR(100) DEFAULT NULL', (err) => {
     if (err && err.errno !== 1060) console.error('Error migrando columna subcategory:', err.code);
+  });
+  db.query("ALTER TABLE tickets ADD COLUMN type VARCHAR(20) NOT NULL DEFAULT 'incident'", (err) => {
+    if (err && err.errno !== 1060) console.error('Error migrando columna type:', err.code);
   });
 };
 

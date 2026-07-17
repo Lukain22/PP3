@@ -9,12 +9,14 @@ const {
   updateTicket,
   getTicketComments,
   addTicketComment,
-  deleteTicket
+  deleteTicket,
+  getTicketHistory
 } = require('../controllers/ticketsController');
 
 router.get('/', authMiddleware, getTickets);
 router.post('/', authMiddleware, createTicket);
 router.get('/:id/comments', authMiddleware, getTicketComments);
+router.get('/:id/history', authMiddleware, getTicketHistory);
 router.post('/:id/comments', authMiddleware, addTicketComment);
 router.get('/:id', authMiddleware, getTicketById);
 router.put('/:id', authMiddleware, updateTicketStatus);

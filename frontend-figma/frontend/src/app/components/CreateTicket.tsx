@@ -18,6 +18,8 @@ import {
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
+import { isAdmin } from '../../lib/auth';
+import { TICKET_TYPE_OPTIONS } from '../../lib/ticketTypes';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -29,10 +31,12 @@ const priorityOptions = [
 
 export default function CreateTicket() {
   const navigate = useNavigate();
+  const admin = isAdmin();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
+    type: 'incident',
     priority: 'medium',
     status: 'open'
   });
@@ -68,7 +72,16 @@ export default function CreateTicket() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(
+          admin
+            ? formData
+            : {
+                title: formData.title,
+                description: formData.description,
+                type: formData.type,
+                status: 'open'
+              }
+        )
       });
 
       const data = await response.json();
@@ -115,6 +128,28 @@ export default function CreateTicket() {
       >
         <Paper elevation={0} sx={{ p: { xs: 2, md: 3 }, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
           <Typography variant="overline" color="primary" sx={{ fontWeight: 600 }}>
+            Tipo de solicitud
+          </Typography>
+          <ToggleButtonGroup
+            exclusive
+            fullWidth
+            value={formData.type}
+            onChange={(_, val) => val && setFormData({ ...formData, type: val })}
+            sx={{ mt: 2, mb: 3 }}
+          >
+            {TICKET_TYPE_OPTIONS.map((t) => (
+              <ToggleButton key={t.value} value={t.value} sx={{ flex: 1, py: 1.25, flexDirection: 'column' }}>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  {t.label}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {t.hint}
+                </Typography>
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+
+          <Typography variant="overline" color="primary" sx={{ fontWeight: 600 }}>
             Paso 1 — Detalle
           </Typography>
           <TextField
@@ -138,29 +173,33 @@ export default function CreateTicket() {
             helperText="Incluí mensajes de error, navegador o dispositivo si aplica."
           />
 
-          <Divider sx={{ my: 3 }} />
+          {admin && (
+            <>
+              <Divider sx={{ my: 3 }} />
 
-          <Typography variant="overline" color="primary" sx={{ fontWeight: 600 }}>
-            Paso 2 — Prioridad
-          </Typography>
-          <ToggleButtonGroup
-            exclusive
-            fullWidth
-            value={formData.priority}
-            onChange={(_, val) => val && setFormData({ ...formData, priority: val })}
-            sx={{ mt: 2 }}
-          >
-            {priorityOptions.map((p) => (
-              <ToggleButton key={p.value} value={p.value} sx={{ flex: 1, py: 1.25, flexDirection: 'column' }}>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {p.label}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {p.hint}
-                </Typography>
-              </ToggleButton>
-            ))}
-          </ToggleButtonGroup>
+              <Typography variant="overline" color="primary" sx={{ fontWeight: 600 }}>
+                Paso 2 — Prioridad
+              </Typography>
+              <ToggleButtonGroup
+                exclusive
+                fullWidth
+                value={formData.priority}
+                onChange={(_, val) => val && setFormData({ ...formData, priority: val })}
+                sx={{ mt: 2 }}
+              >
+                {priorityOptions.map((p) => (
+                  <ToggleButton key={p.value} value={p.value} sx={{ flex: 1, py: 1.25, flexDirection: 'column' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {p.label}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {p.hint}
+                    </Typography>
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+            </>
+          )}
 
         </Paper>
 
@@ -170,11 +209,18 @@ export default function CreateTicket() {
               Antes de enviar
             </Typography>
             <List dense disablePadding>
-              {[
-                'Un asunto claro ayuda a priorizar tu caso.',
-                'Los tickets urgentes deben describir el impacto.',
-                'Podés adjuntar capturas en la descripción (texto).'
-              ].map((text) => (
+              {(admin
+                ? [
+                    'Un asunto claro ayuda a priorizar el caso.',
+                    'Elegí la prioridad según el impacto real.',
+                    'Podés adjuntar capturas en la descripción (texto).'
+                  ]
+                : [
+                    'Un asunto claro ayuda al equipo a entender tu caso.',
+                    'Describí qué intentaste y qué mensaje de error viste.',
+                    'Podés adjuntar capturas en la descripción (texto).'
+                  ]
+              ).map((text) => (
                 <ListItem key={text} disableGutters sx={{ alignItems: 'flex-start' }}>
                   <ListItemIcon sx={{ minWidth: 32, mt: 0.25 }}>
                     <CheckCircleOutlineIcon color="primary" fontSize="small" />

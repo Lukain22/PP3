@@ -7,6 +7,7 @@ const {
   getAnyTicket,
   updateAnyTicket,
   deleteAnyTicket,
+  getAnyTicketHistory,
   getAnyTicketComments,
   addAnyTicketComment,
   updateAnyComment,
@@ -18,6 +19,7 @@ const {
 router.use(authMiddleware, roleMiddleware);
 
 router.get('/tickets', getAllTickets);
+router.get('/tickets/:id/history', getAnyTicketHistory);
 router.get('/tickets/:id', getAnyTicket);
 router.patch('/tickets/:id', updateAnyTicket);
 router.delete('/tickets/:id', deleteAnyTicket);

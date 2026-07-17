@@ -1,7 +1,9 @@
 const db = require('../db/db');
+const { logTicketHistory, logFieldChanges, logTicketCreated } = require('../utils/ticketHistory');
 
 const VALID_STATUSES = ['open', 'in-progress', 'resolved'];
 const VALID_PRIORITIES = ['low', 'medium', 'high'];
+const VALID_TYPES = ['incident', 'requirement'];
 
 const initTicketsTable = () => {
   const sql = `
@@ -11,6 +13,7 @@ const initTicketsTable = () => {
       description TEXT NOT NULL,
       status VARCHAR(50) NOT NULL DEFAULT 'open',
       priority VARCHAR(50) NOT NULL DEFAULT 'medium',
+      type VARCHAR(20) NOT NULL DEFAULT 'incident',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       user_id INT NOT NULL,
@@ -75,7 +78,7 @@ exports.getTickets = (req, res) => {
       const total = countResult[0].total;
 
       db.query(
-        `SELECT id, title, description, status, priority, created_at, user_id
+        `SELECT id, title, description, status, priority, type, created_at, user_id
          FROM tickets ${baseWhere}
          ORDER BY created_at DESC
          LIMIT ? OFFSET ?`,
@@ -100,8 +103,8 @@ exports.getTicketById = (req, res) => {
   const isAdmin = req.user.role === 'admin';
 
   const sql = isAdmin
-    ? 'SELECT id, title, description, status, priority, category, subcategory, created_at, updated_at, user_id FROM tickets WHERE id = ?'
-    : 'SELECT id, title, description, status, priority, created_at, updated_at, user_id FROM tickets WHERE id = ? AND user_id = ?';
+    ? 'SELECT id, title, description, status, priority, type, category, subcategory, created_at, updated_at, user_id FROM tickets WHERE id = ?'
+    : 'SELECT id, title, description, status, priority, type, created_at, updated_at, user_id FROM tickets WHERE id = ? AND user_id = ?';
   const params = isAdmin ? [id] : [id, req.user.id];
 
   db.query(sql, params, (err, results) => {
@@ -116,29 +119,36 @@ exports.getTicketById = (req, res) => {
 };
 
 exports.createTicket = (req, res) => {
-  const { title, description, status, priority } = req.body;
+  const { title, description, status, priority, type } = req.body;
+  const isAdmin = req.user.role === 'admin';
 
   if (!title || !description) {
     return res.status(400).json({ message: 'Título y descripción son requeridos' });
   }
 
+  const ticketType = type && VALID_TYPES.includes(type) ? type : 'incident';
+  const ticketStatus = isAdmin ? (status || 'open') : 'open';
+  const ticketPriority = isAdmin ? (priority || 'medium') : 'medium';
+
   db.query(
-    'INSERT INTO tickets (title, description, status, priority, user_id) VALUES (?, ?, ?, ?, ?)',
-    [
-      title,
-      description,
-      status || 'open',
-      priority || 'medium',
-      req.user.id
-    ],
+    'INSERT INTO tickets (title, description, status, priority, type, user_id) VALUES (?, ?, ?, ?, ?, ?)',
+    [title, description, ticketStatus, ticketPriority, ticketType, req.user.id],
     (err, result) => {
       if (err) {
         return res.status(500).json({ message: 'Error al crear ticket' });
       }
 
+      const ticketId = result.insertId;
+      logTicketCreated(ticketId, req.user.id, {
+        type: ticketType,
+        status: ticketStatus,
+        priority: ticketPriority,
+        title: String(title).trim()
+      });
+
       res.status(201).json({
         message: 'Ticket creado',
-        id: result.insertId
+        id: ticketId
       });
     }
   );
@@ -153,25 +163,44 @@ exports.updateTicketStatus = (req, res) => {
     return res.status(400).json({ message: 'Estado inválido' });
   }
 
-  const sql = isAdmin
-    ? 'UPDATE tickets SET status = ? WHERE id = ?'
-    : 'UPDATE tickets SET status = ? WHERE id = ? AND user_id = ?';
-  const params = isAdmin ? [status, id] : [status, id, req.user.id];
+  const selectSql = isAdmin
+    ? 'SELECT status FROM tickets WHERE id = ?'
+    : 'SELECT status FROM tickets WHERE id = ? AND user_id = ?';
+  const selectParams = isAdmin ? [id] : [id, req.user.id];
 
-  db.query(sql, params, (err, result) => {
-    if (err) {
-      return res.status(500).json({ message: 'Error al actualizar ticket' });
+  db.query(selectSql, selectParams, (selectErr, rows) => {
+    if (selectErr) {
+      return res.status(500).json({ message: 'Error al obtener ticket' });
     }
-    if (result.affectedRows === 0) {
+    if (rows.length === 0) {
       return res.status(404).json({ message: 'Ticket no encontrado' });
     }
-    res.json({ message: 'Estado actualizado' });
+
+    const oldStatus = rows[0].status;
+    const updateSql = isAdmin
+      ? 'UPDATE tickets SET status = ? WHERE id = ?'
+      : 'UPDATE tickets SET status = ? WHERE id = ? AND user_id = ?';
+    const updateParams = isAdmin ? [status, id] : [status, id, req.user.id];
+
+    db.query(updateSql, updateParams, (err, result) => {
+      if (err) {
+        return res.status(500).json({ message: 'Error al actualizar ticket' });
+      }
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ message: 'Ticket no encontrado' });
+      }
+      if (oldStatus !== status) {
+        logTicketHistory(id, req.user.id, 'updated', 'status', oldStatus, status);
+      }
+      res.json({ message: 'Estado actualizado' });
+    });
   });
 };
 
 exports.updateTicket = (req, res) => {
   const { id } = req.params;
-  const { title, description, status, priority } = req.body;
+  const { title, description, status, priority, type } = req.body;
+  const isAdmin = req.user.role === 'admin';
 
   if (title !== undefined && !String(title).trim()) {
     return res.status(400).json({ message: 'El título no puede estar vacío' });
@@ -185,53 +214,118 @@ exports.updateTicket = (req, res) => {
   if (priority !== undefined && !VALID_PRIORITIES.includes(priority)) {
     return res.status(400).json({ message: 'Prioridad inválida' });
   }
-
-  const fields = [];
-  const values = [];
-
-  if (title !== undefined) {
-    fields.push('title = ?');
-    values.push(String(title).trim());
+  if (type !== undefined && !VALID_TYPES.includes(type)) {
+    return res.status(400).json({ message: 'Tipo inválido' });
   }
-  if (description !== undefined) {
-    fields.push('description = ?');
-    values.push(String(description).trim());
-  }
-  if (status !== undefined) {
-    fields.push('status = ?');
-    values.push(status);
-  }
-  if (priority !== undefined) {
-    fields.push('priority = ?');
-    values.push(priority);
+  if (!isAdmin && (status !== undefined || priority !== undefined || type !== undefined)) {
+    return res.status(403).json({ message: 'No tenés permiso para cambiar estado, prioridad o tipo' });
   }
 
-  if (fields.length === 0) {
-    return res.status(400).json({ message: 'No hay campos para actualizar' });
-  }
+  const selectSql = isAdmin
+    ? 'SELECT * FROM tickets WHERE id = ?'
+    : 'SELECT * FROM tickets WHERE id = ? AND user_id = ?';
+  const selectParams = isAdmin ? [id] : [id, req.user.id];
 
-  const isAdmin = req.user.role === 'admin';
-  if (isAdmin) {
-    values.push(id);
-  } else {
-    values.push(id, req.user.id);
-  }
-
-  const where = isAdmin ? 'WHERE id = ?' : 'WHERE id = ? AND user_id = ?';
-
-  db.query(
-    `UPDATE tickets SET ${fields.join(', ')} ${where}`,
-    values,
-    (err, result) => {
-      if (err) {
-        return res.status(500).json({ message: 'Error al actualizar ticket' });
-      }
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ message: 'Ticket no encontrado' });
-      }
-      res.json({ message: 'Ticket actualizado' });
+  db.query(selectSql, selectParams, (selectErr, rows) => {
+    if (selectErr) {
+      return res.status(500).json({ message: 'Error al obtener ticket' });
     }
-  );
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Ticket no encontrado' });
+    }
+
+    const oldTicket = rows[0];
+    const fields = [];
+    const values = [];
+    const updates = {};
+
+    if (title !== undefined) {
+      fields.push('title = ?');
+      values.push(String(title).trim());
+      updates.title = String(title).trim();
+    }
+    if (description !== undefined) {
+      fields.push('description = ?');
+      values.push(String(description).trim());
+      updates.description = String(description).trim();
+    }
+    if (status !== undefined) {
+      fields.push('status = ?');
+      values.push(status);
+      updates.status = status;
+    }
+    if (priority !== undefined) {
+      fields.push('priority = ?');
+      values.push(priority);
+      updates.priority = priority;
+    }
+    if (type !== undefined) {
+      fields.push('type = ?');
+      values.push(type);
+      updates.type = type;
+    }
+
+    if (fields.length === 0) {
+      return res.status(400).json({ message: 'No hay campos para actualizar' });
+    }
+
+    if (isAdmin) {
+      values.push(id);
+    } else {
+      values.push(id, req.user.id);
+    }
+
+    const where = isAdmin ? 'WHERE id = ?' : 'WHERE id = ? AND user_id = ?';
+
+    db.query(
+      `UPDATE tickets SET ${fields.join(', ')} ${where}`,
+      values,
+      (err, result) => {
+        if (err) {
+          return res.status(500).json({ message: 'Error al actualizar ticket' });
+        }
+        if (result.affectedRows === 0) {
+          return res.status(404).json({ message: 'Ticket no encontrado' });
+        }
+        logFieldChanges(id, req.user.id, oldTicket, updates);
+        res.json({ message: 'Ticket actualizado' });
+      }
+    );
+  });
+};
+
+exports.getTicketHistory = (req, res) => {
+  const { id } = req.params;
+  const isAdmin = req.user.role === 'admin';
+
+  const checkSql = isAdmin
+    ? 'SELECT id FROM tickets WHERE id = ?'
+    : 'SELECT id FROM tickets WHERE id = ? AND user_id = ?';
+  const checkParams = isAdmin ? [id] : [id, req.user.id];
+
+  db.query(checkSql, checkParams, (checkErr, tickets) => {
+    if (checkErr) {
+      return res.status(500).json({ message: 'Error al verificar ticket' });
+    }
+    if (tickets.length === 0) {
+      return res.status(404).json({ message: 'Ticket no encontrado' });
+    }
+
+    db.query(
+      `SELECT h.id, h.action, h.field_name, h.old_value, h.new_value, h.created_at, u.email
+       FROM ticket_history h
+       JOIN users u ON u.id = h.user_id
+       WHERE h.ticket_id = ?
+       ORDER BY h.created_at DESC`,
+      [id],
+      (err, history) => {
+        if (err) {
+          return res.status(500).json({ message: 'Error al obtener historial' });
+        }
+        res.json(history);
+      }
+    );
+  });
 };
 
 exports.getTicketComments = (req, res) => {

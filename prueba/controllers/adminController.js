@@ -1,7 +1,9 @@
 const db = require('../db/db');
+const { logFieldChanges } = require('../utils/ticketHistory');
 
 const VALID_STATUSES = ['open', 'in-progress', 'resolved'];
 const VALID_PRIORITIES = ['low', 'medium', 'high'];
+const VALID_TYPES = ['incident', 'requirement'];
 const VALID_ROLES = ['user', 'admin'];
 
 const VALID_CATEGORIES = [
@@ -53,7 +55,7 @@ exports.getAllTickets = (req, res) => {
       const total = countResult[0].total;
 
       db.query(
-        `SELECT t.id, t.title, t.description, t.status, t.priority,
+        `SELECT t.id, t.title, t.description, t.status, t.priority, t.type,
                 t.category, t.subcategory,
                 t.created_at, t.updated_at, t.user_id, u.email AS user_email
          FROM tickets t
@@ -83,7 +85,7 @@ exports.getAllTickets = (req, res) => {
 exports.getAnyTicket = (req, res) => {
   const { id } = req.params;
   db.query(
-    `SELECT t.id, t.title, t.description, t.status, t.priority,
+    `SELECT t.id, t.title, t.description, t.status, t.priority, t.type,
             t.category, t.subcategory,
             t.created_at, t.updated_at, t.user_id, u.email AS user_email
      FROM tickets t
@@ -105,7 +107,7 @@ exports.getAnyTicket = (req, res) => {
 
 exports.updateAnyTicket = (req, res) => {
   const { id } = req.params;
-  const { title, description, status, priority, category, subcategory } = req.body;
+  const { title, description, status, priority, category, subcategory, type } = req.body;
 
   if (title !== undefined && !String(title).trim()) {
     return res.status(400).json({ message: 'El título no puede estar vacío' });
@@ -119,6 +121,9 @@ exports.updateAnyTicket = (req, res) => {
   if (priority !== undefined && !VALID_PRIORITIES.includes(priority)) {
     return res.status(400).json({ message: 'Prioridad inválida' });
   }
+  if (type !== undefined && !VALID_TYPES.includes(type)) {
+    return res.status(400).json({ message: 'Tipo inválido' });
+  }
   if (category !== undefined && category !== null && !VALID_CATEGORIES.includes(category)) {
     return res.status(400).json({ message: 'Categoría inválida' });
   }
@@ -129,36 +134,80 @@ exports.updateAnyTicket = (req, res) => {
     }
   }
 
-  const fields = [];
-  const values = [];
-
-  if (title !== undefined) { fields.push('title = ?'); values.push(String(title).trim()); }
-  if (description !== undefined) { fields.push('description = ?'); values.push(String(description).trim()); }
-  if (status !== undefined) { fields.push('status = ?'); values.push(status); }
-  if (priority !== undefined) { fields.push('priority = ?'); values.push(priority); }
-  if (category !== undefined) { fields.push('category = ?'); values.push(category || null); }
-  if (subcategory !== undefined) { fields.push('subcategory = ?'); values.push(subcategory || null); }
-
-  if (fields.length === 0) {
-    return res.status(400).json({ message: 'No hay campos para actualizar' });
-  }
-
-  values.push(id);
-
-  db.query(
-    `UPDATE tickets SET ${fields.join(', ')} WHERE id = ?`,
-    values,
-    (err, result) => {
-      if (err) {
-        console.error('Error en updateAnyTicket:', err.code);
-        return res.status(500).json({ message: 'Error al actualizar ticket' });
-      }
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ message: 'Ticket no encontrado' });
-      }
-      res.json({ message: 'Ticket actualizado' });
+  db.query('SELECT * FROM tickets WHERE id = ?', [id], (selectErr, rows) => {
+    if (selectErr) {
+      console.error('Error en updateAnyTicket select:', selectErr.code);
+      return res.status(500).json({ message: 'Error al obtener ticket' });
     }
-  );
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Ticket no encontrado' });
+    }
+
+    const oldTicket = rows[0];
+    const fields = [];
+    const values = [];
+    const updates = {};
+
+    if (title !== undefined) { fields.push('title = ?'); values.push(String(title).trim()); updates.title = String(title).trim(); }
+    if (description !== undefined) { fields.push('description = ?'); values.push(String(description).trim()); updates.description = String(description).trim(); }
+    if (status !== undefined) { fields.push('status = ?'); values.push(status); updates.status = status; }
+    if (priority !== undefined) { fields.push('priority = ?'); values.push(priority); updates.priority = priority; }
+    if (type !== undefined) { fields.push('type = ?'); values.push(type); updates.type = type; }
+    if (category !== undefined) { fields.push('category = ?'); values.push(category || null); updates.category = category || null; }
+    if (subcategory !== undefined) { fields.push('subcategory = ?'); values.push(subcategory || null); updates.subcategory = subcategory || null; }
+
+    if (fields.length === 0) {
+      return res.status(400).json({ message: 'No hay campos para actualizar' });
+    }
+
+    values.push(id);
+
+    db.query(
+      `UPDATE tickets SET ${fields.join(', ')} WHERE id = ?`,
+      values,
+      (err, result) => {
+        if (err) {
+          console.error('Error en updateAnyTicket:', err.code);
+          return res.status(500).json({ message: 'Error al actualizar ticket' });
+        }
+        if (result.affectedRows === 0) {
+          return res.status(404).json({ message: 'Ticket no encontrado' });
+        }
+        logFieldChanges(id, req.user.id, oldTicket, updates);
+        res.json({ message: 'Ticket actualizado' });
+      }
+    );
+  });
+};
+
+exports.getAnyTicketHistory = (req, res) => {
+  const { id } = req.params;
+
+  db.query('SELECT id FROM tickets WHERE id = ?', [id], (checkErr, tickets) => {
+    if (checkErr) {
+      console.error('Error en getAnyTicketHistory check:', checkErr.code);
+      return res.status(500).json({ message: 'Error al verificar ticket' });
+    }
+    if (tickets.length === 0) {
+      return res.status(404).json({ message: 'Ticket no encontrado' });
+    }
+
+    db.query(
+      `SELECT h.id, h.action, h.field_name, h.old_value, h.new_value, h.created_at, u.email
+       FROM ticket_history h
+       JOIN users u ON u.id = h.user_id
+       WHERE h.ticket_id = ?
+       ORDER BY h.created_at DESC`,
+      [id],
+      (err, history) => {
+        if (err) {
+          console.error('Error en getAnyTicketHistory:', err.code);
+          return res.status(500).json({ message: 'Error al obtener historial' });
+        }
+        res.json(history);
+      }
+    );
+  });
 };
 
 exports.deleteAnyTicket = (req, res) => {

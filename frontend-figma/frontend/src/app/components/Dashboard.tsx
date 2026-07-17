@@ -20,6 +20,7 @@ import AddIcon from '@mui/icons-material/Add';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as RechartsTooltip } from 'recharts';
 import SupportShell from './SupportShell';
+import { isAdmin } from '../../lib/auth';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -35,6 +36,7 @@ interface Ticket {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const admin = isAdmin();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -159,7 +161,7 @@ export default function Dashboard() {
         </Button>
       </Box>
 
-      {!loading && tickets.length > 0 && (
+      {admin && !loading && tickets.length > 0 && (
         <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 2.5, mb: 3 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
             Distribución por estado
