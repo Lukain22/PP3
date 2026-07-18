@@ -55,7 +55,7 @@ function RequireTechnician({ children }: { children: ReactNode }) {
 
 function BlockTechnicianFromUserArea({ children }: { children: ReactNode }) {
   if (!getToken()) return <Navigate to="/" replace />;
-  if (isTechnician()) return <Navigate to="/technician" replace />;
+  if (isTechnician()) return <Navigate to="/panel-tecnico" replace />;
   return <>{children}</>;
 }
 
@@ -76,7 +76,8 @@ export default function App() {
           <Route path="/admin/groups" element={<RequireAdmin><AdminGroups /></RequireAdmin>} />
           <Route path="/admin/groups/:id" element={<RequireAdmin><AdminGroupDetail /></RequireAdmin>} />
           <Route path="/admin/sla" element={<RequireAdmin><AdminSlaPolicies /></RequireAdmin>} />
-          <Route path="/technician" element={<RequireTechnician><TechnicianPanel /></RequireTechnician>} />
+          <Route path="/panel-tecnico" element={<RequireTechnician><TechnicianPanel /></RequireTechnician>} />
+          <Route path="/technician" element={<Navigate to="/panel-tecnico" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <Toaster position="top-right" richColors />

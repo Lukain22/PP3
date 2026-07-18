@@ -17,8 +17,10 @@ import {
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
+import TicketAttachments from './TicketAttachments';
 import { isAdmin } from '../../lib/auth';
 import { TICKET_TYPE_OPTIONS } from '../../lib/ticketTypes';
+import { uploadTicketAttachments } from '../../lib/attachments';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -32,6 +34,7 @@ export default function CreateTicket() {
   const navigate = useNavigate();
   const admin = isAdmin();
   const [loading, setLoading] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -103,6 +106,15 @@ export default function CreateTicket() {
         return;
       }
 
+      if (pendingFiles.length > 0 && data.id) {
+        const uploadResult = await uploadTicketAttachments(data.id, pendingFiles);
+        if (!uploadResult.ok) {
+          toast.error(uploadResult.message || 'La solicitud se creó pero falló la subida de archivos');
+          navigate('/tickets');
+          return;
+        }
+      }
+
       toast.success('Solicitud enviada correctamente');
       navigate('/tickets');
     } catch {
@@ -150,7 +162,7 @@ export default function CreateTicket() {
           </ToggleButtonGroup>
 
           <Typography variant="overline" color="primary" sx={{ fontWeight: 600 }}>
-            Paso 1 — Detalle
+            Detalle
           </Typography>
           <TextField
             fullWidth
@@ -171,6 +183,15 @@ export default function CreateTicket() {
             minRows={8}
             placeholder="¿Qué pasó? ¿Cuándo empezó? ¿Qué intentaste hacer?"
           />
+
+          <Box sx={{ mt: 2.5 }}>
+            <TicketAttachments
+              pendingFiles={pendingFiles}
+              onPendingFilesChange={setPendingFiles}
+              showTitleWhenHasFiles
+              uploadBelowFiles
+            />
+          </Box>
 
           {admin && formData.type === 'incident' && (
             <>
@@ -212,12 +233,12 @@ export default function CreateTicket() {
                 ? [
                     'Un asunto claro ayuda a priorizar el caso.',
                     'Elegí la prioridad según el impacto real.',
-                    'Podés adjuntar capturas en la descripción (texto).'
+                    'Podés adjuntar capturas, documentos o planillas.'
                   ]
                 : [
                     'Un asunto claro ayuda al equipo a entender tu caso.',
                     'Describí qué intentaste y qué mensaje de error viste.',
-                    'Podés adjuntar capturas en la descripción (texto).'
+                    'Podés adjuntar capturas, documentos o planillas.'
                   ]
               ).map((text) => (
                 <ListItem key={text} disableGutters sx={{ alignItems: 'flex-start' }}>

@@ -148,17 +148,13 @@ export default function AdminGroups() {
     <SupportShell
       title="Grupos de soporte"
       subtitle={loading ? 'Cargando...' : `${groups.length} grupo${groups.length === 1 ? '' : 's'}`}
-      breadcrumbs={[
-        { label: 'Admin', to: '/admin' },
-        { label: 'Grupos' }
-      ]}
-    >
-      <Stack direction="row" justifyContent="flex-end" sx={{ mb: 2 }}>
+      backTo="/admin"
+      headerAction={
         <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
           Nuevo grupo
         </Button>
-      </Stack>
-
+      }
+    >
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress />

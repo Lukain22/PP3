@@ -21,7 +21,8 @@ import AddIcon from '@mui/icons-material/Add';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as RechartsTooltip } from 'recharts';
 import SupportShell from './SupportShell';
-import { isAdmin } from '../../lib/auth';
+import { getTicketTypeLabel } from '../../lib/ticketTypes';
+import { getPriorityLabel, getSlaStatusLabel, isIncident } from '../../lib/sla';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -30,14 +31,65 @@ interface Ticket {
   title: string;
   description: string;
   status: string;
-  priority: string;
+  priority: string | null;
+  type: string;
+  sla_status?: string | null;
   created_at: string;
   user_id: number;
 }
 
+type ChartSlice = { name: string; value: number; color: string };
+
+function countSlices(
+  tickets: Ticket[],
+  getKey: (ticket: Ticket) => string | null | undefined,
+  labels: Record<string, string>,
+  colors: Record<string, string>
+): ChartSlice[] {
+  const counts: Record<string, number> = {};
+
+  for (const ticket of tickets) {
+    const key = getKey(ticket);
+    if (!key) continue;
+    counts[key] = (counts[key] || 0) + 1;
+  }
+
+  return Object.entries(counts)
+    .map(([key, value]) => ({
+      name: labels[key] || key,
+      value,
+      color: colors[key] || '#64748b'
+    }))
+    .filter((slice) => slice.value > 0);
+}
+
+function DistributionChart({ title, data }: { title: string; data: ChartSlice[] }) {
+  if (data.length === 0) return null;
+
+  return (
+    <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 2.5, height: '100%' }}>
+      <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
+        {title}
+      </Typography>
+      <Box sx={{ height: 240 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+              {data.map((entry) => (
+                <Cell key={entry.name} fill={entry.color} />
+              ))}
+            </Pie>
+            <RechartsTooltip />
+            <Legend />
+          </PieChart>
+        </ResponsiveContainer>
+      </Box>
+    </Paper>
+  );
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
-  const admin = isAdmin();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -91,17 +143,60 @@ export default function Dashboard() {
 
   const recentTickets = tickets.slice(0, 5);
 
-  const chartData = [
-    { name: 'Abiertos', value: tickets.filter((t) => t.status === 'open').length, color: '#f59e0b' },
-    { name: 'En proceso', value: tickets.filter((t) => t.status === 'in-progress').length, color: '#3b82f6' },
-    { name: 'Resueltos', value: tickets.filter((t) => t.status === 'resolved').length, color: '#10b981' }
-  ].filter((d) => d.value > 0);
+  const statusChartData = countSlices(
+    tickets,
+    (t) => t.status,
+    { open: 'Abiertos', 'in-progress': 'En proceso', 'on-hold': 'En espera', resolved: 'Resueltos' },
+    { open: '#f59e0b', 'in-progress': '#3b82f6', 'on-hold': '#64748b', resolved: '#10b981' }
+  );
+
+  const typeChartData = countSlices(
+    tickets,
+    (t) => t.type || 'incident',
+    { incident: getTicketTypeLabel('incident'), requirement: getTicketTypeLabel('requirement') },
+    { incident: '#ef4444', requirement: '#3b82f6' }
+  );
+
+  const priorityChartData = countSlices(
+    tickets.filter((t) => isIncident(t.type)),
+    (t) => t.priority || 'medium',
+    { high: getPriorityLabel('high'), medium: getPriorityLabel('medium'), low: getPriorityLabel('low') },
+    { high: '#ef4444', medium: '#f59e0b', low: '#10b981' }
+  );
+
+  const slaChartData = countSlices(
+    tickets.filter((t) => isIncident(t.type) && t.sla_status),
+    (t) => t.sla_status || undefined,
+    {
+      on_track: getSlaStatusLabel('on_track'),
+      at_risk: getSlaStatusLabel('at_risk'),
+      breached: getSlaStatusLabel('breached'),
+      met: getSlaStatusLabel('met'),
+      paused: getSlaStatusLabel('paused')
+    },
+    { on_track: '#10b981', at_risk: '#f59e0b', breached: '#ef4444', met: '#3b82f6', paused: '#64748b' }
+  );
+
+  const charts = [
+    { title: 'Distribución por estado', data: statusChartData },
+    { title: 'Distribución por tipo', data: typeChartData },
+    { title: 'Distribución por prioridad', data: priorityChartData },
+    { title: 'Distribución por SLA', data: slaChartData }
+  ].filter((chart) => chart.data.length > 0);
 
   return (
     <SupportShell
-      title="Panel de soporte"
-      subtitle="Resumen de tus solicitudes y accesos rápidos."
-      breadcrumbs={[{ label: 'Inicio' }]}
+      title="TABLERO"
+      headerAction={
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+          <Button variant="outlined" startIcon={<ListAltIcon />} onClick={() => navigate('/tickets')}>
+            Ver todas
+          </Button>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/create-ticket')}>
+            Nueva solicitud
+          </Button>
+        </Box>
+      }
     >
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {stats.map((stat) => (
@@ -123,64 +218,14 @@ export default function Dashboard() {
         ))}
       </Grid>
 
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mb: 3 }}>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/create-ticket')}>
-          Nueva solicitud
-        </Button>
-          <Button variant="outlined" startIcon={<ListAltIcon />} onClick={() => navigate('/tickets')}>
-            Ver todas
-          </Button>
-          <Button
-            variant="outlined"
-            onClick={() => {
-              if (tickets.length === 0) return;
-              const rows = [
-                ['ID', 'Titulo', 'Estado', 'Prioridad', 'Fecha'],
-                ...tickets.map((t) => [
-                  t.id,
-                  `"${t.title.replace(/"/g, '""')}"`,
-                  t.status,
-                  t.priority,
-                  new Date(t.created_at).toISOString()
-                ])
-              ];
-              const csv = rows.map((r) => r.join(',')).join('\n');
-              const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-              const url = URL.createObjectURL(blob);
-              const link = document.createElement('a');
-              link.href = url;
-              link.download = 'tickets.csv';
-              link.click();
-              URL.revokeObjectURL(url);
-            }}
-            disabled={loading || tickets.length === 0}
-          >
-            Exportar CSV
-          </Button>
-        <Button variant="outlined" onClick={() => navigate('/tickets?status=open')}>
-          Solo abiertos
-        </Button>
-      </Box>
-
-      {admin && !loading && tickets.length > 0 && (
-        <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 2.5, mb: 3 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-            Distribución por estado
-          </Typography>
-          <Box sx={{ height: 240 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                  {chartData.map((entry) => (
-                    <Cell key={entry.name} fill={entry.color} />
-                  ))}
-                </Pie>
-                <RechartsTooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </Box>
-        </Paper>
+      {!loading && charts.length > 0 && (
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          {charts.map((chart) => (
+            <Grid size={{ xs: 12, md: 6 }} key={chart.title}>
+              <DistributionChart title={chart.title} data={chart.data} />
+            </Grid>
+          ))}
+        </Grid>
       )}
 
       <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>

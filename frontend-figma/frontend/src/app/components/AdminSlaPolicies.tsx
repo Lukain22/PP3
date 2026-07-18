@@ -124,10 +124,7 @@ export default function AdminSlaPolicies() {
     <SupportShell
       title="Políticas SLA"
       subtitle="Tiempos de respuesta y resolución por prioridad (solo incidentes). Horas corridas 24/7."
-      breadcrumbs={[
-        { label: 'Admin', to: '/admin' },
-        { label: 'Políticas SLA' }
-      ]}
+      backTo="/admin"
     >
       <Paper elevation={0} sx={{ p: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2, mb: 2 }}>
         <Typography variant="body2" color="text.secondary">

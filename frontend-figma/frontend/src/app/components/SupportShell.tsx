@@ -15,6 +15,7 @@ import {
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import BuildIcon from '@mui/icons-material/Build';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { isAdmin, isTechnician, clearAuth, getHomePath } from '../../lib/auth';
 
 type Crumb = { label: string; to?: string };
@@ -22,8 +23,10 @@ type Crumb = { label: string; to?: string };
 interface SupportShellProps {
   children: ReactNode;
   title: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   breadcrumbs?: Crumb[];
+  backTo?: string;
+  headerAction?: ReactNode;
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | false;
 }
 
@@ -42,6 +45,8 @@ export default function SupportShell({
   title,
   subtitle,
   breadcrumbs,
+  backTo,
+  headerAction,
   maxWidth = false
 }: SupportShellProps) {
   const navigate = useNavigate();
@@ -66,7 +71,7 @@ export default function SupportShell({
             sx={{ height: 32, width: 32, borderRadius: 1, cursor: 'pointer' }}
             onClick={() => navigate(getHomePath())}
           />
-          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+          <Box sx={{ minWidth: 0 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
               Soporte Técnico
             </Typography>
@@ -74,12 +79,32 @@ export default function SupportShell({
               Portal de tickets
             </Typography>
           </Box>
+          <Link
+            component="button"
+            underline="hover"
+            onClick={() => navigate('/tickets')}
+            sx={{
+              cursor: 'pointer',
+              border: 0,
+              bgcolor: 'transparent',
+              font: 'inherit',
+              fontWeight: 500,
+              fontSize: '0.875rem',
+              color: 'primary.main',
+              flexShrink: 0,
+              alignSelf: 'center',
+              ml: 1.5
+            }}
+          >
+            Solicitudes
+          </Link>
+          <Box sx={{ flexGrow: 1 }} />
 
           {/* <UiModeToggle /> */}
 
           {isTechnician() && (
             <Tooltip title="Panel técnico">
-              <IconButton onClick={() => navigate('/technician')} size="small" color="primary">
+              <IconButton onClick={() => navigate('/panel-tecnico')} size="small" color="primary">
                 <BuildIcon fontSize="small" />
               </IconButton>
             </Tooltip>
@@ -143,15 +168,40 @@ export default function SupportShell({
           </Breadcrumbs>
         )}
 
-        <Box sx={{ mb: 2.5 }}>
-          <Typography variant="h4" sx={{ fontWeight: 600, fontSize: { xs: '1.35rem', md: '1.75rem' } }}>
-            {title}
-          </Typography>
-          {subtitle && (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              {subtitle}
-            </Typography>
+        <Box sx={{ mb: 2.5, display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+          {backTo && (
+            <Tooltip title="Volver">
+              <IconButton
+                onClick={() => navigate(backTo)}
+                aria-label="Volver"
+                sx={{
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 1,
+                  width: 40,
+                  height: 40,
+                  flexShrink: 0,
+                  mt: 0.25
+                }}
+              >
+                <ArrowBackIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
           )}
+
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+              <Typography variant="h4" sx={{ fontWeight: 600, fontSize: { xs: '1.35rem', md: '1.75rem' } }}>
+                {title}
+              </Typography>
+              {headerAction}
+            </Box>
+            {subtitle && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                {subtitle}
+              </Typography>
+            )}
+          </Box>
         </Box>
 
         {children}

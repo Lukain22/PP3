@@ -139,10 +139,11 @@ exports.getTicketById = (req, res) => {
   const { id } = req.params;
 
   db.query(
-    `SELECT t.*, g.name AS group_name, u.email AS user_email
+    `SELECT t.*, g.name AS group_name, u.email AS user_email, tech.email AS technician_email
      FROM tickets t
      LEFT JOIN \`groups\` g ON g.id = t.group_id
      LEFT JOIN users u ON u.id = t.user_id
+     LEFT JOIN users tech ON tech.id = t.technician_id
      WHERE t.id = ?`,
     [id],
     (err, results) => {
@@ -313,7 +314,7 @@ exports.updateTicketStatus = (req, res) => {
 
 exports.updateTicket = (req, res) => {
   const { id } = req.params;
-  const { title, description, status, priority, type } = req.body;
+  const { title, description, status, priority, type, technician_id } = req.body;
   const role = req.user.role;
   const isAdmin = role === 'admin';
   const isTechnician = role === 'technician';
@@ -331,7 +332,10 @@ exports.updateTicket = (req, res) => {
     return res.status(400).json({ message: 'Tipo inválido' });
   }
   if (isTechnician && (title !== undefined || description !== undefined || priority !== undefined || type !== undefined)) {
-    return res.status(403).json({ message: 'Como técnico solo podés cambiar el estado del ticket' });
+    return res.status(403).json({ message: 'Como técnico solo podés cambiar el estado o la asignación del ticket' });
+  }
+  if (technician_id !== undefined && !isAdmin && !isTechnician) {
+    return res.status(403).json({ message: 'No tenés permiso para asignar técnico' });
   }
   if (!isAdmin && !isTechnician && (status !== undefined || priority !== undefined || type !== undefined)) {
     return res.status(403).json({ message: 'No tenés permiso para cambiar estado, prioridad o tipo' });
@@ -360,67 +364,108 @@ exports.updateTicket = (req, res) => {
       return res.status(400).json({ message: 'Los requerimientos no tienen prioridad' });
     }
 
-    loadPolicies((policyErr, policies) => {
-      if (policyErr) {
-        return res.status(500).json({ message: 'Error al cargar políticas SLA' });
+    const applyUpdate = () => {
+      loadPolicies((policyErr, policies) => {
+        if (policyErr) {
+          return res.status(500).json({ message: 'Error al cargar políticas SLA' });
+        }
+
+        const fields = [];
+        const values = [];
+        const updates = {};
+
+        if (title !== undefined) {
+          fields.push('title = ?');
+          values.push(String(title).trim());
+          updates.title = String(title).trim();
+        }
+        if (description !== undefined) {
+          fields.push('description = ?');
+          values.push(String(description).trim());
+          updates.description = String(description).trim();
+        }
+        if (status !== undefined) {
+          fields.push('status = ?');
+          values.push(status);
+          updates.status = status;
+        }
+        if (priority !== undefined) {
+          fields.push('priority = ?');
+          values.push(priority);
+          updates.priority = priority;
+        }
+        if (type !== undefined) {
+          fields.push('type = ?');
+          values.push(type);
+          updates.type = type;
+        }
+        if (technician_id !== undefined) {
+          fields.push('technician_id = ?');
+          values.push(technician_id || null);
+          updates.technician_id = technician_id || null;
+        }
+
+        if (fields.length === 0) {
+          return res.status(400).json({ message: 'No hay campos para actualizar' });
+        }
+
+        const mergedType = type !== undefined ? type : oldTicket.type;
+        const mergedUpdates = { ...updates };
+        if (mergedType === 'requirement') {
+          mergedUpdates.priority = null;
+        }
+
+        const slaFields = applySlaFieldsToUpdate(oldTicket, mergedUpdates, policies);
+        appendSlaToFields(fields, values, updates, slaFields);
+
+        values.push(id);
+
+        db.query(
+          `UPDATE tickets SET ${fields.join(', ')} WHERE id = ?`,
+          values,
+          (err, result) => {
+            if (err) return res.status(500).json({ message: 'Error al actualizar ticket' });
+            if (result.affectedRows === 0) return res.status(404).json({ message: 'Ticket no encontrado' });
+            logFieldChanges(id, req.user.id, oldTicket, updates);
+            res.json({ message: 'Ticket actualizado' });
+          }
+        );
+      });
+    };
+
+    if (technician_id !== undefined && (isAdmin || isTechnician)) {
+      const nextTechnicianId = technician_id || null;
+
+      if (!nextTechnicianId) {
+        return applyUpdate();
       }
 
-      const fields = [];
-      const values = [];
-      const updates = {};
-
-      if (title !== undefined) {
-        fields.push('title = ?');
-        values.push(String(title).trim());
-        updates.title = String(title).trim();
-      }
-      if (description !== undefined) {
-        fields.push('description = ?');
-        values.push(String(description).trim());
-        updates.description = String(description).trim();
-      }
-      if (status !== undefined) {
-        fields.push('status = ?');
-        values.push(status);
-        updates.status = status;
-      }
-      if (priority !== undefined) {
-        fields.push('priority = ?');
-        values.push(priority);
-        updates.priority = priority;
-      }
-      if (type !== undefined) {
-        fields.push('type = ?');
-        values.push(type);
-        updates.type = type;
+      const parsedTechnicianId = parseInt(nextTechnicianId, 10);
+      if (!parsedTechnicianId) {
+        return res.status(400).json({ message: 'Técnico inválido' });
       }
 
-      if (fields.length === 0) {
-        return res.status(400).json({ message: 'No hay campos para actualizar' });
+      if (!oldTicket.group_id) {
+        return res.status(400).json({ message: 'Asigná un grupo antes de seleccionar un técnico' });
       }
 
-      const mergedType = type !== undefined ? type : oldTicket.type;
-      const mergedUpdates = { ...updates };
-      if (mergedType === 'requirement') {
-        mergedUpdates.priority = null;
-      }
-
-      const slaFields = applySlaFieldsToUpdate(oldTicket, mergedUpdates, policies);
-      appendSlaToFields(fields, values, updates, slaFields);
-
-      values.push(id);
-
-      db.query(
-        `UPDATE tickets SET ${fields.join(', ')} WHERE id = ?`,
-        values,
-        (err, result) => {
-          if (err) return res.status(500).json({ message: 'Error al actualizar ticket' });
-          if (result.affectedRows === 0) return res.status(404).json({ message: 'Ticket no encontrado' });
-          logFieldChanges(id, req.user.id, oldTicket, updates);
-          res.json({ message: 'Ticket actualizado' });
+      return db.query(
+        `SELECT u.id
+         FROM users u
+         JOIN user_groups ug ON ug.user_id = u.id
+         WHERE u.id = ? AND u.role = 'technician' AND ug.group_id = ?`,
+        [parsedTechnicianId, oldTicket.group_id],
+        (techErr, techRows) => {
+          if (techErr) return res.status(500).json({ message: 'Error al verificar técnico' });
+          if (techRows.length === 0) {
+            return res.status(400).json({ message: 'El técnico no pertenece al grupo del ticket' });
+          }
+          applyUpdate();
         }
       );
-    });
+    }
+
+    applyUpdate();
   });
 };
 
@@ -609,3 +654,4 @@ exports.deleteTicket = (req, res) => {
 
 exports.initTicketsTable = initTicketsTable;
 exports.initCommentsTable = initCommentsTable;
+exports.loadTicketWithAccess = loadTicketWithAccess;

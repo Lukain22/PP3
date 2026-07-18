@@ -7,3 +7,6 @@ node_modules/
 
 # Build del frontend
 frontend-figma/frontend/dist/
+
+# Archivos subidos por usuarios
+prueba/uploads/

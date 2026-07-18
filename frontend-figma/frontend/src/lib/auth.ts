@@ -45,6 +45,6 @@ export function getEmail(): string {
 export function getHomePath(): string {
   const role = getRole();
   if (role === 'admin') return '/admin';
-  if (role === 'technician') return '/technician';
+  if (role === 'technician') return '/panel-tecnico';
   return '/dashboard';
 }

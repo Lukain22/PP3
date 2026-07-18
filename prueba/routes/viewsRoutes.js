@@ -3,15 +3,17 @@ const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const technicianMiddleware = require('../middleware/technicianMiddleware');
 const {
-  getTechnicianTickets,
-  getTechnicianGroups,
-  getTechnicianGroupById
-} = require('../controllers/technicianController');
+  getViews,
+  createView,
+  updateView,
+  deleteView
+} = require('../controllers/viewsController');
 
 router.use(authMiddleware, technicianMiddleware);
 
-router.get('/tickets', getTechnicianTickets);
-router.get('/groups', getTechnicianGroups);
-router.get('/groups/:id', getTechnicianGroupById);
+router.get('/', getViews);
+router.post('/', createView);
+router.patch('/:id', updateView);
+router.delete('/:id', deleteView);
 
 module.exports = router;

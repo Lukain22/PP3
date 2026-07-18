@@ -154,11 +154,7 @@ export default function AdminUserDetail() {
     return (
       <SupportShell
         title="Cargando usuario..."
-        breadcrumbs={[
-          { label: 'Admin', to: '/admin' },
-          { label: 'Usuarios', to: '/admin/users' },
-          { label: '...' }
-        ]}
+        backTo="/admin/users"
       >
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress />
@@ -171,11 +167,7 @@ export default function AdminUserDetail() {
     <SupportShell
       title={email}
       subtitle={`Usuario #${id} · Registrado ${formatDate(createdAt)}`}
-      breadcrumbs={[
-        { label: 'Admin', to: '/admin' },
-        { label: 'Usuarios', to: '/admin/users' },
-        { label: email }
-      ]}
+      backTo="/admin/users"
     >
       <Paper elevation={0} sx={{ p: { xs: 2, md: 3 }, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
         <Stack spacing={3}>

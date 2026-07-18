@@ -82,10 +82,7 @@ export default function AdminUsers() {
     <SupportShell
       title="Gestión de usuarios y técnicos"
       subtitle={loading ? 'Cargando...' : `${users.length} usuario${users.length === 1 ? '' : 's'} registrados`}
-      breadcrumbs={[
-        { label: 'Admin', to: '/admin' },
-        { label: 'Usuarios' }
-      ]}
+      backTo="/admin"
     >
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>

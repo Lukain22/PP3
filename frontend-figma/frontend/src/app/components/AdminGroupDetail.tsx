@@ -170,11 +170,7 @@ export default function AdminGroupDetail() {
     return (
       <SupportShell
         title="Cargando grupo..."
-        breadcrumbs={[
-          { label: 'Admin', to: '/admin' },
-          { label: 'Grupos', to: '/admin/groups' },
-          { label: '...' }
-        ]}
+        backTo="/admin/groups"
       >
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress />
@@ -187,11 +183,7 @@ export default function AdminGroupDetail() {
     <SupportShell
       title={name}
       subtitle={`Grupo #${id}${createdAt ? ` · Creado ${formatDate(createdAt)}` : ''}`}
-      breadcrumbs={[
-        { label: 'Admin', to: '/admin' },
-        { label: 'Grupos', to: '/admin/groups' },
-        { label: name }
-      ]}
+      backTo="/admin/groups"
     >
       <Paper elevation={0} sx={{ p: { xs: 2, md: 3 }, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
         <Stack spacing={3}>

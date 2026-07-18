@@ -38,7 +38,15 @@ import {
   getSlaStatusColor,
   isIncident
 } from '../../lib/sla';
-import { TICKET_STATUS_OPTIONS } from '../../lib/ticketStatus';
+import { TICKET_STATUS_OPTIONS, getTicketStatusLabel, getTicketStatusColor } from '../../lib/ticketStatus';
+import InlineEditSelect from './InlineEditSelect';
+import TicketViewsBar from './TicketViewsBar';
+import {
+  type TicketListFilters,
+  type TicketView,
+  buildTicketQueryParams,
+  emptyTicketListFilters
+} from '../../lib/ticketViews';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -51,6 +59,8 @@ interface Ticket {
   type: string;
   group_id: number | null;
   group_name: string | null;
+  technician_id?: number | null;
+  technician_email?: string | null;
   sla_status?: string | null;
   category?: string | null;
   subcategory?: string | null;
@@ -63,6 +73,11 @@ interface Ticket {
 interface GroupOption {
   id: number;
   name: string;
+}
+
+interface TechnicianOption {
+  id: number;
+  email: string;
 }
 
 const statusFilters = [
@@ -81,14 +96,15 @@ export default function AdminPanel() {
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [groups, setGroups] = useState<GroupOption[]>([]);
+  const [groupTechnicians, setGroupTechnicians] = useState<Record<number, TechnicianOption[]>>({});
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [listFilters, setListFilters] = useState<TicketListFilters>(emptyTicketListFilters());
+  const [activeViewId, setActiveViewId] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState('date-desc');
-  const [groupFilter, setGroupFilter] = useState('');
   const [page, setPage] = useState(1);
 
   const apiCall = async (path: string, options: RequestInit = {}) => {
@@ -111,11 +127,9 @@ export default function AdminPanel() {
     return { response, data };
   };
 
-  const loadTickets = async (currentPage: number, currentStatus: string, currentGroupId: string) => {
+  const loadTickets = async (currentPage: number, filters: TicketListFilters) => {
     setLoading(true);
-    const params = new URLSearchParams({ page: String(currentPage), limit: String(PAGE_SIZE) });
-    if (currentStatus) params.set('status', currentStatus);
-    if (currentGroupId) params.set('group_id', currentGroupId);
+    const params = buildTicketQueryParams(currentPage, PAGE_SIZE, filters);
 
     const result = await apiCall(`/admin/tickets?${params}`);
     if (!result) return;
@@ -135,7 +149,36 @@ export default function AdminPanel() {
   };
 
   useEffect(() => { loadGroups(); }, []);
-  useEffect(() => { loadTickets(page, statusFilter, groupFilter); }, [page, statusFilter, groupFilter]);
+  useEffect(() => { loadTickets(page, listFilters); }, [page, listFilters]);
+
+  const handleApplyView = (view: TicketView | null, filters: TicketListFilters, nextSortBy: string) => {
+    setActiveViewId(view?.id ?? null);
+    setListFilters(filters);
+    setSortBy(nextSortBy);
+    setPage(1);
+    setSearch('');
+  };
+
+  const updateFilters = (patch: Partial<TicketListFilters>) => {
+    setActiveViewId(null);
+    setListFilters((prev) => ({ ...prev, ...patch }));
+    setPage(1);
+    setSearch('');
+  };
+
+  useEffect(() => {
+    if (groups.length === 0) return;
+    const loadTechnicians = async () => {
+      const entries = await Promise.all(
+        groups.map(async (group) => {
+          const result = await apiCall(`/admin/groups/${group.id}`);
+          return [group.id, result?.response.ok ? result.data.technicians || [] : []] as const;
+        })
+      );
+      setGroupTechnicians(Object.fromEntries(entries));
+    };
+    loadTechnicians();
+  }, [groups]);
 
   const displayTickets = useMemo(() => {
     let list = [...tickets];
@@ -146,6 +189,7 @@ export default function AdminPanel() {
         (t) =>
           t.title.toLowerCase().includes(q) ||
           t.user_email.toLowerCase().includes(q) ||
+          (t.technician_email || '').toLowerCase().includes(q) ||
           String(t.id).includes(q)
       );
     }
@@ -160,7 +204,7 @@ export default function AdminPanel() {
     });
 
     return list;
-  }, [tickets, statusFilter, search, sortBy]);
+  }, [tickets, search, sortBy]);
 
   const handleStatusChange = async (ticketId: number, newStatus: string) => {
     setBusyId(ticketId);
@@ -201,6 +245,33 @@ export default function AdminPanel() {
     }
   };
 
+  const handleTechnicianChange = async (ticketId: number, newTechnicianId: number | null, groupId: number | null) => {
+    setBusyId(ticketId);
+    try {
+      const result = await apiCall(`/admin/tickets/${ticketId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ technician_id: newTechnicianId })
+      });
+      if (!result) return;
+      if (!result.response.ok) { toast.error(result.data.message || 'No se pudo actualizar'); return; }
+      const technicianEmail = newTechnicianId
+        ? (groupTechnicians[groupId || 0] || []).find((tech) => tech.id === newTechnicianId)?.email || ''
+        : '';
+      setTickets((prev) =>
+        prev.map((t) =>
+          t.id === ticketId
+            ? { ...t, technician_id: newTechnicianId, technician_email: technicianEmail || null }
+            : t
+        )
+      );
+      toast.success('Técnico actualizado');
+    } catch {
+      toast.error('Error conectando con el backend');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const handleDelete = async (ticketId: number, title: string) => {
     if (!window.confirm(`¿Eliminar el ticket "${title}"?`)) return;
     setBusyId(ticketId);
@@ -209,7 +280,7 @@ export default function AdminPanel() {
       if (!result) return;
       if (!result.response.ok) { toast.error(result.data.message || 'No se pudo eliminar'); return; }
       toast.success('Ticket eliminado');
-      await loadTickets(page, statusFilter, groupFilter);
+      await loadTickets(page, listFilters);
     } catch {
       toast.error('Error conectando con el backend');
     } finally {
@@ -220,13 +291,14 @@ export default function AdminPanel() {
   const exportCsv = () => {
     if (displayTickets.length === 0) return;
     const rows = [
-      ['ID', 'Usuario', 'Titulo', 'Tipo', 'Grupo', 'Estado', 'Prioridad', 'SLA', 'Fecha'],
+      ['ID', 'Usuario', 'Titulo', 'Tipo', 'Grupo', 'Asignado a', 'Estado', 'Prioridad', 'SLA', 'Fecha'],
       ...displayTickets.map((t) => [
         t.id,
         `"${t.user_email}"`,
         `"${t.title.replace(/"/g, '""')}"`,
         t.type || 'incident',
         `"${(t.group_name || '').replace(/"/g, '""')}"`,
+        `"${(t.technician_email || '').replace(/"/g, '""')}"`,
         t.status,
         isIncident(t.type) ? (t.priority || 'medium') : '',
         isIncident(t.type) ? (t.sla_status || '') : '',
@@ -255,6 +327,16 @@ export default function AdminPanel() {
 
       {/* Toolbar */}
       <Paper elevation={0} sx={{ p: 2, mb: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+        <TicketViewsBar
+          scope="admin"
+          groups={groups}
+          currentFilters={listFilters}
+          currentSortBy={sortBy}
+          activeViewId={activeViewId}
+          apiCall={apiCall}
+          onApplyView={handleApplyView}
+        />
+
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }} flexWrap="wrap" useFlexGap>
           <TextField
             size="small"
@@ -275,7 +357,7 @@ export default function AdminPanel() {
             size="small"
             label="Ordenar"
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
+            onChange={(e) => { setActiveViewId(null); setSortBy(e.target.value); }}
             sx={{ minWidth: 200 }}
           >
             <MenuItem value="date-desc">Más recientes</MenuItem>
@@ -286,15 +368,41 @@ export default function AdminPanel() {
           <TextField
             select
             size="small"
+            label="Tipo"
+            value={listFilters.type}
+            onChange={(e) => updateFilters({ type: e.target.value, priority: e.target.value === 'requirement' ? '' : listFilters.priority })}
+            sx={{ minWidth: 150 }}
+          >
+            <MenuItem value="">Todos</MenuItem>
+            <MenuItem value="incident">Incidente</MenuItem>
+            <MenuItem value="requirement">Requerimiento</MenuItem>
+          </TextField>
+          <TextField
+            select
+            size="small"
             label="Grupo"
-            value={groupFilter}
-            onChange={(e) => { setGroupFilter(e.target.value); setPage(1); }}
+            value={listFilters.group_id}
+            onChange={(e) => updateFilters({ group_id: e.target.value })}
             sx={{ minWidth: 180 }}
           >
             <MenuItem value="">Todos los grupos</MenuItem>
             {groups.map((g) => (
               <MenuItem key={g.id} value={String(g.id)}>{g.name}</MenuItem>
             ))}
+          </TextField>
+          <TextField
+            select
+            size="small"
+            label="Prioridad"
+            value={listFilters.priority}
+            disabled={listFilters.type === 'requirement'}
+            onChange={(e) => updateFilters({ priority: e.target.value })}
+            sx={{ minWidth: 140 }}
+          >
+            <MenuItem value="">Todas</MenuItem>
+            <MenuItem value="high">Alta</MenuItem>
+            <MenuItem value="medium">Media</MenuItem>
+            <MenuItem value="low">Baja</MenuItem>
           </TextField>
           <Button
             variant="outlined"
@@ -332,9 +440,9 @@ export default function AdminPanel() {
             <Chip
               key={f.value || 'all'}
               label={f.label}
-              onClick={() => { setStatusFilter(f.value); setPage(1); setSearch(''); }}
-              color={statusFilter === f.value ? 'primary' : 'default'}
-              variant={statusFilter === f.value ? 'filled' : 'outlined'}
+              onClick={() => updateFilters({ status: f.value })}
+              color={!listFilters.status.includes(',') && listFilters.status === f.value ? 'primary' : 'default'}
+              variant={!listFilters.status.includes(',') && listFilters.status === f.value ? 'filled' : 'outlined'}
             />
           ))}
         </Stack>
@@ -348,7 +456,9 @@ export default function AdminPanel() {
       ) : displayTickets.length === 0 ? (
         <Paper sx={{ p: 5, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
           <Typography color="text.secondary">
-            {search || statusFilter ? 'Sin resultados para esa búsqueda.' : 'No hay tickets en el sistema.'}
+            {search || activeViewId || listFilters.type || listFilters.group_id || listFilters.status || listFilters.priority
+              ? 'Sin resultados para esa búsqueda.'
+              : 'No hay tickets en el sistema.'}
           </Typography>
         </Paper>
       ) : (
@@ -357,7 +467,7 @@ export default function AdminPanel() {
           elevation={0}
           sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflowX: 'auto' }}
         >
-          <Table sx={{ minWidth: 1280 }}>
+          <Table sx={{ minWidth: 1460 }}>
             <TableHead>
               <TableRow sx={{ bgcolor: '#fafbfc' }}>
                 <TableCell sx={{ fontWeight: 600, width: 64 }}>#</TableCell>
@@ -365,6 +475,7 @@ export default function AdminPanel() {
                 <TableCell sx={{ fontWeight: 600, minWidth: 110 }}>Tipo</TableCell>
                 <TableCell sx={{ fontWeight: 600, minWidth: 200 }}>Usuario</TableCell>
                 <TableCell sx={{ fontWeight: 600, minWidth: 180 }}>Grupo</TableCell>
+                <TableCell sx={{ fontWeight: 600, minWidth: 180 }}>Asignado a</TableCell>
                 <TableCell sx={{ fontWeight: 600, minWidth: 160 }}>Estado</TableCell>
                 <TableCell sx={{ fontWeight: 600, minWidth: 110 }}>Prioridad</TableCell>
                 <TableCell sx={{ fontWeight: 600, minWidth: 110 }}>SLA</TableCell>
@@ -401,32 +512,63 @@ export default function AdminPanel() {
                     </Typography>
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
-                    <TextField
-                      select
-                      size="small"
+                    <InlineEditSelect
                       value={ticket.group_id ?? ''}
                       disabled={busyId === ticket.id || groups.length === 0}
-                      onChange={(e) => handleGroupChange(ticket.id, Number(e.target.value))}
-                      fullWidth
+                      display={
+                        <Typography variant="caption" sx={{ wordBreak: 'break-word' }}>
+                          {ticket.group_name || '—'}
+                        </Typography>
+                      }
+                      onChange={(val) => handleGroupChange(ticket.id, Number(val))}
                     >
                       {groups.map((g) => (
                         <MenuItem key={g.id} value={g.id}>{g.name}</MenuItem>
                       ))}
-                    </TextField>
+                    </InlineEditSelect>
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
-                    <TextField
-                      select
-                      size="small"
+                    <InlineEditSelect
+                      value={ticket.technician_id ?? ''}
+                      disabled={busyId === ticket.id || !ticket.group_id}
+                      display={
+                        ticket.technician_email ? (
+                          <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
+                            {ticket.technician_email}
+                          </Typography>
+                        ) : (
+                          <Typography variant="caption" fontWeight={700}>
+                            Sin asignar
+                          </Typography>
+                        )
+                      }
+                      onChange={(val) =>
+                        handleTechnicianChange(ticket.id, val ? Number(val) : null, ticket.group_id)
+                      }
+                    >
+                      <MenuItem value=""><em>Sin asignar</em></MenuItem>
+                      {(groupTechnicians[ticket.group_id || 0] || []).map((tech) => (
+                        <MenuItem key={tech.id} value={tech.id}>{tech.email}</MenuItem>
+                      ))}
+                    </InlineEditSelect>
+                  </TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <InlineEditSelect
                       value={ticket.status}
                       disabled={busyId === ticket.id}
-                      onChange={(e) => handleStatusChange(ticket.id, e.target.value)}
-                      fullWidth
+                      display={
+                        <Chip
+                          label={getTicketStatusLabel(ticket.status)}
+                          color={getTicketStatusColor(ticket.status)}
+                          size="small"
+                        />
+                      }
+                      onChange={(val) => handleStatusChange(ticket.id, val)}
                     >
                       {TICKET_STATUS_OPTIONS.map((s) => (
                         <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
                       ))}
-                    </TextField>
+                    </InlineEditSelect>
                   </TableCell>
                   <TableCell>
                     {isIncident(ticket.type) ? (

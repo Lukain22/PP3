@@ -7,6 +7,7 @@ const {
   applySlaFieldsToUpdate,
   appendSlaToFields
 } = require('../utils/sla');
+const { appendListFilters } = require('../utils/ticketFilters');
 
 const SLA_SELECT = 't.sla_response_due, t.sla_resolution_due, t.sla_status';
 
@@ -35,25 +36,19 @@ exports.getAllTickets = (req, res) => {
   const page  = Math.max(1, parseInt(req.query.page)  || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
   const offset = (page - 1) * limit;
-  const { status, user_email, group_id } = req.query;
+  const { status, user_email, group_id, type, priority } = req.query;
 
   const conditions = [];
   const baseParams = [];
 
-  if (status && VALID_STATUSES.includes(status)) {
-    conditions.push('t.status = ?');
-    baseParams.push(status);
-  }
+  appendListFilters(conditions, baseParams, { status, group_id, type, priority });
+
   if (user_email && String(user_email).trim()) {
     conditions.push('u.email LIKE ?');
     baseParams.push(`%${String(user_email).trim()}%`);
   }
-  if (group_id && String(group_id).trim()) {
-    conditions.push('t.group_id = ?');
-    baseParams.push(parseInt(group_id, 10));
-  }
 
-  const joinClause = 'JOIN users u ON u.id = t.user_id LEFT JOIN `groups` g ON g.id = t.group_id';
+  const joinClause = 'JOIN users u ON u.id = t.user_id LEFT JOIN `groups` g ON g.id = t.group_id LEFT JOIN users tech ON tech.id = t.technician_id';
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
   db.query(
@@ -69,7 +64,8 @@ exports.getAllTickets = (req, res) => {
 
       db.query(
         `SELECT t.id, t.title, t.description, t.status, t.priority, t.type,
-                t.category, t.subcategory, t.group_id, g.name AS group_name, ${SLA_SELECT},
+                t.category, t.subcategory, t.group_id, g.name AS group_name,
+                t.technician_id, tech.email AS technician_email, ${SLA_SELECT},
                 t.created_at, t.updated_at, t.user_id, u.email AS user_email
          FROM tickets t
          ${joinClause}
@@ -99,11 +95,13 @@ exports.getAnyTicket = (req, res) => {
   const { id } = req.params;
   db.query(
     `SELECT t.id, t.title, t.description, t.status, t.priority, t.type,
-            t.category, t.subcategory, t.group_id, g.name AS group_name, ${SLA_SELECT},
+            t.category, t.subcategory, t.group_id, g.name AS group_name,
+            t.technician_id, tech.email AS technician_email, ${SLA_SELECT},
             t.created_at, t.updated_at, t.user_id, u.email AS user_email
      FROM tickets t
      JOIN users u ON u.id = t.user_id
      LEFT JOIN \`groups\` g ON g.id = t.group_id
+     LEFT JOIN users tech ON tech.id = t.technician_id
      WHERE t.id = ?`,
     [id],
     (err, results) => {
@@ -121,7 +119,7 @@ exports.getAnyTicket = (req, res) => {
 
 exports.updateAnyTicket = (req, res) => {
   const { id } = req.params;
-  const { title, description, status, priority, category, subcategory, type, group_id } = req.body;
+  const { title, description, status, priority, category, subcategory, type, group_id, technician_id } = req.body;
 
   if (title !== undefined && !String(title).trim()) {
     return res.status(400).json({ message: 'El título no puede estar vacío' });
@@ -172,6 +170,11 @@ exports.updateAnyTicket = (req, res) => {
       if (category !== undefined) { fields.push('category = ?'); values.push(category || null); updates.category = category || null; }
       if (subcategory !== undefined) { fields.push('subcategory = ?'); values.push(subcategory || null); updates.subcategory = subcategory || null; }
       if (group_id !== undefined) { fields.push('group_id = ?'); values.push(group_id); updates.group_id = group_id; }
+      if (technician_id !== undefined) {
+        fields.push('technician_id = ?');
+        values.push(technician_id || null);
+        updates.technician_id = technician_id || null;
+      }
 
       if (fields.length === 0) {
         return res.status(400).json({ message: 'No hay campos para actualizar' });
@@ -221,15 +224,47 @@ exports.updateAnyTicket = (req, res) => {
       return res.status(400).json({ message: 'Los requerimientos no tienen prioridad' });
     }
 
+    const validateTechnicianAndUpdate = (effectiveGroupId) => {
+      const nextTechnicianId = technician_id !== undefined ? technician_id : oldTicket.technician_id;
+
+      if (nextTechnicianId === null || nextTechnicianId === undefined || nextTechnicianId === '') {
+        return applyUpdate(oldTicket);
+      }
+
+      const parsedTechnicianId = parseInt(nextTechnicianId, 10);
+      if (!parsedTechnicianId) {
+        return res.status(400).json({ message: 'Técnico inválido' });
+      }
+
+      if (!effectiveGroupId) {
+        return res.status(400).json({ message: 'Asigná un grupo antes de seleccionar un técnico' });
+      }
+
+      db.query(
+        `SELECT u.id
+         FROM users u
+         JOIN user_groups ug ON ug.user_id = u.id
+         WHERE u.id = ? AND u.role = 'technician' AND ug.group_id = ?`,
+        [parsedTechnicianId, effectiveGroupId],
+        (err, techRows) => {
+          if (err) return res.status(500).json({ message: 'Error al verificar técnico' });
+          if (techRows.length === 0) {
+            return res.status(400).json({ message: 'El técnico no pertenece al grupo del ticket' });
+          }
+          applyUpdate(oldTicket);
+        }
+      );
+    };
+
     if (group_id !== undefined) {
       return db.query('SELECT id FROM `groups` WHERE id = ?', [group_id], (gErr, gRows) => {
         if (gErr) return res.status(500).json({ message: 'Error al verificar grupo' });
         if (gRows.length === 0) return res.status(400).json({ message: 'Grupo inválido' });
-        applyUpdate(oldTicket);
+        validateTechnicianAndUpdate(group_id);
       });
     }
 
-    applyUpdate(oldTicket);
+    validateTechnicianAndUpdate(oldTicket.group_id);
   });
 };
 

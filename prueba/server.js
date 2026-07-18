@@ -6,8 +6,10 @@ const authRoutes = require('./routes/authRoutes');
 const ticketRoutes = require('./routes/ticketRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const technicianRoutes = require('./routes/technicianRoutes');
+const viewsRoutes = require('./routes/viewsRoutes');
 const { initTicketsTable, initCommentsTable } = require('./controllers/ticketsController');
 const { initTicketHistoryTable } = require('./utils/ticketHistory');
+const { initAttachmentsTable } = require('./utils/attachments');
 const { initSlaPoliciesTable, loadPolicies, buildIncidentSla, formatDateForDb } = require('./utils/sla');
 const {
   initGroupsTable,
@@ -15,6 +17,7 @@ const {
   initTicketResolutionsTable,
   getDefaultGroupId
 } = require('./utils/groups');
+const { initTicketViewsTable } = require('./controllers/viewsController');
 const db = require('./db/db');
 
 const app = express();
@@ -26,6 +29,7 @@ app.use('/auth', authRoutes);
 app.use('/tickets', ticketRoutes);
 app.use('/admin', adminRoutes);
 app.use('/technician', technicianRoutes);
+app.use('/views', viewsRoutes);
 
 const initUsersTable = () => {
   const createSql = `
@@ -54,10 +58,12 @@ const initUsersTable = () => {
         initTicketsTable();
         initCommentsTable();
         initTicketHistoryTable();
+        initAttachmentsTable();
         initSlaPoliciesTable();
         initGroupsTable();
         initUserGroupsTable();
         initTicketResolutionsTable();
+        initTicketViewsTable();
         runTicketMigrations();
       }
     );
@@ -90,6 +96,9 @@ const runTicketMigrations = () => {
   db.query('ALTER TABLE tickets ADD COLUMN group_id INT NULL DEFAULT NULL', (err) => {
     if (err && err.errno !== 1060) console.error('Error migrando columna group_id:', err.code);
     assignDefaultGroupsToTickets();
+  });
+  db.query('ALTER TABLE tickets ADD COLUMN technician_id INT NULL DEFAULT NULL', (err) => {
+    if (err && err.errno !== 1060) console.error('Error migrando columna technician_id:', err.code);
   });
   db.query('ALTER TABLE tickets MODIFY COLUMN priority VARCHAR(50) DEFAULT NULL', (err) => {
     if (err && err.errno !== 1060) console.error('Error migrando priority nullable:', err.code);
