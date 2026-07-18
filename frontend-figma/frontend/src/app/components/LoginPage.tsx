@@ -12,7 +12,7 @@ import {
   Tab
 } from '@mui/material';
 import { toast } from 'sonner';
-import { setAuth, type UserRole } from '../../lib/auth';
+import { setAuth, getHomePath, type UserRole } from '../../lib/auth';
 
 const API_URL = `${import.meta.env.VITE_API_URL as string}/auth`;
 
@@ -43,7 +43,7 @@ export default function LoginPage() {
       }
 
       setAuth(data.token, (data.role as UserRole) || 'user');
-      navigate(data.role === 'admin' ? '/admin' : '/dashboard');
+      navigate(getHomePath());
     } catch (error) {
       console.error(error);
       toast.error('Error conectando con el backend');

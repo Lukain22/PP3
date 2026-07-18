@@ -12,27 +12,37 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Button,
-  Stack
+  Stack,
+  Link
 } from '@mui/material';
-import { toast } from 'sonner';
 import SupportShell from './SupportShell';
-import { getToken, clearAuth } from '../../lib/auth';
+import { getToken, clearAuth, type UserRole } from '../../lib/auth';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
+
+interface UserGroup {
+  id: number;
+  name: string;
+}
 
 interface User {
   id: number;
   email: string;
-  role: 'user' | 'admin';
+  role: UserRole;
   created_at: string;
+  groups?: UserGroup[];
 }
+
+const ROLE_LABELS: Record<UserRole, string> = {
+  user: 'Usuario',
+  admin: 'Administrador',
+  technician: 'Técnico'
+};
 
 export default function AdminUsers() {
   const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busyId, setBusyId] = useState<number | null>(null);
 
   const apiCall = async (path: string, options: RequestInit = {}) => {
     const token = getToken();
@@ -54,56 +64,29 @@ export default function AdminUsers() {
     return { response, data };
   };
 
-  useEffect(() => {
-    apiCall('/admin/users').then((result) => {
-      if (result?.response.ok) {
-        setUsers(Array.isArray(result.data) ? result.data : []);
-      }
-      setLoading(false);
-    });
-  }, []);
-
-  const handleRoleToggle = async (userId: number, currentRole: 'user' | 'admin') => {
-    const newRole = currentRole === 'admin' ? 'user' : 'admin';
-    const label = newRole === 'admin' ? 'administrador' : 'usuario';
-
-    if (!window.confirm(`¿Cambiar el rol de este usuario a "${label}"?`)) return;
-
-    setBusyId(userId);
-    try {
-      const result = await apiCall(`/admin/users/${userId}/role`, {
-        method: 'PATCH',
-        body: JSON.stringify({ role: newRole })
-      });
-      if (!result) return;
-      if (!result.response.ok) {
-        toast.error(result.data.message || 'No se pudo cambiar el rol');
-        return;
-      }
-      setUsers((prev) =>
-        prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
-      );
-      toast.success(`Rol actualizado a ${label}`);
-    } catch {
-      toast.error('Error conectando con el backend');
-    } finally {
-      setBusyId(null);
+  const loadData = async () => {
+    setLoading(true);
+    const result = await apiCall('/admin/users');
+    if (result?.response.ok) {
+      setUsers(Array.isArray(result.data) ? result.data : []);
     }
+    setLoading(false);
   };
+
+  useEffect(() => { loadData(); }, []);
 
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' });
 
   return (
     <SupportShell
-      title="Gestión de usuarios"
+      title="Gestión de usuarios y técnicos"
       subtitle={loading ? 'Cargando...' : `${users.length} usuario${users.length === 1 ? '' : 's'} registrados`}
       breadcrumbs={[
         { label: 'Admin', to: '/admin' },
         { label: 'Usuarios' }
       ]}
     >
-
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress />
@@ -115,40 +98,53 @@ export default function AdminUsers() {
               <TableRow sx={{ bgcolor: '#fafbfc' }}>
                 <TableCell sx={{ fontWeight: 600, width: 64 }}>#</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Correo</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: 120 }}>Rol</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: 140 }}>Rol</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Grupos</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 140 }}>Registrado</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: 160 }} align="center">Acciones</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {users.map((user) => (
-                <TableRow key={user.id} sx={{ '&:last-child td': { border: 0 } }}>
+                <TableRow
+                  key={user.id}
+                  hover
+                  sx={{ cursor: 'pointer', '&:last-child td': { border: 0 } }}
+                  onClick={() => navigate(`/admin/users/${user.id}`)}
+                >
                   <TableCell sx={{ color: 'text.secondary', fontWeight: 500 }}>{user.id}</TableCell>
                   <TableCell>
-                    <Typography variant="body2">{user.email}</Typography>
+                    <Link
+                      component="button"
+                      underline="hover"
+                      variant="body2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/admin/users/${user.id}`);
+                      }}
+                    >
+                      {user.email}
+                    </Link>
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={user.role === 'admin' ? 'Admin' : 'Usuario'}
-                      color={user.role === 'admin' ? 'primary' : 'default'}
+                      label={ROLE_LABELS[user.role] || user.role}
+                      color={user.role === 'admin' ? 'primary' : user.role === 'technician' ? 'info' : 'default'}
                       size="small"
-                      variant={user.role === 'admin' ? 'filled' : 'outlined'}
+                      variant={user.role === 'user' ? 'outlined' : 'filled'}
                     />
                   </TableCell>
-                  <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(user.created_at)}</TableCell>
-                  <TableCell align="center">
-                    <Stack direction="row" spacing={1} justifyContent="center">
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color={user.role === 'admin' ? 'warning' : 'primary'}
-                        disabled={busyId === user.id}
-                        onClick={() => handleRoleToggle(user.id, user.role)}
-                      >
-                        {user.role === 'admin' ? 'Quitar admin' : 'Hacer admin'}
-                      </Button>
-                    </Stack>
+                  <TableCell>
+                    {user.role === 'technician' && user.groups?.length ? (
+                      <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                        {user.groups.map((g) => (
+                          <Chip key={g.id} label={g.name} size="small" variant="outlined" />
+                        ))}
+                      </Stack>
+                    ) : (
+                      <Typography variant="caption" color="text.disabled">—</Typography>
+                    )}
                   </TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(user.created_at)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

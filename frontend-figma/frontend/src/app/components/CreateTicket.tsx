@@ -4,7 +4,6 @@ import {
   Box,
   Paper,
   TextField,
-  MenuItem,
   Button,
   Typography,
   ToggleButton,
@@ -74,7 +73,14 @@ export default function CreateTicket() {
         },
         body: JSON.stringify(
           admin
-            ? formData
+            ? formData.type === 'incident'
+              ? formData
+              : {
+                  title: formData.title,
+                  description: formData.description,
+                  type: formData.type,
+                  status: formData.status
+                }
             : {
                 title: formData.title,
                 description: formData.description,
@@ -108,13 +114,7 @@ export default function CreateTicket() {
 
   return (
     <SupportShell
-      maxWidth="lg"
       title="Nueva solicitud"
-      subtitle="Describí el problema con el mayor detalle posible, como en un portal de soporte."
-      breadcrumbs={[
-        { label: 'Inicio', to: '/dashboard' },
-        { label: 'Nueva solicitud' }
-      ]}
     >
       <Box
         component="form"
@@ -134,7 +134,7 @@ export default function CreateTicket() {
             exclusive
             fullWidth
             value={formData.type}
-            onChange={(_, val) => val && setFormData({ ...formData, type: val })}
+            onChange={(_, val) => val && setFormData({ ...formData, type: val, priority: val === 'incident' ? formData.priority : 'medium' })}
             sx={{ mt: 2, mb: 3 }}
           >
             {TICKET_TYPE_OPTIONS.map((t) => (
@@ -170,10 +170,9 @@ export default function CreateTicket() {
             multiline
             minRows={8}
             placeholder="¿Qué pasó? ¿Cuándo empezó? ¿Qué intentaste hacer?"
-            helperText="Incluí mensajes de error, navegador o dispositivo si aplica."
           />
 
-          {admin && (
+          {admin && formData.type === 'incident' && (
             <>
               <Divider sx={{ my: 3 }} />
 

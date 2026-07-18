@@ -24,11 +24,21 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import PeopleIcon from '@mui/icons-material/People';
+import GroupWorkIcon from '@mui/icons-material/GroupWork';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import TimerIcon from '@mui/icons-material/Timer';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
 import { getToken, clearAuth } from '../../lib/auth';
 import { getTicketTypeLabel, getTicketTypeColor } from '../../lib/ticketTypes';
+import {
+  getPriorityLabel,
+  getPriorityColor,
+  getSlaStatusLabel,
+  getSlaStatusColor,
+  isIncident
+} from '../../lib/sla';
+import { TICKET_STATUS_OPTIONS } from '../../lib/ticketStatus';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -37,8 +47,11 @@ interface Ticket {
   title: string;
   description: string;
   status: string;
-  priority: string;
+  priority: string | null;
   type: string;
+  group_id: number | null;
+  group_name: string | null;
+  sla_status?: string | null;
   category?: string | null;
   subcategory?: string | null;
   created_at: string;
@@ -47,10 +60,16 @@ interface Ticket {
   user_email: string;
 }
 
+interface GroupOption {
+  id: number;
+  name: string;
+}
+
 const statusFilters = [
   { value: '', label: 'Todos' },
   { value: 'open', label: 'Abiertos' },
   { value: 'in-progress', label: 'En proceso' },
+  { value: 'on-hold', label: 'En espera' },
   { value: 'resolved', label: 'Resueltos' }
 ];
 
@@ -61,14 +80,15 @@ export default function AdminPanel() {
   const PAGE_SIZE = 20;
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [groups, setGroups] = useState<GroupOption[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
-  const [userEmailFilter, setUserEmailFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [sortBy, setSortBy] = useState('date-desc');
+  const [groupFilter, setGroupFilter] = useState('');
   const [page, setPage] = useState(1);
 
   const apiCall = async (path: string, options: RequestInit = {}) => {
@@ -91,11 +111,11 @@ export default function AdminPanel() {
     return { response, data };
   };
 
-  const loadTickets = async (currentPage: number, currentStatus: string, currentUserEmail: string) => {
+  const loadTickets = async (currentPage: number, currentStatus: string, currentGroupId: string) => {
     setLoading(true);
     const params = new URLSearchParams({ page: String(currentPage), limit: String(PAGE_SIZE) });
     if (currentStatus) params.set('status', currentStatus);
-    if (currentUserEmail.trim()) params.set('user_email', currentUserEmail.trim());
+    if (currentGroupId) params.set('group_id', currentGroupId);
 
     const result = await apiCall(`/admin/tickets?${params}`);
     if (!result) return;
@@ -107,7 +127,15 @@ export default function AdminPanel() {
     setLoading(false);
   };
 
-  useEffect(() => { loadTickets(page, statusFilter, userEmailFilter); }, [page, statusFilter, userEmailFilter]);
+  const loadGroups = async () => {
+    const result = await apiCall('/admin/groups');
+    if (result?.response.ok) {
+      setGroups(Array.isArray(result.data) ? result.data : []);
+    }
+  };
+
+  useEffect(() => { loadGroups(); }, []);
+  useEffect(() => { loadTickets(page, statusFilter, groupFilter); }, [page, statusFilter, groupFilter]);
 
   const displayTickets = useMemo(() => {
     let list = [...tickets];
@@ -125,7 +153,7 @@ export default function AdminPanel() {
     list.sort((a, b) => {
       switch (sortBy) {
         case 'date-asc': return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-        case 'priority-desc': return (priorityWeight[b.priority] || 0) - (priorityWeight[a.priority] || 0);
+        case 'priority-desc': return (priorityWeight[b.priority || ''] || 0) - (priorityWeight[a.priority || ''] || 0);
         case 'title-asc': return a.title.localeCompare(b.title, 'es');
         default: return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       }
@@ -152,6 +180,27 @@ export default function AdminPanel() {
     }
   };
 
+  const handleGroupChange = async (ticketId: number, newGroupId: number) => {
+    setBusyId(ticketId);
+    try {
+      const result = await apiCall(`/admin/tickets/${ticketId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ group_id: newGroupId })
+      });
+      if (!result) return;
+      if (!result.response.ok) { toast.error(result.data.message || 'No se pudo actualizar'); return; }
+      const groupName = groups.find((g) => g.id === newGroupId)?.name || '';
+      setTickets((prev) =>
+        prev.map((t) => (t.id === ticketId ? { ...t, group_id: newGroupId, group_name: groupName } : t))
+      );
+      toast.success('Grupo actualizado');
+    } catch {
+      toast.error('Error conectando con el backend');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const handleDelete = async (ticketId: number, title: string) => {
     if (!window.confirm(`¿Eliminar el ticket "${title}"?`)) return;
     setBusyId(ticketId);
@@ -160,7 +209,7 @@ export default function AdminPanel() {
       if (!result) return;
       if (!result.response.ok) { toast.error(result.data.message || 'No se pudo eliminar'); return; }
       toast.success('Ticket eliminado');
-      await loadTickets(page, statusFilter);
+      await loadTickets(page, statusFilter, groupFilter);
     } catch {
       toast.error('Error conectando con el backend');
     } finally {
@@ -171,14 +220,16 @@ export default function AdminPanel() {
   const exportCsv = () => {
     if (displayTickets.length === 0) return;
     const rows = [
-      ['ID', 'Usuario', 'Titulo', 'Tipo', 'Estado', 'Prioridad', 'Fecha'],
+      ['ID', 'Usuario', 'Titulo', 'Tipo', 'Grupo', 'Estado', 'Prioridad', 'SLA', 'Fecha'],
       ...displayTickets.map((t) => [
         t.id,
         `"${t.user_email}"`,
         `"${t.title.replace(/"/g, '""')}"`,
         t.type || 'incident',
+        `"${(t.group_name || '').replace(/"/g, '""')}"`,
         t.status,
-        t.priority,
+        isIncident(t.type) ? (t.priority || 'medium') : '',
+        isIncident(t.type) ? (t.sla_status || '') : '',
         new Date(t.created_at).toISOString()
       ])
     ];
@@ -193,64 +244,24 @@ export default function AdminPanel() {
     toast.success('CSV descargado');
   };
 
-  const getStatusColor = (status: string): 'warning' | 'info' | 'success' | 'default' => {
-    if (status === 'open') return 'warning';
-    if (status === 'in-progress') return 'info';
-    if (status === 'resolved') return 'success';
-    return 'default';
-  };
-
-  const getStatusLabel = (s: string) =>
-    s === 'open' ? 'Abierto' : s === 'in-progress' ? 'En proceso' : s === 'resolved' ? 'Resuelto' : s;
-
-  const getPriorityColor = (p: string): 'error' | 'warning' | 'success' | 'default' =>
-    p === 'high' ? 'error' : p === 'medium' ? 'warning' : p === 'low' ? 'success' : 'default';
-
-  const getPriorityLabel = (p: string) =>
-    p === 'high' ? 'Alta' : p === 'medium' ? 'Media' : p === 'low' ? 'Baja' : p;
-
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' });
 
   return (
     <SupportShell
       title="Panel de administración"
-      subtitle={loading ? 'Cargando...' : `${total} ticket${total === 1 ? '' : 's'}${userEmailFilter ? ` · usuario: ${userEmailFilter}` : ''} · pág. ${page}/${totalPages}`}
-      breadcrumbs={[{ label: 'Admin' }]}
+      subtitle={loading ? 'Cargando...' : `${total} ticket${total === 1 ? '' : 's'} · pág. ${page}/${totalPages}`}
     >
 
       {/* Toolbar */}
       <Paper elevation={0} sx={{ p: 2, mb: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }}>
-          {/* Filtro por usuario — server-side */}
-          <TextField
-            size="small"
-            placeholder="Filtrar por correo de usuario..."
-            value={userEmailFilter}
-            onChange={(e) => { setUserEmailFilter(e.target.value); setPage(1); }}
-            sx={{ flex: 1, minWidth: 220 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <PeopleIcon fontSize="small" color="action" />
-                </InputAdornment>
-              ),
-              endAdornment: userEmailFilter ? (
-                <InputAdornment position="end">
-                  <IconButton size="small" onClick={() => { setUserEmailFilter(''); setPage(1); }}>
-                    ✕
-                  </IconButton>
-                </InputAdornment>
-              ) : undefined
-            }}
-          />
-          {/* Búsqueda local (título / ID en la página actual) */}
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }} flexWrap="wrap" useFlexGap>
           <TextField
             size="small"
             placeholder="Buscar en esta página..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            sx={{ flex: 1, minWidth: 180 }}
+            sx={{ flex: 2, minWidth: 400 }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -272,6 +283,33 @@ export default function AdminPanel() {
             <MenuItem value="priority-desc">Prioridad alta primero</MenuItem>
             <MenuItem value="title-asc">Título A-Z</MenuItem>
           </TextField>
+          <TextField
+            select
+            size="small"
+            label="Grupo"
+            value={groupFilter}
+            onChange={(e) => { setGroupFilter(e.target.value); setPage(1); }}
+            sx={{ minWidth: 180 }}
+          >
+            <MenuItem value="">Todos los grupos</MenuItem>
+            {groups.map((g) => (
+              <MenuItem key={g.id} value={String(g.id)}>{g.name}</MenuItem>
+            ))}
+          </TextField>
+          <Button
+            variant="outlined"
+            startIcon={<GroupWorkIcon />}
+            onClick={() => navigate('/admin/groups')}
+          >
+            Grupos
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<TimerIcon />}
+            onClick={() => navigate('/admin/sla')}
+          >
+            SLA
+          </Button>
           <Button
             variant="outlined"
             startIcon={<PeopleIcon />}
@@ -314,18 +352,24 @@ export default function AdminPanel() {
           </Typography>
         </Paper>
       ) : (
-        <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-          <Table>
+        <TableContainer
+          component={Paper}
+          elevation={0}
+          sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflowX: 'auto' }}
+        >
+          <Table sx={{ minWidth: 1280 }}>
             <TableHead>
               <TableRow sx={{ bgcolor: '#fafbfc' }}>
                 <TableCell sx={{ fontWeight: 600, width: 64 }}>#</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Ticket</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: 110 }}>Tipo</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: 180 }}>Usuario</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: 150 }}>Estado</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: 100 }}>Prioridad</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: 130 }}>Categoría</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: 120 }}>Fecha</TableCell>
+                <TableCell sx={{ fontWeight: 600, minWidth: 200 }}>Ticket</TableCell>
+                <TableCell sx={{ fontWeight: 600, minWidth: 110 }}>Tipo</TableCell>
+                <TableCell sx={{ fontWeight: 600, minWidth: 200 }}>Usuario</TableCell>
+                <TableCell sx={{ fontWeight: 600, minWidth: 180 }}>Grupo</TableCell>
+                <TableCell sx={{ fontWeight: 600, minWidth: 160 }}>Estado</TableCell>
+                <TableCell sx={{ fontWeight: 600, minWidth: 110 }}>Prioridad</TableCell>
+                <TableCell sx={{ fontWeight: 600, minWidth: 110 }}>SLA</TableCell>
+                <TableCell sx={{ fontWeight: 600, minWidth: 140 }}>Categoría</TableCell>
+                <TableCell sx={{ fontWeight: 600, minWidth: 120 }}>Fecha</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 96 }} align="center">Acciones</TableCell>
               </TableRow>
             </TableHead>
@@ -338,8 +382,8 @@ export default function AdminPanel() {
                   onClick={() => navigate(`/tickets/${ticket.id}`)}
                 >
                   <TableCell sx={{ color: 'text.secondary', fontWeight: 500 }}>{ticket.id}</TableCell>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  <TableCell sx={{ minWidth: 200 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, wordBreak: 'break-word' }}>
                       {ticket.title}
                     </Typography>
                   </TableCell>
@@ -360,23 +404,52 @@ export default function AdminPanel() {
                     <TextField
                       select
                       size="small"
+                      value={ticket.group_id ?? ''}
+                      disabled={busyId === ticket.id || groups.length === 0}
+                      onChange={(e) => handleGroupChange(ticket.id, Number(e.target.value))}
+                      fullWidth
+                    >
+                      {groups.map((g) => (
+                        <MenuItem key={g.id} value={g.id}>{g.name}</MenuItem>
+                      ))}
+                    </TextField>
+                  </TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <TextField
+                      select
+                      size="small"
                       value={ticket.status}
                       disabled={busyId === ticket.id}
                       onChange={(e) => handleStatusChange(ticket.id, e.target.value)}
                       fullWidth
                     >
-                      <MenuItem value="open">Abierto</MenuItem>
-                      <MenuItem value="in-progress">En proceso</MenuItem>
-                      <MenuItem value="resolved">Resuelto</MenuItem>
+                      {TICKET_STATUS_OPTIONS.map((s) => (
+                        <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
+                      ))}
                     </TextField>
                   </TableCell>
                   <TableCell>
-                    <Chip
-                      label={getPriorityLabel(ticket.priority)}
-                      color={getPriorityColor(ticket.priority)}
-                      size="small"
-                      variant="outlined"
-                    />
+                    {isIncident(ticket.type) ? (
+                      <Chip
+                        label={getPriorityLabel(ticket.priority)}
+                        color={getPriorityColor(ticket.priority || 'medium')}
+                        size="small"
+                        variant="outlined"
+                      />
+                    ) : (
+                      <Typography variant="caption" color="text.disabled">—</Typography>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {isIncident(ticket.type) && ticket.sla_status ? (
+                      <Chip
+                        label={getSlaStatusLabel(ticket.sla_status)}
+                        color={getSlaStatusColor(ticket.sla_status)}
+                        size="small"
+                      />
+                    ) : (
+                      <Typography variant="caption" color="text.disabled">—</Typography>
+                    )}
                   </TableCell>
                   <TableCell>
                     {ticket.category ? (

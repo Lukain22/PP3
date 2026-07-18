@@ -35,13 +35,24 @@ export const HISTORY_FIELD_LABELS: Record<string, string> = {
   title: 'Asunto',
   description: 'Descripción',
   category: 'Categoría',
-  subcategory: 'Subcategoría'
+  subcategory: 'Subcategoría',
+  sla_status: 'Estado SLA',
+  sla_response_due: 'Vencimiento respuesta',
+  sla_resolution_due: 'Vencimiento resolución',
+  group_id: 'Grupo'
 };
 
 export const HISTORY_VALUE_LABELS: Record<string, Record<string, string>> = {
   type: TICKET_TYPE_LABELS,
-  status: { open: 'Abierto', 'in-progress': 'En proceso', resolved: 'Resuelto' },
-  priority: { low: 'Baja', medium: 'Media', high: 'Alta' }
+  status: { open: 'Abierto', 'in-progress': 'En proceso', 'on-hold': 'En espera', resolved: 'Resuelto' },
+  priority: { low: 'Baja', medium: 'Media', high: 'Alta' },
+  sla_status: {
+    on_track: 'En plazo',
+    at_risk: 'Por vencer',
+    breached: 'Vencido',
+    met: 'Cumplido',
+    paused: 'En espera (SLA pausado)'
+  }
 };
 
 export function formatHistoryValue(field: string | null, value: string | null): string {

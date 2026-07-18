@@ -138,7 +138,7 @@ export default function Dashboard() {
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth="lg" sx={{ py: 3 }}>
+      <Container maxWidth={false} disableGutters sx={{ py: 3, px: { xs: 2, sm: 3, md: 4, xl: 5 } }}>
         <Box sx={{ mb: 2.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h5" sx={{ fontWeight: 500 }}>
             Mis Tickets
@@ -155,7 +155,7 @@ export default function Dashboard() {
 
         <Grid container spacing={2} sx={{ mb: 3 }}>
           {stats.map((stat) => (
-            <Grid item xs={6} md={3} key={stat.label}>
+            <Grid size={{ xs: 6, md: 3 }} key={stat.label}>
               <Card sx={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
                 <CardContent sx={{ py: 2, px: 2.5, textAlign: 'center' }}>
                   <Typography

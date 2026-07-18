@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import {
   AppBar,
@@ -13,17 +14,17 @@ import {
 } from '@mui/material';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
-import UiModeToggle from './UiModeToggle';
-import { isAdmin, clearAuth } from '../../lib/auth';
+import BuildIcon from '@mui/icons-material/Build';
+import { isAdmin, isTechnician, clearAuth, getHomePath } from '../../lib/auth';
 
 type Crumb = { label: string; to?: string };
 
 interface SupportShellProps {
-  children: React.ReactNode;
+  children: ReactNode;
   title: string;
   subtitle?: string;
   breadcrumbs?: Crumb[];
-  maxWidth?: 'sm' | 'md' | 'lg';
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | false;
 }
 
 export function toggleUiMode() {
@@ -41,7 +42,7 @@ export default function SupportShell({
   title,
   subtitle,
   breadcrumbs,
-  maxWidth = 'lg'
+  maxWidth = false
 }: SupportShellProps) {
   const navigate = useNavigate();
 
@@ -63,7 +64,7 @@ export default function SupportShell({
             alt="Logo"
             src="/logo-itb.png"
             sx={{ height: 32, width: 32, borderRadius: 1, cursor: 'pointer' }}
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate(getHomePath())}
           />
           <Box sx={{ flexGrow: 1, minWidth: 0 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
@@ -75,6 +76,14 @@ export default function SupportShell({
           </Box>
 
           {/* <UiModeToggle /> */}
+
+          {isTechnician() && (
+            <Tooltip title="Panel técnico">
+              <IconButton onClick={() => navigate('/technician')} size="small" color="primary">
+                <BuildIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
 
           {isAdmin() && (
             <Tooltip title="Panel de administración">
@@ -102,7 +111,15 @@ export default function SupportShell({
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth={maxWidth} sx={{ py: 3 }}>
+      <Container
+        maxWidth={maxWidth}
+        disableGutters={maxWidth === false}
+        sx={{
+          py: 3,
+          px: maxWidth === false ? { xs: 2, sm: 3, md: 4, xl: 5 } : undefined,
+          width: '100%'
+        }}
+      >
         {breadcrumbs && breadcrumbs.length > 0 && (
           <Breadcrumbs sx={{ mb: 1.5 }}>
             {breadcrumbs.map((crumb, i) =>

@@ -18,6 +18,7 @@ import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import UiModeToggle from '../UiModeToggle';
 import { isAdmin } from '../../../lib/auth';
 import { TICKET_TYPE_OPTIONS } from '../../../lib/ticketTypes';
+import { TICKET_STATUS_OPTIONS } from '../../../lib/ticketStatus';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -71,7 +72,14 @@ export default function CreateTicket() {
         },
         body: JSON.stringify(
           admin
-            ? formData
+            ? formData.type === 'incident'
+              ? formData
+              : {
+                  title: formData.title,
+                  description: formData.description,
+                  type: formData.type,
+                  status: formData.status
+                }
             : {
                 title: formData.title,
                 description: formData.description,
@@ -192,7 +200,7 @@ export default function CreateTicket() {
                 placeholder="Describe tu problema con el mayor detalle posible"
               />
 
-              {admin && (
+              {admin && formData.type === 'incident' && (
                 <Box sx={{ display: 'flex', gap: 2 }}>
                   <TextField
                     fullWidth
@@ -215,11 +223,26 @@ export default function CreateTicket() {
                     onChange={handleChange('status')}
                     required
                   >
-                    <MenuItem value="open">Abierto</MenuItem>
-                    <MenuItem value="in-progress">En Proceso</MenuItem>
-                    <MenuItem value="resolved">Resuelto</MenuItem>
+                    {TICKET_STATUS_OPTIONS.map((s) => (
+                      <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
+                    ))}
                   </TextField>
                 </Box>
+              )}
+
+              {admin && formData.type === 'requirement' && (
+                <TextField
+                  fullWidth
+                  select
+                  label="Estado"
+                  value={formData.status}
+                  onChange={handleChange('status')}
+                  required
+                >
+                  {TICKET_STATUS_OPTIONS.map((s) => (
+                    <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
+                  ))}
+                </TextField>
               )}
 
               <Box sx={{ display: 'flex', gap: 1.5, mt: 1 }}>

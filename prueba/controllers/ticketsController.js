@@ -1,9 +1,46 @@
 const db = require('../db/db');
 const { logTicketHistory, logFieldChanges, logTicketCreated } = require('../utils/ticketHistory');
+const {
+  loadPolicies,
+  buildIncidentSla,
+  clearSlaFields,
+  resolveSlaForTicket,
+  enrichTicket,
+  enrichTickets,
+  applySlaFieldsToUpdate,
+  appendSlaToFields,
+  formatDateForDb
+} = require('../utils/sla');
+const { getDefaultGroupId, getUserGroupIds, userCanAccessTicket } = require('../utils/groups');
 
-const VALID_STATUSES = ['open', 'in-progress', 'resolved'];
+const SLA_SELECT = 'sla_response_due, sla_resolution_due, sla_status, sla_paused_at';
+
+const VALID_STATUSES = ['open', 'in-progress', 'on-hold', 'resolved'];
 const VALID_PRIORITIES = ['low', 'medium', 'high'];
 const VALID_TYPES = ['incident', 'requirement'];
+
+const loadTicketWithAccess = (req, ticketId, callback) => {
+  db.query('SELECT * FROM tickets WHERE id = ?', [ticketId], (err, rows) => {
+    if (err) return callback(err);
+    if (rows.length === 0) return callback(null, null);
+
+    const ticket = rows[0];
+    const role = req.user.role;
+
+    if (role === 'admin') return callback(null, ticket);
+
+    if (role === 'technician') {
+      return getUserGroupIds(req.user.id, (groupErr, groupIds) => {
+        if (groupErr) return callback(groupErr);
+        if (!userCanAccessTicket(req.user, ticket, groupIds)) return callback(null, null);
+        callback(null, ticket);
+      });
+    }
+
+    if (ticket.user_id === req.user.id) return callback(null, ticket);
+    callback(null, null);
+  });
+};
 
 const initTicketsTable = () => {
   const sql = `
@@ -12,7 +49,7 @@ const initTicketsTable = () => {
       title VARCHAR(255) NOT NULL,
       description TEXT NOT NULL,
       status VARCHAR(50) NOT NULL DEFAULT 'open',
-      priority VARCHAR(50) NOT NULL DEFAULT 'medium',
+      priority VARCHAR(50) DEFAULT NULL,
       type VARCHAR(20) NOT NULL DEFAULT 'incident',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -78,7 +115,7 @@ exports.getTickets = (req, res) => {
       const total = countResult[0].total;
 
       db.query(
-        `SELECT id, title, description, status, priority, type, created_at, user_id
+        `SELECT id, title, description, status, priority, type, ${SLA_SELECT}, created_at, user_id
          FROM tickets ${baseWhere}
          ORDER BY created_at DESC
          LIMIT ? OFFSET ?`,
@@ -86,7 +123,7 @@ exports.getTickets = (req, res) => {
         (err2, results) => {
           if (err2) return res.status(500).json({ message: 'Error al obtener tickets' });
           res.json({
-            data: results,
+            data: enrichTickets(results),
             total,
             page,
             limit,
@@ -100,22 +137,41 @@ exports.getTickets = (req, res) => {
 
 exports.getTicketById = (req, res) => {
   const { id } = req.params;
-  const isAdmin = req.user.role === 'admin';
 
-  const sql = isAdmin
-    ? 'SELECT id, title, description, status, priority, type, category, subcategory, created_at, updated_at, user_id FROM tickets WHERE id = ?'
-    : 'SELECT id, title, description, status, priority, type, created_at, updated_at, user_id FROM tickets WHERE id = ? AND user_id = ?';
-  const params = isAdmin ? [id] : [id, req.user.id];
+  db.query(
+    `SELECT t.*, g.name AS group_name, u.email AS user_email
+     FROM tickets t
+     LEFT JOIN \`groups\` g ON g.id = t.group_id
+     LEFT JOIN users u ON u.id = t.user_id
+     WHERE t.id = ?`,
+    [id],
+    (err, results) => {
+      if (err) return res.status(500).json({ message: 'Error al obtener ticket' });
+      if (results.length === 0) return res.status(404).json({ message: 'Ticket no encontrado' });
 
-  db.query(sql, params, (err, results) => {
-    if (err) {
-      return res.status(500).json({ message: 'Error al obtener ticket' });
+      const ticket = results[0];
+      const role = req.user.role;
+
+      if (role === 'admin') {
+        return res.json(enrichTicket(ticket));
+      }
+
+      if (role === 'technician') {
+        return getUserGroupIds(req.user.id, (groupErr, groupIds) => {
+          if (groupErr) return res.status(500).json({ message: 'Error al obtener grupos' });
+          if (!userCanAccessTicket(req.user, ticket, groupIds)) {
+            return res.status(403).json({ message: 'No tenés acceso a este ticket' });
+          }
+          res.json(enrichTicket(ticket));
+        });
+      }
+
+      if (ticket.user_id !== req.user.id) {
+        return res.status(404).json({ message: 'Ticket no encontrado' });
+      }
+      res.json(enrichTicket(ticket));
     }
-    if (results.length === 0) {
-      return res.status(404).json({ message: 'Ticket no encontrado' });
-    }
-    res.json(results[0]);
-  });
+  );
 };
 
 exports.createTicket = (req, res) => {
@@ -128,71 +184,129 @@ exports.createTicket = (req, res) => {
 
   const ticketType = type && VALID_TYPES.includes(type) ? type : 'incident';
   const ticketStatus = isAdmin ? (status || 'open') : 'open';
-  const ticketPriority = isAdmin ? (priority || 'medium') : 'medium';
 
-  db.query(
-    'INSERT INTO tickets (title, description, status, priority, type, user_id) VALUES (?, ?, ?, ?, ?, ?)',
-    [title, description, ticketStatus, ticketPriority, ticketType, req.user.id],
-    (err, result) => {
-      if (err) {
-        return res.status(500).json({ message: 'Error al crear ticket' });
+  if (ticketType === 'requirement' && priority !== undefined) {
+    return res.status(400).json({ message: 'Los requerimientos no tienen prioridad' });
+  }
+
+    loadPolicies((policyErr, policies) => {
+    if (policyErr) {
+      return res.status(500).json({ message: 'Error al cargar políticas SLA' });
+    }
+
+    getDefaultGroupId((groupErr, defaultGroupId) => {
+      if (groupErr) {
+        return res.status(500).json({ message: 'Error al obtener grupo principal' });
       }
 
-      const ticketId = result.insertId;
-      logTicketCreated(ticketId, req.user.id, {
-        type: ticketType,
-        status: ticketStatus,
-        priority: ticketPriority,
-        title: String(title).trim()
-      });
+    let ticketPriority = null;
+    let slaFields = clearSlaFields();
 
-      res.status(201).json({
-        message: 'Ticket creado',
-        id: ticketId
-      });
+    if (ticketType === 'incident') {
+      ticketPriority = isAdmin ? (priority || 'medium') : 'medium';
+      if (!VALID_PRIORITIES.includes(ticketPriority)) ticketPriority = 'medium';
+      const sla = buildIncidentSla(
+        { type: 'incident', priority: ticketPriority, created_at: new Date(), status: ticketStatus },
+        policies
+      );
+      slaFields = {
+        sla_response_due: formatDateForDb(sla.sla_response_due),
+        sla_resolution_due: formatDateForDb(sla.sla_resolution_due),
+        sla_status: sla.sla_status
+      };
     }
-  );
+
+    db.query(
+      `INSERT INTO tickets (title, description, status, priority, type, group_id, sla_response_due, sla_resolution_due, sla_status, user_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        title,
+        description,
+        ticketStatus,
+        ticketPriority,
+        ticketType,
+        defaultGroupId,
+        slaFields.sla_response_due,
+        slaFields.sla_resolution_due,
+        slaFields.sla_status,
+        req.user.id
+      ],
+      (err, result) => {
+        if (err) {
+          return res.status(500).json({ message: 'Error al crear ticket' });
+        }
+
+        const ticketId = result.insertId;
+        const createdLog = {
+          type: ticketType,
+          status: ticketStatus,
+          title: String(title).trim()
+        };
+        if (ticketType === 'incident') {
+          createdLog.priority = ticketPriority;
+        }
+        logTicketCreated(ticketId, req.user.id, createdLog);
+
+        res.status(201).json({
+          message: 'Ticket creado',
+          id: ticketId
+        });
+      }
+    );
+    });
+  });
 };
 
 exports.updateTicketStatus = (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
-  const isAdmin = req.user.role === 'admin';
+  const role = req.user.role;
+  const isStaff = role === 'admin' || role === 'technician';
 
   if (!VALID_STATUSES.includes(status)) {
     return res.status(400).json({ message: 'Estado inválido' });
   }
+  if (!isStaff && status === 'on-hold') {
+    return res.status(403).json({ message: 'No tenés permiso para poner el ticket en espera' });
+  }
 
-  const selectSql = isAdmin
-    ? 'SELECT status FROM tickets WHERE id = ?'
-    : 'SELECT status FROM tickets WHERE id = ? AND user_id = ?';
-  const selectParams = isAdmin ? [id] : [id, req.user.id];
+  loadTicketWithAccess(req, id, (selectErr, oldTicket) => {
+    if (selectErr) return res.status(500).json({ message: 'Error al obtener ticket' });
+    if (!oldTicket) return res.status(404).json({ message: 'Ticket no encontrado' });
 
-  db.query(selectSql, selectParams, (selectErr, rows) => {
-    if (selectErr) {
-      return res.status(500).json({ message: 'Error al obtener ticket' });
-    }
-    if (rows.length === 0) {
-      return res.status(404).json({ message: 'Ticket no encontrado' });
-    }
+    const oldStatus = oldTicket.status;
 
-    const oldStatus = rows[0].status;
-    const updateSql = isAdmin
-      ? 'UPDATE tickets SET status = ? WHERE id = ?'
-      : 'UPDATE tickets SET status = ? WHERE id = ? AND user_id = ?';
-    const updateParams = isAdmin ? [status, id] : [status, id, req.user.id];
-
-    db.query(updateSql, updateParams, (err, result) => {
-      if (err) {
-        return res.status(500).json({ message: 'Error al actualizar ticket' });
+    loadPolicies((policyErr, policies) => {
+      if (policyErr) {
+        return res.status(500).json({ message: 'Error al cargar políticas SLA' });
       }
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ message: 'Ticket no encontrado' });
+
+      const fields = ['status = ?'];
+      const values = [status];
+      const updates = { status };
+
+      if (oldTicket.type === 'incident') {
+        const slaFields = applySlaFieldsToUpdate(oldTicket, { status }, policies);
+        appendSlaToFields(fields, values, updates, slaFields);
       }
-      if (oldStatus !== status) {
-        logTicketHistory(id, req.user.id, 'updated', 'status', oldStatus, status);
-      }
-      res.json({ message: 'Estado actualizado' });
+
+      values.push(id);
+
+      db.query(
+        `UPDATE tickets SET ${fields.join(', ')} WHERE id = ?`,
+        values,
+        (err, result) => {
+          if (err) return res.status(500).json({ message: 'Error al actualizar ticket' });
+          if (result.affectedRows === 0) return res.status(404).json({ message: 'Ticket no encontrado' });
+          if (oldStatus !== status) {
+            logTicketHistory(id, req.user.id, 'updated', 'status', oldStatus, status);
+          }
+          if (updates.sla_status && updates.sla_status !== oldTicket.sla_status) {
+            logTicketHistory(id, req.user.id, 'updated', 'sla_status', oldTicket.sla_status, updates.sla_status);
+          }
+          res.json({ message: 'Estado actualizado' });
+        }
+      );
     });
   });
 };
@@ -200,7 +314,9 @@ exports.updateTicketStatus = (req, res) => {
 exports.updateTicket = (req, res) => {
   const { id } = req.params;
   const { title, description, status, priority, type } = req.body;
-  const isAdmin = req.user.role === 'admin';
+  const role = req.user.role;
+  const isAdmin = role === 'admin';
+  const isTechnician = role === 'technician';
 
   if (title !== undefined && !String(title).trim()) {
     return res.status(400).json({ message: 'El título no puede estar vacío' });
@@ -211,105 +327,109 @@ exports.updateTicket = (req, res) => {
   if (status !== undefined && !VALID_STATUSES.includes(status)) {
     return res.status(400).json({ message: 'Estado inválido' });
   }
-  if (priority !== undefined && !VALID_PRIORITIES.includes(priority)) {
-    return res.status(400).json({ message: 'Prioridad inválida' });
-  }
   if (type !== undefined && !VALID_TYPES.includes(type)) {
     return res.status(400).json({ message: 'Tipo inválido' });
   }
-  if (!isAdmin && (status !== undefined || priority !== undefined || type !== undefined)) {
+  if (isTechnician && (title !== undefined || description !== undefined || priority !== undefined || type !== undefined)) {
+    return res.status(403).json({ message: 'Como técnico solo podés cambiar el estado del ticket' });
+  }
+  if (!isAdmin && !isTechnician && (status !== undefined || priority !== undefined || type !== undefined)) {
     return res.status(403).json({ message: 'No tenés permiso para cambiar estado, prioridad o tipo' });
   }
+  if (!isAdmin && status === 'on-hold') {
+    return res.status(403).json({ message: 'No tenés permiso para poner el ticket en espera' });
+  }
 
-  const selectSql = isAdmin
-    ? 'SELECT * FROM tickets WHERE id = ?'
-    : 'SELECT * FROM tickets WHERE id = ? AND user_id = ?';
-  const selectParams = isAdmin ? [id] : [id, req.user.id];
+  const effectiveType = type !== undefined ? type : undefined;
+  const effectivePriority = priority !== undefined ? priority : undefined;
 
-  db.query(selectSql, selectParams, (selectErr, rows) => {
-    if (selectErr) {
-      return res.status(500).json({ message: 'Error al obtener ticket' });
-    }
-    if (rows.length === 0) {
-      return res.status(404).json({ message: 'Ticket no encontrado' });
-    }
+  if (effectiveType === 'requirement' && effectivePriority !== undefined) {
+    return res.status(400).json({ message: 'Los requerimientos no tienen prioridad' });
+  }
+  if (priority !== undefined && priority !== null && !VALID_PRIORITIES.includes(priority)) {
+    return res.status(400).json({ message: 'Prioridad inválida' });
+  }
 
-    const oldTicket = rows[0];
-    const fields = [];
-    const values = [];
-    const updates = {};
+  loadTicketWithAccess(req, id, (selectErr, oldTicket) => {
+    if (selectErr) return res.status(500).json({ message: 'Error al obtener ticket' });
+    if (!oldTicket) return res.status(404).json({ message: 'Ticket no encontrado' });
 
-    if (title !== undefined) {
-      fields.push('title = ?');
-      values.push(String(title).trim());
-      updates.title = String(title).trim();
-    }
-    if (description !== undefined) {
-      fields.push('description = ?');
-      values.push(String(description).trim());
-      updates.description = String(description).trim();
-    }
-    if (status !== undefined) {
-      fields.push('status = ?');
-      values.push(status);
-      updates.status = status;
-    }
-    if (priority !== undefined) {
-      fields.push('priority = ?');
-      values.push(priority);
-      updates.priority = priority;
-    }
-    if (type !== undefined) {
-      fields.push('type = ?');
-      values.push(type);
-      updates.type = type;
+    const nextType = type !== undefined ? type : oldTicket.type;
+
+    if (nextType === 'requirement' && priority !== undefined && priority !== null) {
+      return res.status(400).json({ message: 'Los requerimientos no tienen prioridad' });
     }
 
-    if (fields.length === 0) {
-      return res.status(400).json({ message: 'No hay campos para actualizar' });
-    }
-
-    if (isAdmin) {
-      values.push(id);
-    } else {
-      values.push(id, req.user.id);
-    }
-
-    const where = isAdmin ? 'WHERE id = ?' : 'WHERE id = ? AND user_id = ?';
-
-    db.query(
-      `UPDATE tickets SET ${fields.join(', ')} ${where}`,
-      values,
-      (err, result) => {
-        if (err) {
-          return res.status(500).json({ message: 'Error al actualizar ticket' });
-        }
-        if (result.affectedRows === 0) {
-          return res.status(404).json({ message: 'Ticket no encontrado' });
-        }
-        logFieldChanges(id, req.user.id, oldTicket, updates);
-        res.json({ message: 'Ticket actualizado' });
+    loadPolicies((policyErr, policies) => {
+      if (policyErr) {
+        return res.status(500).json({ message: 'Error al cargar políticas SLA' });
       }
-    );
+
+      const fields = [];
+      const values = [];
+      const updates = {};
+
+      if (title !== undefined) {
+        fields.push('title = ?');
+        values.push(String(title).trim());
+        updates.title = String(title).trim();
+      }
+      if (description !== undefined) {
+        fields.push('description = ?');
+        values.push(String(description).trim());
+        updates.description = String(description).trim();
+      }
+      if (status !== undefined) {
+        fields.push('status = ?');
+        values.push(status);
+        updates.status = status;
+      }
+      if (priority !== undefined) {
+        fields.push('priority = ?');
+        values.push(priority);
+        updates.priority = priority;
+      }
+      if (type !== undefined) {
+        fields.push('type = ?');
+        values.push(type);
+        updates.type = type;
+      }
+
+      if (fields.length === 0) {
+        return res.status(400).json({ message: 'No hay campos para actualizar' });
+      }
+
+      const mergedType = type !== undefined ? type : oldTicket.type;
+      const mergedUpdates = { ...updates };
+      if (mergedType === 'requirement') {
+        mergedUpdates.priority = null;
+      }
+
+      const slaFields = applySlaFieldsToUpdate(oldTicket, mergedUpdates, policies);
+      appendSlaToFields(fields, values, updates, slaFields);
+
+      values.push(id);
+
+      db.query(
+        `UPDATE tickets SET ${fields.join(', ')} WHERE id = ?`,
+        values,
+        (err, result) => {
+          if (err) return res.status(500).json({ message: 'Error al actualizar ticket' });
+          if (result.affectedRows === 0) return res.status(404).json({ message: 'Ticket no encontrado' });
+          logFieldChanges(id, req.user.id, oldTicket, updates);
+          res.json({ message: 'Ticket actualizado' });
+        }
+      );
+    });
   });
 };
 
 exports.getTicketHistory = (req, res) => {
   const { id } = req.params;
-  const isAdmin = req.user.role === 'admin';
 
-  const checkSql = isAdmin
-    ? 'SELECT id FROM tickets WHERE id = ?'
-    : 'SELECT id FROM tickets WHERE id = ? AND user_id = ?';
-  const checkParams = isAdmin ? [id] : [id, req.user.id];
-
-  db.query(checkSql, checkParams, (checkErr, tickets) => {
-    if (checkErr) {
-      return res.status(500).json({ message: 'Error al verificar ticket' });
-    }
-    if (tickets.length === 0) {
-      return res.status(404).json({ message: 'Ticket no encontrado' });
-    }
+  loadTicketWithAccess(req, id, (checkErr, ticket) => {
+    if (checkErr) return res.status(500).json({ message: 'Error al verificar ticket' });
+    if (!ticket) return res.status(404).json({ message: 'Ticket no encontrado' });
 
     db.query(
       `SELECT h.id, h.action, h.field_name, h.old_value, h.new_value, h.created_at, u.email
@@ -319,9 +439,7 @@ exports.getTicketHistory = (req, res) => {
        ORDER BY h.created_at DESC`,
       [id],
       (err, history) => {
-        if (err) {
-          return res.status(500).json({ message: 'Error al obtener historial' });
-        }
+        if (err) return res.status(500).json({ message: 'Error al obtener historial' });
         res.json(history);
       }
     );
@@ -330,20 +448,10 @@ exports.getTicketHistory = (req, res) => {
 
 exports.getTicketComments = (req, res) => {
   const { id } = req.params;
-  const isAdmin = req.user.role === 'admin';
 
-  const checkSql = isAdmin
-    ? 'SELECT id FROM tickets WHERE id = ?'
-    : 'SELECT id FROM tickets WHERE id = ? AND user_id = ?';
-  const checkParams = isAdmin ? [id] : [id, req.user.id];
-
-  db.query(checkSql, checkParams, (err, tickets) => {
-    if (err) {
-      return res.status(500).json({ message: 'Error al verificar ticket' });
-    }
-    if (tickets.length === 0) {
-      return res.status(404).json({ message: 'Ticket no encontrado' });
-    }
+  loadTicketWithAccess(req, id, (err, ticket) => {
+    if (err) return res.status(500).json({ message: 'Error al verificar ticket' });
+    if (!ticket) return res.status(404).json({ message: 'Ticket no encontrado' });
 
     db.query(
       `SELECT c.id, c.content, c.created_at, c.user_id, u.email
@@ -353,9 +461,7 @@ exports.getTicketComments = (req, res) => {
        ORDER BY c.created_at ASC`,
       [id],
       (commentErr, comments) => {
-        if (commentErr) {
-          return res.status(500).json({ message: 'Error al obtener comentarios' });
-        }
+        if (commentErr) return res.status(500).json({ message: 'Error al obtener comentarios' });
         res.json(comments);
       }
     );
@@ -365,41 +471,119 @@ exports.getTicketComments = (req, res) => {
 exports.addTicketComment = (req, res) => {
   const { id } = req.params;
   const { content } = req.body;
-  const isAdmin = req.user.role === 'admin';
 
   if (!content || !String(content).trim()) {
     return res.status(400).json({ message: 'El comentario no puede estar vacío' });
   }
 
-  const checkSql = isAdmin
-    ? 'SELECT id FROM tickets WHERE id = ?'
-    : 'SELECT id FROM tickets WHERE id = ? AND user_id = ?';
-  const checkParams = isAdmin ? [id] : [id, req.user.id];
+  loadTicketWithAccess(req, id, (err, ticket) => {
+    if (err) return res.status(500).json({ message: 'Error al verificar ticket' });
+    if (!ticket) return res.status(404).json({ message: 'Ticket no encontrado' });
 
-  db.query(checkSql, checkParams, (err, tickets) => {
-      if (err) {
-        return res.status(500).json({ message: 'Error al verificar ticket' });
+    db.query(
+      'INSERT INTO ticket_comments (ticket_id, user_id, content) VALUES (?, ?, ?)',
+      [id, req.user.id, String(content).trim()],
+      (insertErr, result) => {
+        if (insertErr) return res.status(500).json({ message: 'Error al agregar comentario' });
+        res.status(201).json({ message: 'Comentario agregado', id: result.insertId });
       }
-      if (tickets.length === 0) {
-        return res.status(404).json({ message: 'Ticket no encontrado' });
-      }
+    );
+  });
+};
 
-      db.query(
-        'INSERT INTO ticket_comments (ticket_id, user_id, content) VALUES (?, ?, ?)',
-        [id, req.user.id, String(content).trim()],
-        (insertErr, result) => {
-          if (insertErr) {
-            return res.status(500).json({ message: 'Error al agregar comentario' });
+exports.getTicketResolution = (req, res) => {
+  const { id } = req.params;
+
+  loadTicketWithAccess(req, id, (err, ticket) => {
+    if (err) return res.status(500).json({ message: 'Error al verificar ticket' });
+    if (!ticket) return res.status(404).json({ message: 'Ticket no encontrado' });
+
+    db.query(
+      `SELECT r.id, r.content, r.created_at, r.updated_at, u.email AS resolved_by_email, u.id AS resolved_by
+       FROM ticket_resolutions r
+       JOIN users u ON u.id = r.resolved_by
+       WHERE r.ticket_id = ?`,
+      [id],
+      (resErr, rows) => {
+        if (resErr) return res.status(500).json({ message: 'Error al obtener resolución' });
+        res.json(rows[0] || null);
+      }
+    );
+  });
+};
+
+exports.saveTicketResolution = (req, res) => {
+  const { id } = req.params;
+  const { content } = req.body;
+  const role = req.user.role;
+
+  if (role !== 'admin' && role !== 'technician') {
+    return res.status(403).json({ message: 'Solo técnicos o administradores pueden registrar resoluciones' });
+  }
+  if (!content || !String(content).trim()) {
+    return res.status(400).json({ message: 'La resolución no puede estar vacía' });
+  }
+
+  loadTicketWithAccess(req, id, (err, ticket) => {
+    if (err) return res.status(500).json({ message: 'Error al verificar ticket' });
+    if (!ticket) return res.status(404).json({ message: 'Ticket no encontrado' });
+
+    const trimmed = String(content).trim();
+
+    db.query('SELECT id FROM ticket_resolutions WHERE ticket_id = ?', [id], (selErr, existing) => {
+      if (selErr) return res.status(500).json({ message: 'Error al verificar resolución' });
+
+      const finish = () => {
+        loadPolicies((policyErr, policies) => {
+          if (policyErr) return res.status(500).json({ message: 'Error al cargar políticas SLA' });
+
+          const oldStatus = ticket.status;
+          const updates = { status: 'resolved' };
+          const fields = ['status = ?'];
+          const values = ['resolved'];
+
+          if (ticket.type === 'incident') {
+            const slaFields = applySlaFieldsToUpdate(ticket, updates, policies);
+            appendSlaToFields(fields, values, updates, slaFields);
           }
 
-          res.status(201).json({
-            message: 'Comentario agregado',
-            id: result.insertId
-          });
-        }
-      );
-    }
-  );
+          values.push(id);
+
+          db.query(
+            `UPDATE tickets SET ${fields.join(', ')} WHERE id = ?`,
+            values,
+            (updErr) => {
+              if (updErr) return res.status(500).json({ message: 'Error al marcar ticket como resuelto' });
+              if (oldStatus !== 'resolved') {
+                logTicketHistory(id, req.user.id, 'updated', 'status', oldStatus, 'resolved');
+              }
+              res.json({ message: existing.length > 0 ? 'Resolución actualizada' : 'Resolución registrada' });
+            }
+          );
+        });
+      };
+
+      if (existing.length > 0) {
+        db.query(
+          'UPDATE ticket_resolutions SET content = ?, resolved_by = ? WHERE ticket_id = ?',
+          [trimmed, req.user.id, id],
+          (updErr) => {
+            if (updErr) return res.status(500).json({ message: 'Error al actualizar resolución' });
+            finish();
+          }
+        );
+      } else {
+        db.query(
+          'INSERT INTO ticket_resolutions (ticket_id, content, resolved_by) VALUES (?, ?, ?)',
+          [id, trimmed, req.user.id],
+          (insErr) => {
+            if (insErr) return res.status(500).json({ message: 'Error al guardar resolución' });
+            finish();
+          }
+        );
+      }
+    });
+  });
 };
 
 exports.deleteTicket = (req, res) => {

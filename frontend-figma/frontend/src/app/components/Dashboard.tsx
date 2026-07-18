@@ -8,6 +8,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableContainer,
   TableHead,
   TableRow,
   Chip,
@@ -104,7 +105,7 @@ export default function Dashboard() {
     >
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {stats.map((stat) => (
-          <Grid item xs={6} md={3} key={stat.label}>
+          <Grid size={{ xs: 6, md: 3 }} key={stat.label}>
             <Card
               elevation={0}
               sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
@@ -200,13 +201,14 @@ export default function Dashboard() {
             </Button>
           </Box>
         ) : (
-          <Table size="small">
+          <TableContainer sx={{ overflowX: 'auto' }}>
+          <Table size="small" sx={{ minWidth: 640 }}>
             <TableHead>
               <TableRow>
                 <TableCell sx={{ fontWeight: 600 }}>ID</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Título</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Estado</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Fecha</TableCell>
+                <TableCell sx={{ fontWeight: 600, minWidth: 240 }}>Título</TableCell>
+                <TableCell sx={{ fontWeight: 600, minWidth: 120 }}>Estado</TableCell>
+                <TableCell sx={{ fontWeight: 600, minWidth: 120 }}>Fecha</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -218,7 +220,7 @@ export default function Dashboard() {
                   onClick={() => navigate(`/tickets/${ticket.id}`)}
                 >
                   <TableCell>{ticket.id}</TableCell>
-                  <TableCell>{ticket.title}</TableCell>
+                  <TableCell sx={{ wordBreak: 'break-word' }}>{ticket.title}</TableCell>
                   <TableCell>
                     <Chip label={getStatusLabel(ticket.status)} color={getStatusColor(ticket.status)} size="small" />
                   </TableCell>
@@ -227,6 +229,7 @@ export default function Dashboard() {
               ))}
             </TableBody>
           </Table>
+          </TableContainer>
         )}
       </Paper>
     </SupportShell>

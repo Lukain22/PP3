@@ -1,4 +1,4 @@
-export type UserRole = 'user' | 'admin';
+export type UserRole = 'user' | 'admin' | 'technician';
 
 export function getToken(): string | null {
   return localStorage.getItem('token');
@@ -10,6 +10,15 @@ export function getRole(): UserRole {
 
 export function isAdmin(): boolean {
   return getRole() === 'admin';
+}
+
+export function isTechnician(): boolean {
+  return getRole() === 'technician';
+}
+
+export function isStaff(): boolean {
+  const role = getRole();
+  return role === 'admin' || role === 'technician';
 }
 
 export function setAuth(token: string, role: UserRole): void {
@@ -31,4 +40,11 @@ export function getEmail(): string {
   } catch {
     return '';
   }
+}
+
+export function getHomePath(): string {
+  const role = getRole();
+  if (role === 'admin') return '/admin';
+  if (role === 'technician') return '/technician';
+  return '/dashboard';
 }

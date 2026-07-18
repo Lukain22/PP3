@@ -30,6 +30,14 @@ import { toast } from 'sonner';
 import SupportShell from './SupportShell';
 import { getToken, clearAuth, isAdmin } from '../../lib/auth';
 import { getTicketTypeLabel, getTicketTypeColor } from '../../lib/ticketTypes';
+import {
+  getPriorityLabel,
+  getPriorityColor,
+  getSlaStatusLabel,
+  getSlaStatusColor,
+  isIncident
+} from '../../lib/sla';
+import { TICKET_STATUS_OPTIONS, getTicketStatusLabel, getTicketStatusColor } from '../../lib/ticketStatus';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 const PAGE_SIZE = 20;
@@ -41,8 +49,9 @@ interface Ticket {
   title: string;
   description: string;
   status: string;
-  priority: string;
+  priority: string | null;
   type: string;
+  sla_status?: string | null;
   created_at: string;
   user_id: number;
 }
@@ -53,6 +62,7 @@ const statusFilters = [
   { value: '', label: 'Todos' },
   { value: 'open', label: 'Abiertos' },
   { value: 'in-progress', label: 'En proceso' },
+  { value: 'on-hold', label: 'En espera' },
   { value: 'resolved', label: 'Resueltos' }
 ];
 
@@ -134,8 +144,8 @@ export default function TicketsList() {
     list.sort((a, b) => {
       switch (sortBy) {
         case 'date-asc':      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-        case 'priority-desc': return (priorityWeight[b.priority] || 0) - (priorityWeight[a.priority] || 0);
-        case 'priority-asc':  return (priorityWeight[a.priority] || 0) - (priorityWeight[b.priority] || 0);
+        case 'priority-desc': return (priorityWeight[b.priority || ''] || 0) - (priorityWeight[a.priority || ''] || 0);
+        case 'priority-asc':  return (priorityWeight[a.priority || ''] || 0) - (priorityWeight[b.priority || ''] || 0);
         case 'title-asc':     return a.title.localeCompare(b.title, 'es');
         default:              return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       }
@@ -143,12 +153,6 @@ export default function TicketsList() {
 
     return list;
   }, [tickets, search, sortBy]);
-
-  const getPriorityColor = (p: string): 'error' | 'warning' | 'success' | 'default' =>
-    p === 'high' ? 'error' : p === 'medium' ? 'warning' : p === 'low' ? 'success' : 'default';
-
-  const getPriorityLabel = (p: string) =>
-    p === 'high' ? 'Alta' : p === 'medium' ? 'Media' : p === 'low' ? 'Baja' : p;
 
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' });
@@ -222,7 +226,6 @@ export default function TicketsList() {
     <SupportShell
       title="Mis solicitudes"
       subtitle={subtitleText}
-      breadcrumbs={[{ label: 'Inicio', to: '/dashboard' }, { label: 'Solicitudes' }]}
     >
       {/* Barra de filtros */}
       <Paper elevation={0} sx={{ p: 2, mb: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
@@ -296,16 +299,21 @@ export default function TicketsList() {
           </Button>
         </Paper>
       ) : (
-        <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-          <Table>
+        <TableContainer
+          component={Paper}
+          elevation={0}
+          sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflowX: 'auto' }}
+        >
+          <Table sx={{ minWidth: 960 }}>
             <TableHead>
               <TableRow sx={{ bgcolor: '#fafbfc' }}>
                 <TableCell sx={{ fontWeight: 600, width: 72 }}>#</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Solicitud</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: 110 }}>Tipo</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: 150 }}>Estado</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: 100 }}>Prioridad</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: 120 }}>Fecha</TableCell>
+                <TableCell sx={{ fontWeight: 600, minWidth: 220 }}>Solicitud</TableCell>
+                <TableCell sx={{ fontWeight: 600, minWidth: 110 }}>Tipo</TableCell>
+                <TableCell sx={{ fontWeight: 600, minWidth: 160 }}>Estado</TableCell>
+                <TableCell sx={{ fontWeight: 600, minWidth: 110 }}>Prioridad</TableCell>
+                <TableCell sx={{ fontWeight: 600, minWidth: 110 }}>SLA</TableCell>
+                <TableCell sx={{ fontWeight: 600, minWidth: 120 }}>Fecha</TableCell>
                 {isAdmin() && <TableCell sx={{ fontWeight: 600, width: 96 }} align="center">Acciones</TableCell>}
               </TableRow>
             </TableHead>
@@ -317,9 +325,9 @@ export default function TicketsList() {
                   onClick={() => navigate(`/tickets/${ticket.id}`)}
                 >
                   <TableCell sx={{ color: 'text.secondary', fontWeight: 500 }}>{ticket.id}</TableCell>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{ticket.title}</Typography>
-                    <Typography variant="caption" color="text.secondary">{truncate(ticket.description)}</Typography>
+                  <TableCell sx={{ minWidth: 220 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, wordBreak: 'break-word' }}>{ticket.title}</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-word' }}>{truncate(ticket.description)}</Typography>
                   </TableCell>
                   <TableCell>
                     <Chip
@@ -337,20 +345,40 @@ export default function TicketsList() {
                         onChange={(e) => handleStatusChange(ticket.id, e.target.value)}
                         fullWidth
                       >
-                        <MenuItem value="open">Abierto</MenuItem>
-                        <MenuItem value="in-progress">En proceso</MenuItem>
-                        <MenuItem value="resolved">Resuelto</MenuItem>
+                        {TICKET_STATUS_OPTIONS.map((s) => (
+                          <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
+                        ))}
                       </TextField>
                     ) : (
                       <Chip
-                        label={ticket.status === 'open' ? 'Abierto' : ticket.status === 'in-progress' ? 'En proceso' : 'Resuelto'}
-                        color={ticket.status === 'open' ? 'warning' : ticket.status === 'in-progress' ? 'info' : 'success'}
+                        label={getTicketStatusLabel(ticket.status)}
+                        color={getTicketStatusColor(ticket.status)}
                         size="small"
                       />
                     )}
                   </TableCell>
                   <TableCell>
-                    <Chip label={getPriorityLabel(ticket.priority)} color={getPriorityColor(ticket.priority)} size="small" variant="outlined" />
+                    {isIncident(ticket.type) ? (
+                      <Chip
+                        label={getPriorityLabel(ticket.priority)}
+                        color={getPriorityColor(ticket.priority || 'medium')}
+                        size="small"
+                        variant="outlined"
+                      />
+                    ) : (
+                      <Typography variant="caption" color="text.disabled">—</Typography>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {isIncident(ticket.type) && ticket.sla_status ? (
+                      <Chip
+                        label={getSlaStatusLabel(ticket.sla_status)}
+                        color={getSlaStatusColor(ticket.sla_status)}
+                        size="small"
+                      />
+                    ) : (
+                      <Typography variant="caption" color="text.disabled">—</Typography>
+                    )}
                   </TableCell>
                   <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(ticket.created_at)}</TableCell>
                   {isAdmin() && (
