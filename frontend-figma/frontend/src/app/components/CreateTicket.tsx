@@ -18,7 +18,8 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
 import TicketAttachments from './TicketAttachments';
-import { isAdmin } from '../../lib/auth';
+import { isAdmin, getRole } from '../../lib/auth';
+import { getTicketsPath } from '../../lib/ticketViews';
 import { TICKET_TYPE_OPTIONS } from '../../lib/ticketTypes';
 import { uploadTicketAttachments } from '../../lib/attachments';
 
@@ -110,13 +111,13 @@ export default function CreateTicket() {
         const uploadResult = await uploadTicketAttachments(data.id, pendingFiles);
         if (!uploadResult.ok) {
           toast.error(uploadResult.message || 'La solicitud se creó pero falló la subida de archivos');
-          navigate('/tickets');
+          navigate(getTicketsPath(getRole()));
           return;
         }
       }
 
       toast.success('Solicitud enviada correctamente');
-      navigate('/tickets');
+      navigate(getTicketsPath(getRole()));
     } catch {
       toast.error('Error conectando con el backend');
     } finally {

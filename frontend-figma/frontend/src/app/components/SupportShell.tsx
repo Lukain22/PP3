@@ -12,11 +12,13 @@ import {
   Breadcrumbs,
   Link
 } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
-import BuildIcon from '@mui/icons-material/Build';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { isAdmin, isTechnician, clearAuth, getHomePath } from '../../lib/auth';
+import { isAdmin, isTechnician, clearAuth, getHomePath, getRole } from '../../lib/auth';
+import { getTicketsPath } from '../../lib/ticketViews';
 
 type Crumb = { label: string; to?: string };
 
@@ -50,6 +52,7 @@ export default function SupportShell({
   maxWidth = false
 }: SupportShellProps) {
   const navigate = useNavigate();
+  const canCreateTicket = !isTechnician();
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f0f2f5' }}>
@@ -63,66 +66,79 @@ export default function SupportShell({
           borderColor: 'divider'
         }}
       >
-        <Toolbar sx={{ gap: 1 }}>
+        <Toolbar sx={{ gap: 1.5, minHeight: { xs: 56, sm: 64 } }}>
           <Box
             component="img"
             alt="Logo"
             src="/logo-itb.png"
-            sx={{ height: 32, width: 32, borderRadius: 1, cursor: 'pointer' }}
-            onClick={() => navigate(getHomePath())}
+            sx={{ height: 32, width: 32, borderRadius: 1, cursor: 'pointer', flexShrink: 0 }}
+            onClick={() => navigate(isAdmin() ? '/dashboard' : getHomePath())}
           />
-          <Box sx={{ minWidth: 0 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
-              Soporte Técnico
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Portal de tickets
-            </Typography>
-          </Box>
-          <Link
-            component="button"
-            underline="hover"
-            onClick={() => navigate('/tickets')}
-            sx={{
-              cursor: 'pointer',
-              border: 0,
-              bgcolor: 'transparent',
-              font: 'inherit',
-              fontWeight: 500,
-              fontSize: '0.875rem',
-              color: 'primary.main',
-              flexShrink: 0,
-              alignSelf: 'center',
-              ml: 1.5
-            }}
+
+          <Typography
+            variant="subtitle1"
+            sx={{ fontWeight: 600, lineHeight: 1.2, flexShrink: 0, display: { xs: 'none', sm: 'block' } }}
+          >
+            Soporte Técnico
+          </Typography>
+
+          <Button
+            size="small"
+            variant="text"
+            onClick={() => navigate(getTicketsPath(getRole()))}
+            sx={{ flexShrink: 0, fontWeight: 500, ml: { xs: 0, sm: -0.5 } }}
           >
             Solicitudes
-          </Link>
+          </Button>
+
           <Box sx={{ flexGrow: 1 }} />
 
-          {/* <UiModeToggle /> */}
-
-          {isTechnician() && (
-            <Tooltip title="Panel técnico">
-              <IconButton onClick={() => navigate('/panel-tecnico')} size="small" color="primary">
-                <BuildIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
-
           {isAdmin() && (
-            <Tooltip title="Panel de administración">
-              <IconButton onClick={() => navigate('/admin')} size="small" color="primary">
+            <Tooltip title="Administración">
+              <IconButton onClick={() => navigate('/admin')} size="small" color="primary" sx={{ flexShrink: 0 }}>
                 <AdminPanelSettingsIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           )}
 
+          <Tooltip title="Notificaciones (próximamente)">
+            <span>
+              <IconButton size="small" disabled aria-label="Notificaciones">
+                <NotificationsNoneIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+
+          {canCreateTicket && (
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => navigate('/create-ticket')}
+              sx={{ flexShrink: 0, display: { xs: 'none', sm: 'inline-flex' } }}
+            >
+              Nueva solicitud
+            </Button>
+          )}
+          {canCreateTicket && (
+            <Tooltip title="Nueva solicitud">
+              <IconButton
+                color="primary"
+                size="small"
+                onClick={() => navigate('/create-ticket')}
+                sx={{ display: { xs: 'inline-flex', sm: 'none' }, bgcolor: 'primary.main', color: '#fff', '&:hover': { bgcolor: 'primary.dark' } }}
+              >
+                <AddIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+
           <Tooltip title="Créditos">
-            <IconButton onClick={() => navigate('/credits')} size="small">
+            <IconButton onClick={() => navigate('/credits')} size="small" sx={{ flexShrink: 0 }}>
               <HelpOutlineIcon fontSize="small" />
             </IconButton>
           </Tooltip>
+
           <Button
             size="small"
             variant="outlined"
@@ -130,6 +146,7 @@ export default function SupportShell({
               clearAuth();
               navigate('/');
             }}
+            sx={{ flexShrink: 0 }}
           >
             Salir
           </Button>

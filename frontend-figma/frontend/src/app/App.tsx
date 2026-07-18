@@ -13,7 +13,6 @@ import AdminUserDetail from './components/AdminUserDetail';
 import AdminGroups from './components/AdminGroups';
 import AdminGroupDetail from './components/AdminGroupDetail';
 import AdminSlaPolicies from './components/AdminSlaPolicies';
-import TechnicianPanel from './components/TechnicianPanel';
 import DashboardClassic from './components/legacy/Dashboard.classic';
 import TicketsListClassic from './components/legacy/TicketsList.classic';
 import CreateTicketClassic from './components/legacy/CreateTicket.classic';
@@ -55,7 +54,7 @@ function RequireTechnician({ children }: { children: ReactNode }) {
 
 function BlockTechnicianFromUserArea({ children }: { children: ReactNode }) {
   if (!getToken()) return <Navigate to="/" replace />;
-  if (isTechnician()) return <Navigate to="/panel-tecnico" replace />;
+  if (isTechnician()) return <Navigate to="/tickets?view=system:all_my_groups" replace />;
   return <>{children}</>;
 }
 
@@ -65,8 +64,8 @@ export default function App() {
       <div className="size-full">
         <Routes>
           <Route path="/" element={<LoginPage />} />
-          <Route path="/dashboard" element={<RequireAuth><BlockTechnicianFromUserArea><DashboardPage /></BlockTechnicianFromUserArea></RequireAuth>} />
-          <Route path="/tickets" element={<RequireAuth><BlockTechnicianFromUserArea><TicketsPage /></BlockTechnicianFromUserArea></RequireAuth>} />
+          <Route path="/dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
+          <Route path="/tickets" element={<RequireAuth><TicketsPage /></RequireAuth>} />
           <Route path="/tickets/:id" element={<RequireAuth><TicketDetailPage /></RequireAuth>} />
           <Route path="/create-ticket" element={<RequireAuth><BlockTechnicianFromUserArea><CreateTicketPage /></BlockTechnicianFromUserArea></RequireAuth>} />
           <Route path="/credits" element={<RequireAuth><Credits /></RequireAuth>} />
@@ -76,8 +75,8 @@ export default function App() {
           <Route path="/admin/groups" element={<RequireAdmin><AdminGroups /></RequireAdmin>} />
           <Route path="/admin/groups/:id" element={<RequireAdmin><AdminGroupDetail /></RequireAdmin>} />
           <Route path="/admin/sla" element={<RequireAdmin><AdminSlaPolicies /></RequireAdmin>} />
-          <Route path="/panel-tecnico" element={<RequireTechnician><TechnicianPanel /></RequireTechnician>} />
-          <Route path="/technician" element={<Navigate to="/panel-tecnico" replace />} />
+          <Route path="/panel-tecnico" element={<RequireTechnician><Navigate to="/tickets?view=system:all_my_groups" replace /></RequireTechnician>} />
+          <Route path="/technician" element={<Navigate to="/tickets?view=system:all_my_groups" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <Toaster position="top-right" richColors />

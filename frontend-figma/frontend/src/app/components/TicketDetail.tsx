@@ -45,6 +45,7 @@ import {
 } from '../../lib/sla';
 import { TICKET_STATUS_OPTIONS, getTicketStatusLabel, getTicketStatusColor } from '../../lib/ticketStatus';
 import TicketAttachments from './TicketAttachments';
+import InlineEditSelect from './InlineEditSelect';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -133,6 +134,175 @@ function ticketToFormData(ticket: Ticket): TicketFormData {
   };
 }
 
+interface HistoryGroup {
+  key: string;
+  email: string;
+  created_at: string;
+  entries: HistoryEntry[];
+}
+
+function groupHistoryByMoment(entries: HistoryEntry[]): HistoryGroup[] {
+  const groups: HistoryGroup[] = [];
+
+  const momentKey = (entry: HistoryEntry) => {
+    const ts = Math.floor(new Date(entry.created_at).getTime() / 1000);
+    return `${entry.email}|${ts}`;
+  };
+
+  for (const entry of entries) {
+    const key = momentKey(entry);
+    const last = groups[groups.length - 1];
+    if (last && last.key === key) {
+      last.entries.push(entry);
+    } else {
+      groups.push({ key, email: entry.email, created_at: entry.created_at, entries: [entry] });
+    }
+  }
+
+  return groups;
+}
+
+function HistoryGroupCard({
+  group,
+  formatDateTime,
+  formatHistoryEntry
+}: {
+  group: HistoryGroup;
+  formatDateTime: (date: string) => string;
+  formatHistoryEntry: (entry: HistoryEntry) => string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <Box sx={{ p: 1.5, bgcolor: '#fafbfc', borderRadius: 1.5 }}>
+      <Box
+        onClick={() => setExpanded((prev) => !prev)}
+        sx={{
+          cursor: 'pointer',
+          borderRadius: 1,
+          mx: -0.5,
+          px: 0.5,
+          '&:hover': { bgcolor: 'action.hover' }
+        }}
+      >
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: expanded ? 0.75 : 0 }}>
+          <Box component="span" sx={{ fontWeight: 700 }}>Por:</Box> {group.email}
+          {' · '}
+          <Box component="span" sx={{ fontWeight: 700 }}>{formatDateTime(group.created_at)}</Box>
+        </Typography>
+      </Box>
+      {expanded && (
+        <Stack spacing={0.5}>
+          {group.entries.map((entry) => (
+            <Typography key={entry.id} variant="body2">
+              {formatHistoryEntry(entry)}
+            </Typography>
+          ))}
+        </Stack>
+      )}
+    </Box>
+  );
+}
+
+function CommentCard({
+  comment,
+  formatDateTime,
+  admin,
+  isEditing,
+  editingText,
+  busy,
+  onStartEdit,
+  onDelete,
+  onEditTextChange,
+  onSaveEdit,
+  onCancelEdit
+}: {
+  comment: Comment;
+  formatDateTime: (date: string) => string;
+  admin: boolean;
+  isEditing: boolean;
+  editingText: string;
+  busy: boolean;
+  onStartEdit: () => void;
+  onDelete: () => void;
+  onEditTextChange: (value: string) => void;
+  onSaveEdit: () => void;
+  onCancelEdit: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const showContent = expanded || isEditing;
+
+  return (
+    <Box sx={{ p: 1.5, bgcolor: '#fafbfc', borderRadius: 1.5 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Box
+          onClick={() => {
+            if (!isEditing) setExpanded((prev) => !prev);
+          }}
+          sx={{
+            flex: 1,
+            cursor: isEditing ? 'default' : 'pointer',
+            borderRadius: 1,
+            mx: -0.5,
+            px: 0.5,
+            ...(!isEditing && { '&:hover': { bgcolor: 'action.hover' } })
+          }}
+        >
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: 'block', mb: showContent ? 0.75 : 0 }}
+          >
+            <Box component="span" sx={{ fontWeight: 700 }}>Por:</Box> {comment.email}
+            {' · '}
+            <Box component="span" sx={{ fontWeight: 700 }}>{formatDateTime(comment.created_at)}</Box>
+          </Typography>
+        </Box>
+        {admin && !isEditing && showContent && (
+          <Stack direction="row" spacing={0.25} onClick={(e) => e.stopPropagation()}>
+            <Tooltip title="Editar">
+              <IconButton size="small" disabled={busy} onClick={onStartEdit}>
+                <EditIcon sx={{ fontSize: 14 }} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Eliminar">
+              <IconButton size="small" color="error" disabled={busy} onClick={onDelete}>
+                <DeleteOutlineIcon sx={{ fontSize: 14 }} />
+              </IconButton>
+            </Tooltip>
+          </Stack>
+        )}
+      </Box>
+      {showContent && (
+        isEditing ? (
+          <Stack spacing={1}>
+            <TextField
+              fullWidth
+              multiline
+              size="small"
+              value={editingText}
+              onChange={(e) => onEditTextChange(e.target.value)}
+              autoFocus
+            />
+            <Stack direction="row" spacing={1}>
+              <Button size="small" variant="contained" disabled={busy} onClick={onSaveEdit}>
+                Guardar
+              </Button>
+              <Button size="small" variant="text" onClick={onCancelEdit}>
+                Cancelar
+              </Button>
+            </Stack>
+          </Stack>
+        ) : (
+          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+            {comment.content}
+          </Typography>
+        )
+      )}
+    </Box>
+  );
+}
+
 export default function TicketDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -158,6 +328,7 @@ export default function TicketDetail() {
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
   const [editingCommentText, setEditingCommentText] = useState('');
   const [busyCommentId, setBusyCommentId] = useState<number | null>(null);
+  const [fieldBusy, setFieldBusy] = useState<string | null>(null);
   const [formData, setFormData] = useState<TicketFormData>({
     title: '',
     description: '',
@@ -225,7 +396,6 @@ export default function TicketDetail() {
     if (result.response.ok) {
       const data = result.data as Resolution | null;
       setResolution(data);
-      if (data?.content) setResolutionText(data.content);
     }
   };
 
@@ -255,9 +425,14 @@ export default function TicketDetail() {
   }, [admin]);
 
   useEffect(() => {
-    if (!admin || !editing) return;
-    loadGroupTechnicians(formData.group_id);
-  }, [admin, editing, formData.group_id]);
+    if (!admin) return;
+    const groupId = editing ? formData.group_id : ticket?.group_id;
+    if (!groupId) {
+      setGroupTechnicians([]);
+      return;
+    }
+    loadGroupTechnicians(groupId);
+  }, [admin, editing, formData.group_id, ticket?.group_id]);
 
   const getStatusLabel = getTicketStatusLabel;
   const getStatusColor = getTicketStatusColor;
@@ -278,6 +453,9 @@ export default function TicketDetail() {
     const field = entry.field_name ? HISTORY_FIELD_LABELS[entry.field_name] || entry.field_name : 'Campo';
     const oldVal = formatHistoryValue(entry.field_name, entry.old_value);
     const newVal = formatHistoryValue(entry.field_name, entry.new_value);
+    if (entry.field_name === 'resolution' && !entry.old_value) {
+      return `${field}: ${newVal}`;
+    }
     return `${field}: ${oldVal} → ${newVal}`;
   };
 
@@ -334,6 +512,27 @@ export default function TicketDetail() {
       toast.error('Error conectando con el backend');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleInlineFieldUpdate = async (payload: Record<string, unknown>, fieldKey: string) => {
+    setFieldBusy(fieldKey);
+    try {
+      const result = await apiCall(admin ? `/admin/tickets/${id}` : `/tickets/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload)
+      });
+      if (!result) return;
+      if (!result.response.ok) {
+        toast.error(result.data.message || 'No se pudo actualizar');
+        return;
+      }
+      toast.success('Actualizado');
+      await Promise.all([loadTicket(), loadHistory()]);
+    } catch {
+      toast.error('Error conectando con el backend');
+    } finally {
+      setFieldBusy(null);
     }
   };
 
@@ -413,7 +612,9 @@ export default function TicketDetail() {
         return;
       }
       toast.success('Solicitud reabierta');
-      await Promise.all([loadTicket(), loadHistory()]);
+      setResolution(null);
+      setResolutionText('');
+      await Promise.all([loadTicket(), loadHistory(), loadResolution()]);
       setFormData((prev) => ({ ...prev, status: 'open' }));
     } catch {
       toast.error('Error conectando con el backend');
@@ -465,6 +666,16 @@ export default function TicketDetail() {
   const availableSubcategories = formData.category
     ? SUBCATEGORIES[formData.category as Category] ?? []
     : [];
+
+  const ticketSubcategories = ticket.category
+    ? SUBCATEGORIES[ticket.category as Category] ?? []
+    : [];
+
+  const statusOptions = admin
+    ? TICKET_STATUS_OPTIONS
+    : TICKET_STATUS_OPTIONS.filter((s) => s.value !== 'on-hold');
+
+  const inlineDisabled = Boolean(fieldBusy || saving);
 
   const authorEmail = staff ? (ticket.user_email || '—') : getEmail();
 
@@ -779,13 +990,56 @@ export default function TicketDetail() {
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                     Tipo
                   </Typography>
-                  <Typography variant="body2">{getTicketTypeLabel(ticket.type || 'incident')}</Typography>
+                  {admin ? (
+                    <InlineEditSelect
+                      value={ticket.type || 'incident'}
+                      disabled={inlineDisabled}
+                      display={
+                        <Chip
+                          label={getTicketTypeLabel(ticket.type || 'incident')}
+                          color={getTicketTypeColor(ticket.type || 'incident')}
+                          size="small"
+                        />
+                      }
+                      onChange={(val) => {
+                        const payload: Record<string, unknown> = { type: val };
+                        if (!isIncident(val)) payload.priority = null;
+                        else if (!ticket.priority) payload.priority = 'medium';
+                        handleInlineFieldUpdate(payload, 'type');
+                      }}
+                    >
+                      {TICKET_TYPE_OPTIONS.map((t) => (
+                        <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>
+                      ))}
+                    </InlineEditSelect>
+                  ) : (
+                    <Chip
+                      label={getTicketTypeLabel(ticket.type || 'incident')}
+                      color={getTicketTypeColor(ticket.type || 'incident')}
+                      size="small"
+                    />
+                  )}
                 </Box>
                 <Box sx={{ flex: 1 }}>
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                     Estado
                   </Typography>
-                  <Chip label={getStatusLabel(ticket.status)} color={getStatusColor(ticket.status)} size="small" />
+                  {(admin || technician) ? (
+                    <InlineEditSelect
+                      value={ticket.status}
+                      disabled={inlineDisabled}
+                      display={
+                        <Chip label={getStatusLabel(ticket.status)} color={getStatusColor(ticket.status)} size="small" />
+                      }
+                      onChange={(val) => handleInlineFieldUpdate({ status: val }, 'status')}
+                    >
+                      {statusOptions.map((s) => (
+                        <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
+                      ))}
+                    </InlineEditSelect>
+                  ) : (
+                    <Chip label={getStatusLabel(ticket.status)} color={getStatusColor(ticket.status)} size="small" />
+                  )}
                 </Box>
               </Stack>
               {isIncident(ticket.type) && (
@@ -794,7 +1048,20 @@ export default function TicketDetail() {
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                       Prioridad
                     </Typography>
-                    <Chip label={getPriorityLabel(ticket.priority)} variant="outlined" size="small" />
+                    {admin ? (
+                      <InlineEditSelect
+                        value={ticket.priority || 'medium'}
+                        disabled={inlineDisabled}
+                        display={<Chip label={getPriorityLabel(ticket.priority)} variant="outlined" size="small" />}
+                        onChange={(val) => handleInlineFieldUpdate({ priority: val }, 'priority')}
+                      >
+                        <MenuItem value="low">Baja</MenuItem>
+                        <MenuItem value="medium">Media</MenuItem>
+                        <MenuItem value="high">Alta</MenuItem>
+                      </InlineEditSelect>
+                    ) : (
+                      <Chip label={getPriorityLabel(ticket.priority)} variant="outlined" size="small" />
+                    )}
                   </Box>
                   {ticket.sla_status && (
                     <Box sx={{ flex: 1 }}>
@@ -810,22 +1077,116 @@ export default function TicketDetail() {
                   )}
                 </Stack>
               )}
-              <Typography variant="body2" sx={{ mt: 1 }}>
-                {ticket.category || '—'}
-                {ticket.subcategory ? ` · ${ticket.subcategory}` : ''}
-              </Typography>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 1.5 }}>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                    Categoría
+                  </Typography>
+                  {admin ? (
+                    <InlineEditSelect
+                      value={ticket.category || ''}
+                      disabled={inlineDisabled}
+                      display={
+                        <Typography variant="body2">{ticket.category || '—'}</Typography>
+                      }
+                      onChange={(val) =>
+                        handleInlineFieldUpdate(
+                          { category: val || null, subcategory: null },
+                          'category'
+                        )
+                      }
+                    >
+                      <MenuItem value=""><em>Sin categoría</em></MenuItem>
+                      {CATEGORIES.map((c) => (
+                        <MenuItem key={c} value={c}>{c}</MenuItem>
+                      ))}
+                    </InlineEditSelect>
+                  ) : (
+                    <Typography variant="body2">{ticket.category || '—'}</Typography>
+                  )}
+                </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                    Subcategoría
+                  </Typography>
+                  {admin ? (
+                    <InlineEditSelect
+                      value={ticket.subcategory || ''}
+                      disabled={inlineDisabled || !ticket.category}
+                      display={
+                        <Typography variant="body2">{ticket.subcategory || '—'}</Typography>
+                      }
+                      onChange={(val) =>
+                        handleInlineFieldUpdate({ subcategory: val || null }, 'subcategory')
+                      }
+                    >
+                      <MenuItem value=""><em>Sin subcategoría</em></MenuItem>
+                      {ticketSubcategories.map((s) => (
+                        <MenuItem key={s} value={s}>{s}</MenuItem>
+                      ))}
+                    </InlineEditSelect>
+                  ) : (
+                    <Typography variant="body2">{ticket.subcategory || '—'}</Typography>
+                  )}
+                </Box>
+              </Stack>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 1.5 }}>
                 <Box sx={{ flex: 1 }}>
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                     Grupo
                   </Typography>
-                  <Typography variant="body2">{ticket.group_name || '—'}</Typography>
+                  {admin ? (
+                    <InlineEditSelect
+                      value={ticket.group_id ?? ''}
+                      disabled={inlineDisabled}
+                      display={
+                        <Typography variant="body2">{ticket.group_name || '—'}</Typography>
+                      }
+                      onChange={(val) =>
+                        handleInlineFieldUpdate(
+                          {
+                            group_id: val ? Number(val) : null,
+                            technician_id: null
+                          },
+                          'group'
+                        )
+                      }
+                    >
+                      <MenuItem value=""><em>Sin grupo</em></MenuItem>
+                      {groups.map((g) => (
+                        <MenuItem key={g.id} value={g.id}>{g.name}</MenuItem>
+                      ))}
+                    </InlineEditSelect>
+                  ) : (
+                    <Typography variant="body2">{ticket.group_name || '—'}</Typography>
+                  )}
                 </Box>
                 <Box sx={{ flex: 1 }}>
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                     Técnico
                   </Typography>
-                  <Typography variant="body2">{ticket.technician_email || '—'}</Typography>
+                  {admin ? (
+                    <InlineEditSelect
+                      value={ticket.technician_id ?? ''}
+                      disabled={inlineDisabled || !ticket.group_id}
+                      display={
+                        <Typography variant="body2">{ticket.technician_email || '—'}</Typography>
+                      }
+                      onChange={(val) =>
+                        handleInlineFieldUpdate(
+                          { technician_id: val ? Number(val) : null },
+                          'technician'
+                        )
+                      }
+                    >
+                      <MenuItem value=""><em>Sin asignar</em></MenuItem>
+                      {groupTechnicians.map((tech) => (
+                        <MenuItem key={tech.id} value={tech.id}>{tech.email}</MenuItem>
+                      ))}
+                    </InlineEditSelect>
+                  ) : (
+                    <Typography variant="body2">{ticket.technician_email || '—'}</Typography>
+                  )}
                 </Box>
               </Stack>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 1.5 }}>
@@ -889,59 +1250,30 @@ export default function TicketDetail() {
           </Button>
         </Box>
 
-        <Stack spacing={1.5} sx={{ maxHeight: 320, overflowY: 'auto' }}>
+        <Stack spacing={1} sx={{ maxHeight: 320, overflowY: 'auto' }}>
           {comments.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
               Sin comentarios todavía. Agregá una nota de seguimiento.
             </Typography>
           ) : (
             comments.map((comment) => (
-              <Box key={comment.id} sx={{ p: 1.5, bgcolor: '#fafbfc', borderRadius: 1.5 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    {comment.email} · {formatDateTime(comment.created_at)}
-                  </Typography>
-                  {admin && editingCommentId !== comment.id && (
-                    <Stack direction="row" spacing={0.25}>
-                      <Tooltip title="Editar">
-                        <IconButton size="small" disabled={busyCommentId === comment.id}
-                          onClick={() => { setEditingCommentId(comment.id); setEditingCommentText(comment.content); }}>
-                          <EditIcon sx={{ fontSize: 14 }} />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Eliminar">
-                        <IconButton size="small" color="error" disabled={busyCommentId === comment.id}
-                          onClick={() => handleDeleteComment(comment.id)}>
-                          <DeleteOutlineIcon sx={{ fontSize: 14 }} />
-                        </IconButton>
-                      </Tooltip>
-                    </Stack>
-                  )}
-                </Box>
-                {admin && editingCommentId === comment.id ? (
-                  <Stack spacing={1}>
-                    <TextField
-                      fullWidth multiline size="small"
-                      value={editingCommentText}
-                      onChange={(e) => setEditingCommentText(e.target.value)}
-                      autoFocus
-                    />
-                    <Stack direction="row" spacing={1}>
-                      <Button size="small" variant="contained" disabled={busyCommentId === comment.id}
-                        onClick={() => handleEditComment(comment.id)}>
-                        Guardar
-                      </Button>
-                      <Button size="small" variant="text" onClick={() => setEditingCommentId(null)}>
-                        Cancelar
-                      </Button>
-                    </Stack>
-                  </Stack>
-                ) : (
-                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                    {comment.content}
-                  </Typography>
-                )}
-              </Box>
+              <CommentCard
+                key={comment.id}
+                comment={comment}
+                formatDateTime={formatDateTime}
+                admin={admin}
+                isEditing={editingCommentId === comment.id}
+                editingText={editingCommentText}
+                busy={busyCommentId === comment.id}
+                onStartEdit={() => {
+                  setEditingCommentId(comment.id);
+                  setEditingCommentText(comment.content);
+                }}
+                onDelete={() => handleDeleteComment(comment.id)}
+                onEditTextChange={setEditingCommentText}
+                onSaveEdit={() => handleEditComment(comment.id)}
+                onCancelEdit={() => setEditingCommentId(null)}
+              />
             ))
           )}
         </Stack>
@@ -980,6 +1312,8 @@ export default function TicketDetail() {
     </>
   );
 
+  const historyGroups = groupHistoryByMoment(history);
+
   const historyPanel = (
     <Stack spacing={1.5} sx={{ maxHeight: 520, overflowY: 'auto' }}>
       {history.length === 0 ? (
@@ -987,44 +1321,46 @@ export default function TicketDetail() {
           Sin registros todavía. Los cambios futuros quedarán acá.
         </Typography>
       ) : (
-        history.map((entry) => (
-          <Box key={entry.id} sx={{ p: 1.5, bgcolor: '#fafbfc', borderRadius: 1.5 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-              {entry.email} · {formatDateTime(entry.created_at)}
-            </Typography>
-            <Typography variant="body2">{formatHistoryEntry(entry)}</Typography>
-          </Box>
+        historyGroups.map((group) => (
+          <HistoryGroupCard
+            key={group.key}
+            group={group}
+            formatDateTime={formatDateTime}
+            formatHistoryEntry={formatHistoryEntry}
+          />
         ))
       )}
     </Stack>
   );
 
+  const isResolved = ticket.status === 'resolved';
+
   const resolutionPanel = staff ? (
     <Stack spacing={2}>
-      {resolution && (
-        <Box sx={{ p: 2, bgcolor: '#f0f7ff', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-            <Box component="span" sx={{ fontWeight: 700 }}>Resuelto por</Box>{' '}
-            {resolution.resolved_by_email} · {formatDateTime(resolution.updated_at || resolution.created_at)}
-          </Typography>
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-            {resolution.content}
-          </Typography>
-        </Box>
-      )}
-      {ticket.status === 'resolved' ? (
-        <Box>
-          <Button variant="contained" disabled={reopening} onClick={handleReopen}>
-            {reopening ? 'Reabriendo...' : 'Reabrir solicitud'}
-          </Button>
-        </Box>
+      {isResolved && resolution ? (
+        <>
+          <Box sx={{ p: 2, bgcolor: '#f0f7ff', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              <Box component="span" sx={{ fontWeight: 700 }}>Resuelto por</Box>{' '}
+              {resolution.resolved_by_email} · {formatDateTime(resolution.updated_at || resolution.created_at)}
+            </Typography>
+            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+              {resolution.content}
+            </Typography>
+          </Box>
+          <Box>
+            <Button variant="contained" disabled={reopening} onClick={handleReopen}>
+              {reopening ? 'Reabriendo...' : 'Reabrir solicitud'}
+            </Button>
+          </Box>
+        </>
       ) : (
         <>
           <TextField
             fullWidth
             multiline
             minRows={6}
-            label={resolution ? 'Actualizar resolución' : 'Registrar resolución'}
+            label="Registrar resolución"
             value={resolutionText}
             onChange={(e) => setResolutionText(e.target.value)}
             placeholder="Describí cómo se resolvió el ticket..."
@@ -1035,7 +1371,7 @@ export default function TicketDetail() {
               disabled={savingResolution || !resolutionText.trim()}
               onClick={handleSaveResolution}
             >
-              {savingResolution ? 'Guardando...' : resolution ? 'Actualizar resolución' : 'Registrar resolución'}
+              {savingResolution ? 'Guardando...' : 'Registrar resolución'}
             </Button>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
               Al guardar, el ticket pasará a estado resuelto con tu nombre y la fecha actual.
@@ -1044,7 +1380,7 @@ export default function TicketDetail() {
         </>
       )}
     </Stack>
-  ) : resolution ? (
+  ) : isResolved && resolution ? (
     <Box sx={{ p: 2, bgcolor: '#f0f7ff', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
         <Box component="span" sx={{ fontWeight: 700 }}>Resuelto por</Box>{' '}

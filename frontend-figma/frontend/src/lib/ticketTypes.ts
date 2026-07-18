@@ -40,7 +40,8 @@ export const HISTORY_FIELD_LABELS: Record<string, string> = {
   sla_response_due: 'Vencimiento respuesta',
   sla_resolution_due: 'Vencimiento resolución',
   group_id: 'Grupo',
-  technician_id: 'Técnico'
+  technician_id: 'Técnico',
+  resolution: 'Resolución'
 };
 
 export const HISTORY_VALUE_LABELS: Record<string, Record<string, string>> = {
@@ -63,6 +64,9 @@ export function formatHistoryValue(field: string | null, value: string | null): 
   }
   if (field === 'description' && value.length > 80) {
     return `${value.slice(0, 80)}…`;
+  }
+  if (field === 'resolution' && value.length > 120) {
+    return `${value.slice(0, 120)}…`;
   }
   return value;
 }

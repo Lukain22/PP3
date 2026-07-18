@@ -202,7 +202,20 @@ exports.updateAnyTicket = (req, res) => {
             return res.status(404).json({ message: 'Ticket no encontrado' });
           }
           logFieldChanges(id, req.user.id, oldTicket, updates);
-          res.json({ message: 'Ticket actualizado' });
+          const nextStatus = updates.status !== undefined ? updates.status : oldTicket.status;
+          const clearResolution = (done) => {
+            if (oldTicket.status === 'resolved' && nextStatus !== 'resolved') {
+              return db.query('DELETE FROM ticket_resolutions WHERE ticket_id = ?', [id], (clearErr) => done(clearErr));
+            }
+            done(null);
+          };
+          clearResolution((clearErr) => {
+            if (clearErr) {
+              console.error('Error limpiando resolución:', clearErr.code);
+              return res.status(500).json({ message: 'Error al limpiar resolución' });
+            }
+            res.json({ message: 'Ticket actualizado' });
+          });
         }
       );
     });
@@ -285,7 +298,7 @@ exports.getAnyTicketHistory = (req, res) => {
        FROM ticket_history h
        JOIN users u ON u.id = h.user_id
        WHERE h.ticket_id = ?
-       ORDER BY h.created_at DESC`,
+       ORDER BY h.created_at DESC, h.id DESC`,
       [id],
       (err, history) => {
         if (err) {

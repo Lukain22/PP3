@@ -1,17 +1,20 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
-const technicianMiddleware = require('../middleware/technicianMiddleware');
 const {
   getViews,
   createView,
   updateView,
-  deleteView
+  deleteView,
+  getViewLayout,
+  saveViewLayout
 } = require('../controllers/viewsController');
 
-router.use(authMiddleware, technicianMiddleware);
+router.use(authMiddleware);
 
 router.get('/', getViews);
+router.get('/layout', getViewLayout);
+router.put('/layout', saveViewLayout);
 router.post('/', createView);
 router.patch('/:id', updateView);
 router.delete('/:id', deleteView);

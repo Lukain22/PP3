@@ -12,12 +12,20 @@ const {
   formatDateForDb
 } = require('../utils/sla');
 const { getDefaultGroupId, getUserGroupIds, userCanAccessTicket } = require('../utils/groups');
+const { appendListFilters } = require('../utils/ticketFilters');
 
 const SLA_SELECT = 'sla_response_due, sla_resolution_due, sla_status, sla_paused_at';
 
 const VALID_STATUSES = ['open', 'in-progress', 'on-hold', 'resolved'];
 const VALID_PRIORITIES = ['low', 'medium', 'high'];
 const VALID_TYPES = ['incident', 'requirement'];
+
+const clearResolutionOnReopen = (ticketId, oldStatus, newStatus, done) => {
+  if (oldStatus === 'resolved' && newStatus && newStatus !== 'resolved') {
+    return db.query('DELETE FROM ticket_resolutions WHERE ticket_id = ?', [ticketId], (err) => done(err));
+  }
+  done(null);
+};
 
 const loadTicketWithAccess = (req, ticketId, callback) => {
   db.query('SELECT * FROM tickets WHERE id = ?', [ticketId], (err, rows) => {
@@ -97,17 +105,17 @@ exports.getTickets = (req, res) => {
   const page  = Math.max(1, parseInt(req.query.page)  || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
   const offset = (page - 1) * limit;
-  const { status } = req.query;
+  const { status, type, priority } = req.query;
 
-  const baseWhere = status && VALID_STATUSES.includes(status)
-    ? 'WHERE user_id = ? AND status = ?'
-    : 'WHERE user_id = ?';
-  const baseParams = status && VALID_STATUSES.includes(status)
-    ? [req.user.id, status]
-    : [req.user.id];
+  const conditions = ['user_id = ?'];
+  const baseParams = [req.user.id];
+
+  appendListFilters(conditions, baseParams, { status, type, priority });
+
+  const whereClause = `WHERE ${conditions.join(' AND ')}`;
 
   db.query(
-    `SELECT COUNT(*) AS total FROM tickets ${baseWhere}`,
+    `SELECT COUNT(*) AS total FROM tickets t ${whereClause}`,
     baseParams,
     (err, countResult) => {
       if (err) return res.status(500).json({ message: 'Error al obtener tickets' });
@@ -115,8 +123,9 @@ exports.getTickets = (req, res) => {
       const total = countResult[0].total;
 
       db.query(
-        `SELECT id, title, description, status, priority, type, ${SLA_SELECT}, created_at, user_id
-         FROM tickets ${baseWhere}
+        `SELECT id, title, description, status, priority, type, group_id, ${SLA_SELECT}, created_at, user_id
+         FROM tickets t
+         ${whereClause}
          ORDER BY created_at DESC
          LIMIT ? OFFSET ?`,
         [...baseParams, limit, offset],
@@ -305,7 +314,10 @@ exports.updateTicketStatus = (req, res) => {
           if (updates.sla_status && updates.sla_status !== oldTicket.sla_status) {
             logTicketHistory(id, req.user.id, 'updated', 'sla_status', oldTicket.sla_status, updates.sla_status);
           }
-          res.json({ message: 'Estado actualizado' });
+          clearResolutionOnReopen(id, oldStatus, status, (clearErr) => {
+            if (clearErr) return res.status(500).json({ message: 'Error al limpiar resolución' });
+            res.json({ message: 'Estado actualizado' });
+          });
         }
       );
     });
@@ -427,7 +439,11 @@ exports.updateTicket = (req, res) => {
             if (err) return res.status(500).json({ message: 'Error al actualizar ticket' });
             if (result.affectedRows === 0) return res.status(404).json({ message: 'Ticket no encontrado' });
             logFieldChanges(id, req.user.id, oldTicket, updates);
-            res.json({ message: 'Ticket actualizado' });
+            const nextStatus = updates.status !== undefined ? updates.status : oldTicket.status;
+            clearResolutionOnReopen(id, oldTicket.status, nextStatus, (clearErr) => {
+              if (clearErr) return res.status(500).json({ message: 'Error al limpiar resolución' });
+              res.json({ message: 'Ticket actualizado' });
+            });
           }
         );
       });
@@ -481,7 +497,7 @@ exports.getTicketHistory = (req, res) => {
        FROM ticket_history h
        JOIN users u ON u.id = h.user_id
        WHERE h.ticket_id = ?
-       ORDER BY h.created_at DESC`,
+       ORDER BY h.created_at DESC, h.id DESC`,
       [id],
       (err, history) => {
         if (err) return res.status(500).json({ message: 'Error al obtener historial' });
@@ -575,8 +591,10 @@ exports.saveTicketResolution = (req, res) => {
 
     const trimmed = String(content).trim();
 
-    db.query('SELECT id FROM ticket_resolutions WHERE ticket_id = ?', [id], (selErr, existing) => {
+    db.query('SELECT id, content FROM ticket_resolutions WHERE ticket_id = ?', [id], (selErr, existing) => {
       if (selErr) return res.status(500).json({ message: 'Error al verificar resolución' });
+
+      const oldContent = existing.length > 0 ? existing[0].content : null;
 
       const finish = () => {
         loadPolicies((policyErr, policies) => {
@@ -601,6 +619,9 @@ exports.saveTicketResolution = (req, res) => {
               if (updErr) return res.status(500).json({ message: 'Error al marcar ticket como resuelto' });
               if (oldStatus !== 'resolved') {
                 logTicketHistory(id, req.user.id, 'updated', 'status', oldStatus, 'resolved');
+              }
+              if (String(oldContent ?? '') !== trimmed) {
+                logTicketHistory(id, req.user.id, 'updated', 'resolution', oldContent, trimmed);
               }
               res.json({ message: existing.length > 0 ? 'Resolución actualizada' : 'Resolución registrada' });
             }

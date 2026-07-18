@@ -286,11 +286,18 @@ export default function TicketAttachments({
         onChange={handleFilePick}
       />
       <Button
-        variant="outlined"
-        size={compact ? 'small' : 'medium'}
-        startIcon={uploading ? <CircularProgress size={16} /> : <AttachFileIcon />}
+        variant="text"
+        size="small"
+        startIcon={uploading ? <CircularProgress size={14} /> : <AttachFileIcon sx={{ fontSize: 17 }} />}
         onClick={() => fileInputRef.current?.click()}
         disabled={uploading || (isPendingMode && pendingFiles.length >= 5)}
+        sx={{
+          fontSize: '0.69rem',
+          py: 0.45,
+          px: 1.1,
+          minHeight: 27,
+          '& .MuiButton-startIcon': { mr: 0.5 }
+        }}
       >
         {uploading ? 'Subiendo...' : 'Adjuntar archivos'}
       </Button>
