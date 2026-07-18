@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Box,
   Button,
@@ -7,21 +7,22 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   FormControl,
   IconButton,
   InputLabel,
+  ListItemButton,
   ListItemText,
   MenuItem,
   OutlinedInput,
+  Popover,
   Select,
   Stack,
   TextField,
-  Typography,
-  type SelectChangeEvent
+  Typography
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import GroupsIcon from '@mui/icons-material/Groups';
@@ -38,7 +39,6 @@ import {
   type TicketView,
   buildDefaultViewOrder,
   getSystemViewsForRole,
-  parseViewItemKey,
   selectionFromCustomView,
   selectionFromSystemView,
   sortViewItems,
@@ -83,11 +83,14 @@ export default function TicketViewSelect({
 }: TicketViewSelectProps) {
   const [customViews, setCustomViews] = useState<TicketView[]>([]);
   const [layoutOrder, setLayoutOrder] = useState<string[]>(buildDefaultViewOrder(role));
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [orderDialogOpen, setOrderDialogOpen] = useState(false);
-  const [orderDraft, setOrderDraft] = useState<string[]>([]);
   const [editingView, setEditingView] = useState<TicketView | null>(null);
   const [saving, setSaving] = useState(false);
+  const [reordering, setReordering] = useState(false);
+  const [draggingKey, setDraggingKey] = useState<string | null>(null);
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
+  const didDragRef = useRef(false);
   const [form, setForm] = useState({
     name: '',
     visibility: 'personal' as 'personal' | 'group',
@@ -100,6 +103,7 @@ export default function TicketViewSelect({
   });
 
   const systemViews = useMemo(() => getSystemViewsForRole(role), [role]);
+  const menuOpen = Boolean(menuAnchor);
 
   const loadData = async () => {
     const [viewsResult, layoutResult] = await Promise.all([
@@ -132,40 +136,67 @@ export default function TicketViewSelect({
     return sortViewItems([...systemItems, ...customItems], layoutOrder);
   }, [systemViews, customViews, layoutOrder]);
 
-  const selectValue =
-    selection.kind === 'system' && selection.key
-      ? systemViewKeyToItemKey(selection.key)
-      : selection.kind === 'custom' && selection.viewId
-        ? viewIdToItemKey(selection.viewId)
-        : '';
+  const closeMenu = () => {
+    setMenuAnchor(null);
+    setDraggingKey(null);
+    setDragOverKey(null);
+  };
 
-  const handleSelectChange = (event: SelectChangeEvent<string>) => {
-    const itemKey = event.target.value;
-    if (itemKey === '__create__') {
-      openCreateDialog();
+  const applyViewItem = (item: ViewMenuItem) => {
+    if (item.kind === 'system') {
+      onApply(selectionFromSystemView(item.system));
       return;
     }
-    if (itemKey === '__order__') {
-      openOrderDialog();
+    onApply(selectionFromCustomView(item.view, role));
+  };
+
+  const handleViewClick = (item: ViewMenuItem) => {
+    if (didDragRef.current) {
+      didDragRef.current = false;
       return;
     }
+    applyViewItem(item);
+    closeMenu();
+  };
 
-    const parsed = parseViewItemKey(itemKey);
-    if (!parsed) return;
+  const persistOrder = async (next: string[]) => {
+    const previous = layoutOrder;
+    setLayoutOrder(next);
+    setReordering(true);
 
-    if (parsed.kind === 'system' && parsed.key) {
-      const system = systemViews.find((view) => view.key === parsed.key);
-      if (system) onApply(selectionFromSystemView(system));
-      return;
-    }
-
-    if (parsed.kind === 'custom' && parsed.viewId) {
-      const view = customViews.find((item) => item.id === parsed.viewId);
-      if (view) onApply(selectionFromCustomView(view, role));
+    try {
+      const result = await apiCall('/views/layout', {
+        method: 'PUT',
+        body: JSON.stringify({ order: next })
+      });
+      if (!result?.response.ok) {
+        setLayoutOrder(previous);
+        toast.error(result?.data.message || 'No se pudo guardar el orden');
+      }
+    } catch {
+      setLayoutOrder(previous);
+      toast.error('Error conectando con el backend');
+    } finally {
+      setReordering(false);
     }
   };
 
+  const reorderViews = async (sourceKey: string, targetKey: string) => {
+    if (sourceKey === targetKey) return;
+
+    const order = menuItems.map((item) => item.itemKey);
+    const from = order.indexOf(sourceKey);
+    const to = order.indexOf(targetKey);
+    if (from < 0 || to < 0) return;
+
+    const next = [...order];
+    next.splice(from, 1);
+    next.splice(to, 0, sourceKey);
+    await persistOrder(next);
+  };
+
   const openCreateDialog = () => {
+    closeMenu();
     setEditingView(null);
     setForm({
       name: '',
@@ -181,6 +212,7 @@ export default function TicketViewSelect({
   };
 
   const openEditDialog = (view: TicketView) => {
+    closeMenu();
     setEditingView(view);
     setForm({
       name: view.name,
@@ -197,41 +229,6 @@ export default function TicketViewSelect({
       sort_by: view.sort_by || 'date-desc'
     });
     setDialogOpen(true);
-  };
-
-  const openOrderDialog = () => {
-    setOrderDraft(menuItems.map((item) => item.itemKey));
-    setOrderDialogOpen(true);
-  };
-
-  const moveOrderItem = (index: number, direction: -1 | 1) => {
-    const next = [...orderDraft];
-    const target = index + direction;
-    if (target < 0 || target >= next.length) return;
-    [next[index], next[target]] = [next[target], next[index]];
-    setOrderDraft(next);
-  };
-
-  const saveOrder = async () => {
-    setSaving(true);
-    try {
-      const result = await apiCall('/views/layout', {
-        method: 'PUT',
-        body: JSON.stringify({ order: orderDraft })
-      });
-      if (!result) return;
-      if (!result.response.ok) {
-        toast.error(result.data.message || 'No se pudo guardar el orden');
-        return;
-      }
-      setLayoutOrder(orderDraft);
-      setOrderDialogOpen(false);
-      toast.success('Orden de vistas guardado');
-    } catch {
-      toast.error('Error conectando con el backend');
-    } finally {
-      setSaving(false);
-    }
   };
 
   const handleSaveView = async () => {
@@ -298,78 +295,144 @@ export default function TicketViewSelect({
     await loadData();
   };
 
-  const labelForItemKey = (itemKey: string) => {
-    const parsed = parseViewItemKey(itemKey);
-    if (!parsed) return itemKey;
-    if (parsed.kind === 'system' && parsed.key) {
-      return systemViews.find((view) => view.key === parsed.key)?.name || itemKey;
+  const renderViewIcon = (item: ViewMenuItem) => {
+    if (item.kind === 'system') {
+      return <StarIcon sx={{ fontSize: 16, color: 'warning.main' }} />;
     }
-    if (parsed.kind === 'custom' && parsed.viewId) {
-      return customViews.find((view) => view.id === parsed.viewId)?.name || itemKey;
+    if (item.view.visibility === 'group') {
+      return <GroupsIcon sx={{ fontSize: 16 }} />;
     }
-    return itemKey;
+    return <PersonIcon sx={{ fontSize: 16 }} />;
   };
 
   return (
     <>
       <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-        <InputLabel id="ticket-view-select-label">Vista</InputLabel>
-        <Select
-          labelId="ticket-view-select-label"
+        <InputLabel id="ticket-view-select-label" shrink>Vista</InputLabel>
+        <OutlinedInput
+          id="ticket-view-select-label"
+          readOnly
           label="Vista"
-          value={selectValue}
-          onChange={handleSelectChange}
-          renderValue={() => (
-            <Stack direction="row" spacing={1} alignItems="center">
-              <StarIcon sx={{ fontSize: 18, color: 'primary.main' }} />
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>{selection.name}</Typography>
-            </Stack>
-          )}
-        >
-          {menuItems.map((item) => (
-            <MenuItem key={item.itemKey} value={item.itemKey}>
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
-                {item.kind === 'system' ? (
-                  <StarIcon sx={{ fontSize: 16, color: 'warning.main' }} />
-                ) : item.view.visibility === 'group' ? (
-                  <GroupsIcon sx={{ fontSize: 16 }} />
-                ) : (
-                  <PersonIcon sx={{ fontSize: 16 }} />
-                )}
+          notched
+          value={selection.name}
+          onClick={(e) => setMenuAnchor(e.currentTarget)}
+          sx={{ cursor: 'pointer', bgcolor: '#fff' }}
+          startAdornment={
+            <StarIcon sx={{ fontSize: 18, color: 'primary.main', mr: 1 }} />
+          }
+        />
+      </FormControl>
+
+      <Popover
+        open={menuOpen}
+        anchorEl={menuAnchor}
+        onClose={closeMenu}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        slotProps={{
+          paper: {
+            sx: {
+              width: menuAnchor?.offsetWidth || 320,
+              maxHeight: 420,
+              overflow: 'auto'
+            }
+          }
+        }}
+      >
+        <Box sx={{ py: 0.5 }}>
+          {menuItems.map((item) => {
+            const isActive =
+              (item.kind === 'system' && selection.kind === 'system' && selection.key === item.system.key) ||
+              (item.kind === 'custom' && selection.kind === 'custom' && selection.viewId === item.view.id);
+            const isDragging = draggingKey === item.itemKey;
+            const isDragOver = dragOverKey === item.itemKey && draggingKey !== item.itemKey;
+
+            return (
+              <ListItemButton
+                key={item.itemKey}
+                draggable={!reordering}
+                selected={isActive}
+                onClick={() => handleViewClick(item)}
+                onDragStart={(e) => {
+                  didDragRef.current = true;
+                  setDraggingKey(item.itemKey);
+                  e.dataTransfer.effectAllowed = 'move';
+                  e.dataTransfer.setData('text/plain', item.itemKey);
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  setDragOverKey(item.itemKey);
+                }}
+                onDragLeave={() => {
+                  if (dragOverKey === item.itemKey) setDragOverKey(null);
+                }}
+                onDrop={async (e) => {
+                  e.preventDefault();
+                  const sourceKey = e.dataTransfer.getData('text/plain') || draggingKey;
+                  if (sourceKey) {
+                    await reorderViews(sourceKey, item.itemKey);
+                  }
+                  setDraggingKey(null);
+                  setDragOverKey(null);
+                }}
+                onDragEnd={() => {
+                  setDraggingKey(null);
+                  setDragOverKey(null);
+                }}
+                sx={{
+                  py: 1,
+                  opacity: isDragging ? 0.45 : 1,
+                  cursor: reordering ? 'wait' : 'grab',
+                  bgcolor: isDragOver ? 'action.hover' : undefined,
+                  borderTop: isDragOver ? '2px solid' : '2px solid transparent',
+                  borderColor: isDragOver ? 'primary.main' : 'transparent',
+                  '&:active': { cursor: 'grabbing' }
+                }}
+              >
+                <DragIndicatorIcon sx={{ fontSize: 18, color: 'text.disabled', mr: 0.5, flexShrink: 0 }} />
+                <Box sx={{ mr: 1, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                  {renderViewIcon(item)}
+                </Box>
                 <ListItemText
                   primary={item.kind === 'system' ? item.system.name : item.view.name}
-                  secondary={
-                    item.kind === 'custom' && !item.view.is_owner
-                      ? `Compartida · ${item.view.creator_email || ''}`
-                      : item.kind === 'system'
-                        ? 'Vista general'
-                        : item.view.visibility === 'group'
-                          ? `Compartida · ${item.view.share_group_name || ''}`
-                          : 'Personal'
-                  }
+                  sx={{ minWidth: 0 }}
                 />
                 {item.kind === 'custom' && item.view.is_owner && (
-                  <Stack direction="row" onClick={(e) => e.stopPropagation()}>
-                    <IconButton size="small" onClick={() => openEditDialog(item.view)}>
+                  <Stack direction="row" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEditDialog(item.view);
+                      }}
+                    >
                       <EditIcon sx={{ fontSize: 16 }} />
                     </IconButton>
-                    <IconButton size="small" color="error" onClick={() => handleDelete(item.view)}>
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(item.view);
+                      }}
+                    >
                       <DeleteOutlineIcon sx={{ fontSize: 16 }} />
                     </IconButton>
                   </Stack>
                 )}
-              </Stack>
-            </MenuItem>
-          ))}
-          <MenuItem value="__create__">
-            <AddIcon sx={{ fontSize: 18, mr: 1 }} />
-            Crear vista con filtros actuales
-          </MenuItem>
-          <MenuItem value="__order__">
-            Ordenar vistas favoritas
-          </MenuItem>
-        </Select>
-      </FormControl>
+              </ListItemButton>
+            );
+          })}
+
+          <Divider sx={{ my: 0.5 }} />
+
+          <ListItemButton onClick={openCreateDialog}>
+            <AddIcon sx={{ fontSize: 18, mr: 1.5 }} />
+            <ListItemText primary="Crear vista con filtros actuales" />
+          </ListItemButton>
+        </Box>
+      </Popover>
 
       <Dialog open={dialogOpen} onClose={() => !saving && setDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{editingView ? 'Editar vista' : 'Nueva vista'}</DialogTitle>
@@ -419,29 +482,6 @@ export default function TicketViewSelect({
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)} disabled={saving}>Cancelar</Button>
           <Button variant="contained" onClick={handleSaveView} disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={orderDialogOpen} onClose={() => !saving && setOrderDialogOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Orden de vistas favoritas</DialogTitle>
-        <DialogContent>
-          <Stack spacing={1} sx={{ mt: 1 }}>
-            {orderDraft.map((itemKey, index) => (
-              <Stack key={itemKey} direction="row" alignItems="center" spacing={1}>
-                <Typography variant="body2" sx={{ flex: 1 }}>{labelForItemKey(itemKey)}</Typography>
-                <IconButton size="small" disabled={index === 0} onClick={() => moveOrderItem(index, -1)}>
-                  <ArrowUpwardIcon fontSize="small" />
-                </IconButton>
-                <IconButton size="small" disabled={index === orderDraft.length - 1} onClick={() => moveOrderItem(index, 1)}>
-                  <ArrowDownwardIcon fontSize="small" />
-                </IconButton>
-              </Stack>
-            ))}
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOrderDialogOpen(false)} disabled={saving}>Cancelar</Button>
-          <Button variant="contained" onClick={saveOrder} disabled={saving}>{saving ? 'Guardando...' : 'Guardar orden'}</Button>
         </DialogActions>
       </Dialog>
     </>
