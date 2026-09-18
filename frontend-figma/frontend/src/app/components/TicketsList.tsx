@@ -13,17 +13,19 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableFooter,
   Chip,
   CircularProgress,
   TextField,
   MenuItem,
   InputAdornment,
-  Stack,
-  Pagination
+  Stack
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
 import { getToken, clearAuth, getRole, isStaff } from '../../lib/auth';
@@ -36,20 +38,25 @@ import {
 import { TICKET_STATUS_OPTIONS, getTicketStatusLabel, getTicketStatusColor } from '../../lib/ticketStatus';
 import InlineEditSelect from './InlineEditSelect';
 import TicketViewSelect from './TicketViewSelect';
+import StaffTableHeadRow from './StaffTableColumnFilters';
 import {
   type ActiveViewSelection,
   type ListMode,
   type TicketListFilters,
   type TicketView,
+  type StaffColumnFilters,
   buildTicketQueryParams,
+  emptyStaffColumnFilters,
   getDefaultSystemView,
   getSystemViewsForRole,
   getTicketsApiPath,
+  hasActiveStaffColumnFilters,
   parseViewItemKey,
   resolveTicketViewItemKey,
   saveLastTicketView,
   selectionFromCustomView,
   selectionFromSystemView,
+  staffColumnFiltersFromView,
   systemViewKeyToItemKey,
   viewIdToItemKey
 } from '../../lib/ticketViews';
@@ -86,14 +93,6 @@ interface TechnicianOption {
   email: string;
 }
 
-const statusFilters = [
-  { value: '', label: 'Todos' },
-  { value: 'open', label: 'Abiertos' },
-  { value: 'in-progress', label: 'En proceso' },
-  { value: 'on-hold', label: 'En espera' },
-  { value: 'resolved', label: 'Resueltos' }
-];
-
 const priorityWeight: Record<string, number> = { high: 3, medium: 2, low: 1 };
 
 function resolveInitialSelection(search: string, role: ReturnType<typeof getRole>): ActiveViewSelection {
@@ -109,6 +108,65 @@ function resolveInitialSelection(search: string, role: ReturnType<typeof getRole
 function truncateDescription(text: string, max = 80): string {
   if (!text) return '—';
   return text.length > max ? `${text.slice(0, max)}…` : text;
+}
+
+function TicketsTableFooter({
+  colSpan,
+  total,
+  page,
+  totalPages,
+  onPageChange
+}: {
+  colSpan: number;
+  total: number;
+  page: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}) {
+  return (
+    <TableFooter>
+      <TableRow>
+        <TableCell
+          colSpan={colSpan}
+          sx={{
+            borderTop: '1px solid',
+            borderColor: 'divider',
+            bgcolor: '#fafbfc',
+            py: 1.25,
+            px: 2
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+            <Typography variant="body2" color="text.secondary">
+              {total} solicitud{total === 1 ? '' : 'es'}
+            </Typography>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <IconButton
+                size="small"
+                aria-label="Página anterior"
+                disabled={page <= 1}
+                onClick={() => onPageChange(page - 1)}
+              >
+                <ChevronLeftIcon fontSize="small" />
+              </IconButton>
+              <Typography variant="body2" color="text.secondary" sx={{ minWidth: 88, textAlign: 'center' }}>
+                Pág. {page} / {totalPages}
+              </Typography>
+              <IconButton
+                size="small"
+                aria-label="Página siguiente"
+                disabled={page >= totalPages}
+                onClick={() => onPageChange(page + 1)}
+              >
+                <ChevronRightIcon fontSize="small" />
+              </IconButton>
+            </Box>
+          </Box>
+        </TableCell>
+      </TableRow>
+    </TableFooter>
+  );
 }
 
 export default function TicketsList() {
@@ -134,6 +192,10 @@ export default function TicketsList() {
   const [listMode, setListMode] = useState<ListMode>(initialSelection.listMode);
   const [sortBy, setSortBy] = useState(initialSelection.sortBy);
   const [page, setPage] = useState(1);
+  const [columnFilters, setColumnFilters] = useState<StaffColumnFilters>(
+    () => staffColumnFiltersFromView(initialSelection.filters)
+  );
+  const [debouncedColumnFilters, setDebouncedColumnFilters] = useState(columnFilters);
 
   const isStaffTable = listMode === 'admin' || listMode === 'technician';
   const canEditAll = listMode === 'admin';
@@ -157,9 +219,19 @@ export default function TicketsList() {
     return { response, data };
   };
 
-  const loadTickets = async (currentPage: number, filters: TicketListFilters, mode: ListMode) => {
+  const loadTickets = async (
+    currentPage: number,
+    filters: TicketListFilters,
+    mode: ListMode,
+    staffFilters?: StaffColumnFilters
+  ) => {
     setLoading(true);
-    const params = buildTicketQueryParams(currentPage, PAGE_SIZE, filters);
+    const params = buildTicketQueryParams(
+      currentPage,
+      PAGE_SIZE,
+      filters,
+      mode === 'admin' || mode === 'technician' ? staffFilters : undefined
+    );
     const result = await apiCall(`${getTicketsApiPath(mode)}?${params}`);
     if (!result) return;
     if (result.response.ok) {
@@ -212,6 +284,7 @@ export default function TicketsList() {
           setListMode(next.listMode);
           setSortBy(next.sortBy);
           setPage(1);
+          setColumnFilters(staffColumnFiltersFromView(next.filters));
         }
       } else if (parsed.kind === 'custom' && parsed.viewId) {
         const result = await apiCall('/views?scope=tickets');
@@ -226,6 +299,7 @@ export default function TicketsList() {
             setSortBy(next.sortBy);
             setPage(1);
             setSearch('');
+            setColumnFilters(staffColumnFiltersFromView(next.filters));
           } else {
             const fallback = systemViewKeyToItemKey(getDefaultSystemView(role).key);
             saveLastTicketView(role, fallback);
@@ -242,9 +316,21 @@ export default function TicketsList() {
   }, [location.search, role]);
 
   useEffect(() => { if (viewReady) loadGroups(listMode); }, [listMode, viewReady]);
+
   useEffect(() => {
-    if (viewReady) loadTickets(page, listFilters, listMode);
-  }, [page, listFilters, listMode, viewReady]);
+    const timer = window.setTimeout(() => setDebouncedColumnFilters(columnFilters), 400);
+    return () => window.clearTimeout(timer);
+  }, [columnFilters]);
+
+  useEffect(() => {
+    if (!viewReady) return;
+    loadTickets(
+      page,
+      listFilters,
+      listMode,
+      isStaffTable ? debouncedColumnFilters : undefined
+    );
+  }, [page, listFilters, listMode, viewReady, debouncedColumnFilters, isStaffTable]);
 
   const applySelection = (next: ActiveViewSelection) => {
     setSelection(next);
@@ -253,6 +339,7 @@ export default function TicketsList() {
     setSortBy(next.sortBy);
     setPage(1);
     setSearch('');
+    setColumnFilters(staffColumnFiltersFromView(next.filters));
 
     const viewParam =
       next.kind === 'system' && next.key
@@ -271,6 +358,25 @@ export default function TicketsList() {
     setPage(1);
     setSearch('');
   };
+
+  const updateColumnFilters = (patch: Partial<StaffColumnFilters>) => {
+    setColumnFilters((prev) => ({ ...prev, ...patch }));
+    setPage(1);
+    setSearch('');
+  };
+
+  const clearColumnFilters = () => {
+    setColumnFilters(emptyStaffColumnFilters());
+    setPage(1);
+  };
+
+  const allTechnicians = useMemo(() => {
+    const map = new Map<number, TechnicianOption>();
+    Object.values(groupTechnicians).forEach((techs) => {
+      techs.forEach((tech) => map.set(tech.id, tech));
+    });
+    return Array.from(map.values()).sort((a, b) => a.email.localeCompare(b.email, 'es'));
+  }, [groupTechnicians]);
 
   useEffect(() => {
     if (!isStaffTable || groups.length === 0) return;
@@ -291,16 +397,18 @@ export default function TicketsList() {
   const displayTickets = useMemo(() => {
     let list = [...tickets];
 
-    const q = search.trim().toLowerCase();
-    if (q) {
-      list = list.filter(
-        (t) =>
-          t.title.toLowerCase().includes(q) ||
-          (t.description || '').toLowerCase().includes(q) ||
-          (t.user_email || '').toLowerCase().includes(q) ||
-          (t.technician_email || '').toLowerCase().includes(q) ||
-          String(t.id).includes(q)
-      );
+    if (!isStaffTable) {
+      const q = search.trim().toLowerCase();
+      if (q) {
+        list = list.filter(
+          (t) =>
+            t.title.toLowerCase().includes(q) ||
+            (t.description || '').toLowerCase().includes(q) ||
+            (t.user_email || '').toLowerCase().includes(q) ||
+            (t.technician_email || '').toLowerCase().includes(q) ||
+            String(t.id).includes(q)
+        );
+      }
     }
 
     list.sort((a, b) => {
@@ -313,7 +421,7 @@ export default function TicketsList() {
     });
 
     return list;
-  }, [tickets, search, sortBy]);
+  }, [tickets, search, sortBy, isStaffTable]);
 
   const patchPath = (ticketId: number) =>
     canEditAll ? `/admin/tickets/${ticketId}` : `/tickets/${ticketId}`;
@@ -392,7 +500,7 @@ export default function TicketsList() {
       if (!result) return;
       if (!result.response.ok) { toast.error(result.data.message || 'No se pudo eliminar'); return; }
       toast.success('Ticket eliminado');
-      await loadTickets(page, listFilters, listMode);
+      await loadTickets(page, listFilters, listMode, isStaffTable ? debouncedColumnFilters : undefined);
     } catch {
       toast.error('Error conectando con el backend');
     } finally {
@@ -430,12 +538,13 @@ export default function TicketsList() {
     new Date(d).toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' });
 
   const hasActiveFilters =
-    search ||
+    (!isStaffTable && search) ||
     selection.kind === 'custom' ||
     listFilters.type ||
-    listFilters.group_id ||
-    listFilters.status ||
-    listFilters.priority;
+    listFilters.priority ||
+    (isStaffTable
+      ? hasActiveStaffColumnFilters(columnFilters)
+      : listFilters.group_id || listFilters.status);
 
   const emptyMessage = isStaffTable
     ? hasActiveFilters
@@ -447,15 +556,16 @@ export default function TicketsList() {
       ? 'Sin resultados para esa búsqueda.'
       : 'No tenés solicitudes. Creá una nueva.';
 
+  const handlePageChange = (nextPage: number) => {
+    setPage(nextPage);
+    setSearch('');
+  };
+
+  const staffTableColSpan = canEditAll ? 9 : 8;
+  const userTableColSpan = 7;
+
   return (
-    <SupportShell
-      title="Solicitudes"
-      subtitle={
-        loading
-          ? 'Cargando...'
-          : `${total} solicitud${total === 1 ? '' : 'es'} · pág. ${page}/${totalPages}`
-      }
-    >
+    <SupportShell title="Solicitudes">
       <Paper elevation={0} sx={{ p: 2, mb: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
         <TicketViewSelect
           role={role}
@@ -468,20 +578,22 @@ export default function TicketsList() {
         />
 
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }} flexWrap="wrap" useFlexGap>
-          <TextField
-            size="small"
-            placeholder="Buscar en esta página..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            sx={{ flex: 2, minWidth: 280 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" color="action" />
-                </InputAdornment>
-              )
-            }}
-          />
+          {!isStaffTable && (
+            <TextField
+              size="small"
+              placeholder="Buscar en esta página..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              sx={{ flex: 2, minWidth: 280 }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" color="action" />
+                  </InputAdornment>
+                )
+              }}
+            />
+          )}
           <TextField
             select
             size="small"
@@ -521,19 +633,6 @@ export default function TicketsList() {
               <TextField
                 select
                 size="small"
-                label="Grupo"
-                value={listFilters.group_id}
-                onChange={(e) => updateFilters({ group_id: e.target.value })}
-                sx={{ minWidth: 180 }}
-              >
-                <MenuItem value="">{listMode === 'technician' ? 'Todos mis grupos' : 'Todos los grupos'}</MenuItem>
-                {groups.map((g) => (
-                  <MenuItem key={g.id} value={String(g.id)}>{g.name}</MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                select
-                size="small"
                 label="Prioridad"
                 value={listFilters.priority}
                 disabled={listFilters.type === 'requirement'}
@@ -558,28 +657,12 @@ export default function TicketsList() {
             </Button>
           )}
         </Stack>
-
-        <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mt: 2 }}>
-          {statusFilters.map((f) => (
-            <Chip
-              key={f.value || 'all'}
-              label={f.label}
-              onClick={() => updateFilters({ status: f.value })}
-              color={!listFilters.status.includes(',') && listFilters.status === f.value ? 'primary' : 'default'}
-              variant={!listFilters.status.includes(',') && listFilters.status === f.value ? 'filled' : 'outlined'}
-            />
-          ))}
-        </Stack>
       </Paper>
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress />
         </Box>
-      ) : displayTickets.length === 0 ? (
-        <Paper sx={{ p: 5, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
-          <Typography color="text.secondary">{emptyMessage}</Typography>
-        </Paper>
       ) : isStaffTable ? (
         <TableContainer
           component={Paper}
@@ -588,22 +671,24 @@ export default function TicketsList() {
         >
           <Table sx={{ minWidth: 1200 }}>
             <TableHead>
-              <TableRow sx={{ bgcolor: '#fafbfc' }}>
-                <TableCell sx={{ fontWeight: 600, width: 64 }}>#</TableCell>
-                <TableCell sx={{ fontWeight: 600, minWidth: 200 }}>Ticket</TableCell>
-                <TableCell sx={{ fontWeight: 600, minWidth: 200 }}>Usuario</TableCell>
-                <TableCell sx={{ fontWeight: 600, minWidth: 180 }}>Grupo</TableCell>
-                <TableCell sx={{ fontWeight: 600, minWidth: 180 }}>Asignado a</TableCell>
-                <TableCell sx={{ fontWeight: 600, minWidth: 160 }}>Estado</TableCell>
-                <TableCell sx={{ fontWeight: 600, minWidth: 140 }}>Categoría</TableCell>
-                <TableCell sx={{ fontWeight: 600, minWidth: 120 }}>Fecha</TableCell>
-                {canEditAll && (
-                  <TableCell sx={{ fontWeight: 600, width: 96 }} align="center">Acciones</TableCell>
-                )}
-              </TableRow>
+              <StaffTableHeadRow
+                canEditAll={canEditAll}
+                groups={groups}
+                technicians={allTechnicians}
+                filters={columnFilters}
+                onChange={updateColumnFilters}
+                onClear={clearColumnFilters}
+              />
             </TableHead>
             <TableBody>
-              {displayTickets.map((ticket) => (
+              {displayTickets.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={staffTableColSpan} sx={{ py: 4, textAlign: 'center' }}>
+                    <Typography color="text.secondary">{emptyMessage}</Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                displayTickets.map((ticket) => (
                 <TableRow
                   key={ticket.id}
                   hover
@@ -720,10 +805,22 @@ export default function TicketsList() {
                     </TableCell>
                   )}
                 </TableRow>
-              ))}
+                ))
+              )}
             </TableBody>
+            <TicketsTableFooter
+              colSpan={staffTableColSpan}
+              total={total}
+              page={page}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+            />
           </Table>
         </TableContainer>
+      ) : displayTickets.length === 0 ? (
+        <Paper sx={{ p: 5, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
+          <Typography color="text.secondary">{emptyMessage}</Typography>
+        </Paper>
       ) : (
         <TableContainer
           component={Paper}
@@ -803,22 +900,15 @@ export default function TicketsList() {
                 </TableRow>
               ))}
             </TableBody>
+            <TicketsTableFooter
+              colSpan={userTableColSpan}
+              total={total}
+              page={page}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+            />
           </Table>
         </TableContainer>
-      )}
-
-      {!loading && totalPages > 1 && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
-          <Pagination
-            count={totalPages}
-            page={page}
-            onChange={(_, val) => { setPage(val); setSearch(''); }}
-            color="primary"
-            shape="rounded"
-            showFirstButton
-            showLastButton
-          />
-        </Box>
       )}
     </SupportShell>
   );

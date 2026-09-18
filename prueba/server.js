@@ -7,8 +7,10 @@ const ticketRoutes = require('./routes/ticketRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const technicianRoutes = require('./routes/technicianRoutes');
 const viewsRoutes = require('./routes/viewsRoutes');
+const notificationsRoutes = require('./routes/notificationsRoutes');
 const { initTicketsTable, initCommentsTable } = require('./controllers/ticketsController');
 const { initTicketHistoryTable } = require('./utils/ticketHistory');
+const { initNotificationsTable } = require('./utils/notifications');
 const { initAttachmentsTable } = require('./utils/attachments');
 const { initSlaPoliciesTable, loadPolicies, buildIncidentSla, formatDateForDb } = require('./utils/sla');
 const {
@@ -30,6 +32,7 @@ app.use('/tickets', ticketRoutes);
 app.use('/admin', adminRoutes);
 app.use('/technician', technicianRoutes);
 app.use('/views', viewsRoutes);
+app.use('/notifications', notificationsRoutes);
 
 const initUsersTable = () => {
   const createSql = `
@@ -64,6 +67,7 @@ const initUsersTable = () => {
         initUserGroupsTable();
         initTicketResolutionsTable();
         initTicketViewsTable();
+        initNotificationsTable();
         runTicketMigrations();
       }
     );

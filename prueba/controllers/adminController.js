@@ -7,7 +7,8 @@ const {
   applySlaFieldsToUpdate,
   appendSlaToFields
 } = require('../utils/sla');
-const { appendListFilters } = require('../utils/ticketFilters');
+const { appendExtendedListFilters } = require('../utils/ticketFilters');
+const { notifyTicketCreatorOnChanges, notifyOnComment } = require('../utils/notifications');
 
 const SLA_SELECT = 't.sla_response_due, t.sla_resolution_due, t.sla_status';
 
@@ -36,17 +37,25 @@ exports.getAllTickets = (req, res) => {
   const page  = Math.max(1, parseInt(req.query.page)  || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
   const offset = (page - 1) * limit;
-  const { status, user_email, group_id, type, priority } = req.query;
+  const { status, user_email, group_id, type, priority, ticket_id, title, group_ids, technician_ids, categories, date_from, date_to } = req.query;
 
   const conditions = [];
   const baseParams = [];
 
-  appendListFilters(conditions, baseParams, { status, group_id, type, priority });
-
-  if (user_email && String(user_email).trim()) {
-    conditions.push('u.email LIKE ?');
-    baseParams.push(`%${String(user_email).trim()}%`);
-  }
+  appendExtendedListFilters(conditions, baseParams, {
+    status,
+    group_id,
+    group_ids,
+    type,
+    priority,
+    ticket_id,
+    title,
+    user_email,
+    technician_ids,
+    categories,
+    date_from,
+    date_to
+  });
 
   const joinClause = 'JOIN users u ON u.id = t.user_id LEFT JOIN `groups` g ON g.id = t.group_id LEFT JOIN users tech ON tech.id = t.technician_id';
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -214,6 +223,7 @@ exports.updateAnyTicket = (req, res) => {
               console.error('Error limpiando resolución:', clearErr.code);
               return res.status(500).json({ message: 'Error al limpiar resolución' });
             }
+            notifyTicketCreatorOnChanges(oldTicket, req.user.id, oldTicket, updates);
             res.json({ message: 'Ticket actualizado' });
           });
         }
@@ -357,7 +367,7 @@ exports.addAnyTicketComment = (req, res) => {
   }
 
   db.query(
-    'SELECT id FROM tickets WHERE id = ?',
+    'SELECT id, user_id, technician_id, title FROM tickets WHERE id = ?',
     [id],
     (err, tickets) => {
       if (err) {
@@ -368,6 +378,8 @@ exports.addAnyTicketComment = (req, res) => {
         return res.status(404).json({ message: 'Ticket no encontrado' });
       }
 
+      const ticket = tickets[0];
+
       db.query(
         'INSERT INTO ticket_comments (ticket_id, user_id, content) VALUES (?, ?, ?)',
         [id, req.user.id, String(content).trim()],
@@ -376,6 +388,7 @@ exports.addAnyTicketComment = (req, res) => {
             console.error('Error en addAnyTicketComment:', insertErr.code);
             return res.status(500).json({ message: 'Error al agregar comentario' });
           }
+          notifyOnComment(ticket, req.user.id, req.user.role);
           res.status(201).json({ message: 'Comentario agregado', id: result.insertId });
         }
       );

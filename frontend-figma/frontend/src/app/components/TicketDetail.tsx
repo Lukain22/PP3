@@ -691,12 +691,6 @@ export default function TicketDetail() {
           {formatDateTime(ticket.sla_resolution_due)}
         </>
       )}
-      {!staff && ticket.updated_at && ticket.updated_at !== ticket.created_at && (
-        <>
-          {'  ·  '}
-          <Box component="span" sx={{ fontWeight: 700 }}>Actualizado:</Box> {formatDateTime(ticket.updated_at)}
-        </>
-      )}
     </>
   );
 
@@ -732,9 +726,9 @@ export default function TicketDetail() {
               </Typography>
             )}
           </Box>
-          {(admin || technician) && (
+          {(admin || technician || !staff) && (
             !editing ? (
-              <Tooltip title="Editar ticket">
+              <Tooltip title={staff ? 'Editar ticket' : 'Editar asunto y descripción'}>
                 <IconButton size="small" onClick={() => setEditing(true)}>
                   <EditIcon fontSize="small" />
                 </IconButton>
@@ -757,41 +751,6 @@ export default function TicketDetail() {
             )
           )}
         </Box>
-
-        {!editing && !staff && (
-          <Stack spacing={1} sx={{ mb: 2 }}>
-            <Stack direction="row" spacing={1} flexWrap="wrap">
-              <Chip
-                label={getTicketTypeLabel(ticket.type || 'incident')}
-                color={getTicketTypeColor(ticket.type || 'incident')}
-                size="small"
-              />
-              <Chip label={getStatusLabel(ticket.status)} color={getStatusColor(ticket.status)} size="small" />
-            </Stack>
-            {isIncident(ticket.type) && (
-              <Stack direction="row" spacing={1} flexWrap="wrap">
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700 }}>
-                    Prioridad
-                  </Typography>
-                  <Chip label={getPriorityLabel(ticket.priority)} variant="outlined" size="small" />
-                </Box>
-                {ticket.sla_status && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 700 }}>
-                      Vencimiento
-                    </Typography>
-                    <Chip
-                      label={getSlaStatusLabel(ticket.sla_status)}
-                      color={getSlaStatusColor(ticket.sla_status)}
-                      size="small"
-                    />
-                  </Box>
-                )}
-              </Stack>
-            )}
-          </Stack>
-        )}
 
         {editing ? (
           <Stack spacing={2.5}>
@@ -848,13 +807,12 @@ export default function TicketDetail() {
         )}
       </Paper>
 
-      {((staff && !editing) || (editing && (admin || technician))) && (
-        <Paper elevation={0} sx={sectionPaperSx}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-            Información
-          </Typography>
+      <Paper elevation={0} sx={sectionPaperSx}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
+          Información
+        </Typography>
 
-          {editing ? (
+        {editing && staff ? (
             <Stack spacing={2.5}>
               {admin && (
                 <>
@@ -1221,19 +1179,7 @@ export default function TicketDetail() {
               </Stack>
             </>
           )}
-        </Paper>
-      )}
-
-      {editing && !admin && !technician && (
-        <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-          <Button variant="contained" disabled={saving} onClick={handleSave}>
-            {saving ? 'Guardando...' : 'Guardar cambios'}
-          </Button>
-          <Button variant="text" disabled={saving} onClick={handleCancelEdit}>
-            Cancelar
-          </Button>
-        </Box>
-      )}
+      </Paper>
 
       <Paper elevation={0} sx={{ ...sectionPaperSx, mb: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 2 }}>

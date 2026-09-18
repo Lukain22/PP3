@@ -1,7 +1,7 @@
 const db = require('../db/db');
 const { getUserGroupIds, userCanAccessTicket } = require('../utils/groups');
 const { enrichTickets } = require('../utils/sla');
-const { appendListFilters } = require('../utils/ticketFilters');
+const { appendExtendedListFilters } = require('../utils/ticketFilters');
 
 const VALID_STATUSES = ['open', 'in-progress', 'on-hold', 'resolved'];
 
@@ -9,7 +9,20 @@ exports.getTechnicianTickets = (req, res) => {
   const page = Math.max(1, parseInt(req.query.page) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
   const offset = (page - 1) * limit;
-  const { status, group_id, type, priority } = req.query;
+  const {
+    status,
+    group_id,
+    group_ids,
+    type,
+    priority,
+    ticket_id,
+    title,
+    user_email,
+    technician_ids,
+    categories,
+    date_from,
+    date_to
+  } = req.query;
 
   getUserGroupIds(req.user.id, (groupErr, groupIds) => {
     if (groupErr) return res.status(500).json({ message: 'Error al obtener grupos' });
@@ -22,14 +35,32 @@ exports.getTechnicianTickets = (req, res) => {
     const conditions = [`t.group_id IN (${placeholders})`];
     const params = [...groupIds];
 
-    if (group_id) {
-      const filterGroupId = parseInt(group_id, 10);
-      if (filterGroupId && !groupIds.includes(filterGroupId)) {
+    const requestedGroupIds = String(group_ids || group_id || '')
+      .split(',')
+      .map((part) => parseInt(part.trim(), 10))
+      .filter((id) => Number.isInteger(id) && id > 0);
+
+    if (requestedGroupIds.length > 0) {
+      const invalidGroup = requestedGroupIds.find((id) => !groupIds.includes(id));
+      if (invalidGroup) {
         return res.status(403).json({ message: 'No tenés acceso a ese grupo' });
       }
     }
 
-    appendListFilters(conditions, params, { status, group_id, type, priority });
+    appendExtendedListFilters(conditions, params, {
+      status,
+      group_id,
+      group_ids,
+      type,
+      priority,
+      ticket_id,
+      title,
+      user_email,
+      technician_ids,
+      categories,
+      date_from,
+      date_to
+    });
 
     const whereClause = `WHERE ${conditions.join(' AND ')}`;
 
@@ -43,6 +74,7 @@ exports.getTechnicianTickets = (req, res) => {
 
         db.query(
           `SELECT t.id, t.title, t.description, t.status, t.priority, t.type,
+                  t.category, t.subcategory,
                   t.group_id, g.name AS group_name,
                   t.technician_id, tech.email AS technician_email,
                   t.sla_response_due, t.sla_resolution_due, t.sla_status,

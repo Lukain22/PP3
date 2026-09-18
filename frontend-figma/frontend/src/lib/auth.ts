@@ -49,3 +49,29 @@ export function getHomePath(): string {
   }
   return '/dashboard';
 }
+
+export function getRoleLabel(role?: UserRole): string {
+  const current = role ?? getRole();
+  switch (current) {
+    case 'admin':
+      return 'Admin';
+    case 'technician':
+      return 'Técnico';
+    default:
+      return 'Usuario';
+  }
+}
+
+export function getUserInitials(email?: string): string {
+  const value = (email ?? getEmail()).trim();
+  if (!value) return '?';
+
+  const localPart = value.split('@')[0] || value;
+  const parts = localPart.split(/[._-]+/).filter(Boolean);
+
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  }
+
+  return localPart.slice(0, 2).toUpperCase();
+}

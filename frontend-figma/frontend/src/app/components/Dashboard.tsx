@@ -13,20 +13,17 @@ import {
   TableRow,
   Chip,
   CircularProgress,
-  Button,
   Paper,
   Typography,
   TextField,
   MenuItem,
   Stack
 } from '@mui/material';
-import ListAltIcon from '@mui/icons-material/ListAlt';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as RechartsTooltip } from 'recharts';
 import SupportShell from './SupportShell';
 import { getTicketTypeLabel } from '../../lib/ticketTypes';
 import { getPriorityLabel, getSlaStatusLabel, isIncident } from '../../lib/sla';
-import { getRole, isAdmin, isStaff, isTechnician } from '../../lib/auth';
-import { getTicketsPath } from '../../lib/ticketViews';
+import { isAdmin, isStaff, isTechnician } from '../../lib/auth';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -140,7 +137,6 @@ function getScopeOptions(): DashboardScope[] {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const role = getRole();
   const staff = isStaff();
   const scopeOptions = getScopeOptions();
 
@@ -284,19 +280,11 @@ export default function Dashboard() {
 
   return (
     <SupportShell
-      title="TABLERO"
+      title="Tablero"
+      headerActionInline
       headerAction={
-        <Button variant="outlined" startIcon={<ListAltIcon />} onClick={() => navigate(getTicketsPath(role))}>
-          Ver solicitudes
-        </Button>
-      }
-    >
-      {staff && (
-        <Paper
-          elevation={0}
-          sx={{ p: 2, mb: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
-        >
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
+        staff ? (
+          <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" useFlexGap>
             <TextField
               select
               size="small"
@@ -334,9 +322,9 @@ export default function Dashboard() {
               </TextField>
             )}
           </Stack>
-        </Paper>
-      )}
-
+        ) : undefined
+      }
+    >
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {stats.map((stat) => (
           <Grid size={{ xs: 6, md: 3 }} key={stat.label}>

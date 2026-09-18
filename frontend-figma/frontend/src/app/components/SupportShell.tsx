@@ -14,10 +14,11 @@ import {
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
-import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { isAdmin, isTechnician, clearAuth, getHomePath, getRole } from '../../lib/auth';
+import NotificationBell from './NotificationBell';
+import UserProfileMenu from './UserProfileMenu';
+import { isAdmin, isTechnician, getHomePath, getRole } from '../../lib/auth';
 import { getTicketsPath } from '../../lib/ticketViews';
 
 type Crumb = { label: string; to?: string };
@@ -29,6 +30,7 @@ interface SupportShellProps {
   breadcrumbs?: Crumb[];
   backTo?: string;
   headerAction?: ReactNode;
+  headerActionInline?: boolean;
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | false;
 }
 
@@ -49,6 +51,7 @@ export default function SupportShell({
   breadcrumbs,
   backTo,
   headerAction,
+  headerActionInline = false,
   maxWidth = false
 }: SupportShellProps) {
   const navigate = useNavigate();
@@ -85,8 +88,17 @@ export default function SupportShell({
           <Button
             size="small"
             variant="text"
-            onClick={() => navigate(getTicketsPath(getRole()))}
+            onClick={() => navigate('/dashboard')}
             sx={{ flexShrink: 0, fontWeight: 500, ml: { xs: 0, sm: -0.5 } }}
+          >
+            Inicio
+          </Button>
+
+          <Button
+            size="small"
+            variant="text"
+            onClick={() => navigate(getTicketsPath(getRole()))}
+            sx={{ flexShrink: 0, fontWeight: 500 }}
           >
             Solicitudes
           </Button>
@@ -101,13 +113,7 @@ export default function SupportShell({
             </Tooltip>
           )}
 
-          <Tooltip title="Notificaciones (próximamente)">
-            <span>
-              <IconButton size="small" disabled aria-label="Notificaciones">
-                <NotificationsNoneIcon fontSize="small" />
-              </IconButton>
-            </span>
-          </Tooltip>
+          <NotificationBell />
 
           {canCreateTicket && (
             <Button
@@ -139,17 +145,7 @@ export default function SupportShell({
             </IconButton>
           </Tooltip>
 
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={() => {
-              clearAuth();
-              navigate('/');
-            }}
-            sx={{ flexShrink: 0 }}
-          >
-            Salir
-          </Button>
+          <UserProfileMenu />
         </Toolbar>
       </AppBar>
 
@@ -207,7 +203,15 @@ export default function SupportShell({
           )}
 
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: headerActionInline ? 'flex-start' : 'space-between',
+                gap: headerActionInline ? 3 : 2,
+                flexWrap: 'wrap'
+              }}
+            >
               <Typography variant="h4" sx={{ fontWeight: 600, fontSize: { xs: '1.35rem', md: '1.75rem' } }}>
                 {title}
               </Typography>

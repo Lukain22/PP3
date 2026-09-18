@@ -13,6 +13,11 @@ const {
 } = require('../utils/sla');
 const { getDefaultGroupId, getUserGroupIds, userCanAccessTicket } = require('../utils/groups');
 const { appendListFilters } = require('../utils/ticketFilters');
+const {
+  notifyTicketCreatorOnChanges,
+  notifyTicketCreatorOnResolution,
+  notifyOnComment
+} = require('../utils/notifications');
 
 const SLA_SELECT = 'sla_response_due, sla_resolution_due, sla_status, sla_paused_at';
 
@@ -316,6 +321,9 @@ exports.updateTicketStatus = (req, res) => {
           }
           clearResolutionOnReopen(id, oldStatus, status, (clearErr) => {
             if (clearErr) return res.status(500).json({ message: 'Error al limpiar resolución' });
+            if (oldStatus !== status) {
+              notifyTicketCreatorOnChanges(oldTicket, req.user.id, oldTicket, { status });
+            }
             res.json({ message: 'Estado actualizado' });
           });
         }
@@ -442,6 +450,7 @@ exports.updateTicket = (req, res) => {
             const nextStatus = updates.status !== undefined ? updates.status : oldTicket.status;
             clearResolutionOnReopen(id, oldTicket.status, nextStatus, (clearErr) => {
               if (clearErr) return res.status(500).json({ message: 'Error al limpiar resolución' });
+              notifyTicketCreatorOnChanges(oldTicket, req.user.id, oldTicket, updates);
               res.json({ message: 'Ticket actualizado' });
             });
           }
@@ -546,6 +555,7 @@ exports.addTicketComment = (req, res) => {
       [id, req.user.id, String(content).trim()],
       (insertErr, result) => {
         if (insertErr) return res.status(500).json({ message: 'Error al agregar comentario' });
+        notifyOnComment(ticket, req.user.id, req.user.role);
         res.status(201).json({ message: 'Comentario agregado', id: result.insertId });
       }
     );
@@ -623,6 +633,7 @@ exports.saveTicketResolution = (req, res) => {
               if (String(oldContent ?? '') !== trimmed) {
                 logTicketHistory(id, req.user.id, 'updated', 'resolution', oldContent, trimmed);
               }
+              notifyTicketCreatorOnResolution(ticket, req.user.id, existing.length > 0);
               res.json({ message: existing.length > 0 ? 'Resolución actualizada' : 'Resolución registrada' });
             }
           );
