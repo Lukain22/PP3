@@ -12,7 +12,7 @@ const {
   formatDateForDb
 } = require('../utils/sla');
 const { getDefaultGroupId, getUserGroupIds, userCanAccessTicket } = require('../utils/groups');
-const { appendListFilters } = require('../utils/ticketFilters');
+const { appendListFilters, resolveTicketOrderBy } = require('../utils/ticketFilters');
 const {
   notifyTicketCreatorOnChanges,
   notifyTicketCreatorOnResolution,
@@ -110,7 +110,8 @@ exports.getTickets = (req, res) => {
   const page  = Math.max(1, parseInt(req.query.page)  || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
   const offset = (page - 1) * limit;
-  const { status, type, priority } = req.query;
+  const { status, type, priority, sort } = req.query;
+  const orderBy = resolveTicketOrderBy(sort, 'user');
 
   const conditions = ['user_id = ?'];
   const baseParams = [req.user.id];
@@ -131,7 +132,7 @@ exports.getTickets = (req, res) => {
         `SELECT id, title, description, status, priority, type, group_id, ${SLA_SELECT}, created_at, user_id
          FROM tickets t
          ${whereClause}
-         ORDER BY created_at DESC
+         ORDER BY ${orderBy}
          LIMIT ? OFFSET ?`,
         [...baseParams, limit, offset],
         (err2, results) => {

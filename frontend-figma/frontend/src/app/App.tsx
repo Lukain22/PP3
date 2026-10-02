@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import { Toaster } from 'sonner';
 import LoginPage from './components/LoginPage';
+import ForgotPasswordPage from './components/ForgotPasswordPage';
+import ResetPasswordPage from './components/ResetPasswordPage';
 import Dashboard from './components/Dashboard';
 import TicketsList from './components/TicketsList';
 import CreateTicket from './components/CreateTicket';
@@ -64,6 +66,8 @@ export default function App() {
       <div className="size-full">
         <Routes>
           <Route path="/" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
           <Route path="/tickets" element={<RequireAuth><TicketsPage /></RequireAuth>} />
           <Route path="/tickets/:id" element={<RequireAuth><TicketDetailPage /></RequireAuth>} />

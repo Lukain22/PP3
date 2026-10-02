@@ -15,6 +15,7 @@ import {
   TableRow,
   TableFooter,
   Chip,
+  Checkbox,
   CircularProgress,
   TextField,
   MenuItem,
@@ -28,8 +29,8 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
-import { getToken, clearAuth, getRole, isStaff } from '../../lib/auth';
-import { TICKET_TYPE_OPTIONS, getTicketTypeLabel, getTicketTypeColor } from '../../lib/ticketTypes';
+import { getToken, clearAuth, getRole } from '../../lib/auth';
+import { getTicketTypeLabel, getTicketTypeColor } from '../../lib/ticketTypes';
 import {
   getPriorityLabel,
   getPriorityColor,
@@ -38,7 +39,14 @@ import {
 import { TICKET_STATUS_OPTIONS, getTicketStatusLabel, getTicketStatusColor } from '../../lib/ticketStatus';
 import InlineEditSelect from './InlineEditSelect';
 import TicketViewSelect from './TicketViewSelect';
-import StaffTableHeadRow from './StaffTableColumnFilters';
+import StaffTableHeadRow, { SortableHeaderCell } from './StaffTableColumnFilters';
+import {
+  type TicketSort,
+  type TicketSortKey,
+  sortFromViewSort,
+  sortToQuery,
+  toggleColumnSort
+} from '../../lib/ticketTable';
 import {
   type ActiveViewSelection,
   type ListMode,
@@ -92,8 +100,6 @@ interface TechnicianOption {
   id: number;
   email: string;
 }
-
-const priorityWeight: Record<string, number> = { high: 3, medium: 2, low: 1 };
 
 function resolveInitialSelection(search: string, role: ReturnType<typeof getRole>): ActiveViewSelection {
   const itemKey = resolveTicketViewItemKey(search, role);
@@ -195,7 +201,12 @@ export default function TicketsList() {
   const [columnFilters, setColumnFilters] = useState<StaffColumnFilters>(
     () => staffColumnFiltersFromView(initialSelection.filters)
   );
-  const [debouncedColumnFilters, setDebouncedColumnFilters] = useState(columnFilters);
+  const [columnSort, setColumnSort] = useState<TicketSort>(() => sortFromViewSort(initialSelection.sortBy));
+  const [sortEngaged, setSortEngaged] = useState(false);
+  const [listReady, setListReady] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
+  const [filterRowOpen, setFilterRowOpen] = useState(false);
+  const [focusColumn, setFocusColumn] = useState<TicketSortKey | null>(null);
 
   const isStaffTable = listMode === 'admin' || listMode === 'technician';
   const canEditAll = listMode === 'admin';
@@ -223,14 +234,16 @@ export default function TicketsList() {
     currentPage: number,
     filters: TicketListFilters,
     mode: ListMode,
+    sort: TicketSort,
     staffFilters?: StaffColumnFilters
   ) => {
-    setLoading(true);
+    if (!listReady) setLoading(true);
     const params = buildTicketQueryParams(
       currentPage,
       PAGE_SIZE,
       filters,
-      mode === 'admin' || mode === 'technician' ? staffFilters : undefined
+      mode === 'admin' || mode === 'technician' ? staffFilters : undefined,
+      sortToQuery(sort)
     );
     const result = await apiCall(`${getTicketsApiPath(mode)}?${params}`);
     if (!result) return;
@@ -239,6 +252,7 @@ export default function TicketsList() {
       setTotal(result.data.total ?? 0);
       setTotalPages(result.data.totalPages ?? 1);
     }
+    setListReady(true);
     setLoading(false);
   };
 
@@ -269,7 +283,7 @@ export default function TicketsList() {
       const param = new URLSearchParams(location.search).get('view');
       const parsed = param ? parseViewItemKey(param) : null;
 
-      if (!parsed) {
+      if (!param || !parsed) {
         return;
       }
 
@@ -283,8 +297,12 @@ export default function TicketsList() {
           setListFilters({ ...next.filters });
           setListMode(next.listMode);
           setSortBy(next.sortBy);
+          setColumnSort(sortFromViewSort(next.sortBy));
+          setSortEngaged(false);
           setPage(1);
           setColumnFilters(staffColumnFiltersFromView(next.filters));
+          setSelectedIds(new Set());
+          setFilterRowOpen(false);
         }
       } else if (parsed.kind === 'custom' && parsed.viewId) {
         const result = await apiCall('/views?scope=tickets');
@@ -297,9 +315,13 @@ export default function TicketsList() {
             setListFilters({ ...next.filters });
             setListMode(next.listMode);
             setSortBy(next.sortBy);
+            setColumnSort(sortFromViewSort(next.sortBy));
+            setSortEngaged(false);
             setPage(1);
             setSearch('');
             setColumnFilters(staffColumnFiltersFromView(next.filters));
+            setSelectedIds(new Set());
+            setFilterRowOpen(false);
           } else {
             const fallback = systemViewKeyToItemKey(getDefaultSystemView(role).key);
             saveLastTicketView(role, fallback);
@@ -318,28 +340,28 @@ export default function TicketsList() {
   useEffect(() => { if (viewReady) loadGroups(listMode); }, [listMode, viewReady]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedColumnFilters(columnFilters), 400);
-    return () => window.clearTimeout(timer);
-  }, [columnFilters]);
-
-  useEffect(() => {
     if (!viewReady) return;
     loadTickets(
       page,
       listFilters,
       listMode,
-      isStaffTable ? debouncedColumnFilters : undefined
+      columnSort,
+      isStaffTable ? columnFilters : undefined
     );
-  }, [page, listFilters, listMode, viewReady, debouncedColumnFilters, isStaffTable]);
+  }, [page, listFilters, listMode, viewReady, columnFilters, isStaffTable, columnSort]);
 
   const applySelection = (next: ActiveViewSelection) => {
     setSelection(next);
     setListFilters({ ...next.filters });
     setListMode(next.listMode);
     setSortBy(next.sortBy);
+    setColumnSort(sortFromViewSort(next.sortBy));
+    setSortEngaged(false);
     setPage(1);
     setSearch('');
     setColumnFilters(staffColumnFiltersFromView(next.filters));
+    setSelectedIds(new Set());
+    setFilterRowOpen(false);
 
     const viewParam =
       next.kind === 'system' && next.key
@@ -351,16 +373,8 @@ export default function TicketsList() {
     navigate(viewParam ? `/tickets?view=${viewParam}` : '/tickets', { replace: true });
   };
 
-  const updateFilters = (patch: Partial<TicketListFilters>) => {
-    const nextFilters = { ...listFilters, ...patch };
-    setListFilters(nextFilters);
-    setSelection((prev) => ({ ...prev, filters: nextFilters }));
-    setPage(1);
-    setSearch('');
-  };
-
-  const updateColumnFilters = (patch: Partial<StaffColumnFilters>) => {
-    setColumnFilters((prev) => ({ ...prev, ...patch }));
+  const applyColumnFilters = (next: StaffColumnFilters) => {
+    setColumnFilters(next);
     setPage(1);
     setSearch('');
   };
@@ -369,14 +383,6 @@ export default function TicketsList() {
     setColumnFilters(emptyStaffColumnFilters());
     setPage(1);
   };
-
-  const allTechnicians = useMemo(() => {
-    const map = new Map<number, TechnicianOption>();
-    Object.values(groupTechnicians).forEach((techs) => {
-      techs.forEach((tech) => map.set(tech.id, tech));
-    });
-    return Array.from(map.values()).sort((a, b) => a.email.localeCompare(b.email, 'es'));
-  }, [groupTechnicians]);
 
   useEffect(() => {
     if (!isStaffTable || groups.length === 0) return;
@@ -395,33 +401,62 @@ export default function TicketsList() {
   }, [groups, isStaffTable, listMode]);
 
   const displayTickets = useMemo(() => {
-    let list = [...tickets];
+    if (isStaffTable) return tickets;
 
-    if (!isStaffTable) {
-      const q = search.trim().toLowerCase();
-      if (q) {
-        list = list.filter(
-          (t) =>
-            t.title.toLowerCase().includes(q) ||
-            (t.description || '').toLowerCase().includes(q) ||
-            (t.user_email || '').toLowerCase().includes(q) ||
-            (t.technician_email || '').toLowerCase().includes(q) ||
-            String(t.id).includes(q)
-        );
-      }
-    }
+    const q = search.trim().toLowerCase();
+    if (!q) return tickets;
+    return tickets.filter(
+      (t) =>
+        t.title.toLowerCase().includes(q) ||
+        (t.description || '').toLowerCase().includes(q) ||
+        (t.user_email || '').toLowerCase().includes(q) ||
+        (t.technician_email || '').toLowerCase().includes(q) ||
+        String(t.id).includes(q)
+    );
+  }, [tickets, search, isStaffTable]);
 
-    list.sort((a, b) => {
-      switch (sortBy) {
-        case 'date-asc': return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-        case 'priority-desc': return (priorityWeight[b.priority || ''] || 0) - (priorityWeight[a.priority || ''] || 0);
-        case 'title-asc': return a.title.localeCompare(b.title, 'es');
-        default: return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      }
+  const visibleIds = useMemo(() => displayTickets.map((ticket) => ticket.id), [displayTickets]);
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+  const someVisibleSelected = visibleIds.some((id) => selectedIds.has(id)) && !allVisibleSelected;
+
+  const toggleVisibleSelection = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) visibleIds.forEach((id) => next.delete(id));
+      else visibleIds.forEach((id) => next.add(id));
+      return next;
     });
+  };
 
-    return list;
-  }, [tickets, search, sortBy, isStaffTable]);
+  const toggleRowSelection = (ticketId: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(ticketId)) next.delete(ticketId);
+      else next.add(ticketId);
+      return next;
+    });
+  };
+
+  const handleFilterToggle = (key: TicketSortKey) => {
+    if (!filterRowOpen) {
+      setFilterRowOpen(true);
+      setFocusColumn(key);
+      return;
+    }
+    if (focusColumn === key) {
+      setFilterRowOpen(false);
+      return;
+    }
+    setFocusColumn(key);
+  };
+
+  const handleColumnSort = (key: TicketSortKey) => {
+    setSortEngaged(true);
+    setColumnSort((current) => (
+      sortEngaged ? toggleColumnSort(current, key) : { key, direction: key === 'date' ? 'desc' : 'asc' }
+    ));
+    setPage(1);
+  };
 
   const patchPath = (ticketId: number) =>
     canEditAll ? `/admin/tickets/${ticketId}` : `/tickets/${ticketId}`;
@@ -500,7 +535,13 @@ export default function TicketsList() {
       if (!result) return;
       if (!result.response.ok) { toast.error(result.data.message || 'No se pudo eliminar'); return; }
       toast.success('Ticket eliminado');
-      await loadTickets(page, listFilters, listMode, isStaffTable ? debouncedColumnFilters : undefined);
+      setSelectedIds((prev) => {
+        if (!prev.has(ticketId)) return prev;
+        const next = new Set(prev);
+        next.delete(ticketId);
+        return next;
+      });
+      await loadTickets(page, listFilters, listMode, columnSort, isStaffTable ? columnFilters : undefined);
     } catch {
       toast.error('Error conectando con el backend');
     } finally {
@@ -509,10 +550,14 @@ export default function TicketsList() {
   };
 
   const exportCsv = () => {
-    if (displayTickets.length === 0) return;
+    const selectedOnPage = selectedIds.size
+      ? displayTickets.filter((ticket) => selectedIds.has(ticket.id))
+      : [];
+    const rowsToExport = selectedOnPage.length > 0 ? selectedOnPage : displayTickets;
+    if (rowsToExport.length === 0) return;
     const rows = [
-      ['ID', 'Usuario', 'Título', 'Grupo', 'Asignado a', 'Estado', 'Categoría', 'Fecha'],
-      ...displayTickets.map((t) => [
+      ['ID', 'Usuario', 'Título', 'Grupo', 'Asignado a', 'Estado', 'Categoría', 'Subcategoría', 'Fecha'],
+      ...rowsToExport.map((t) => [
         t.id,
         `"${(t.user_email || '').replace(/"/g, '""')}"`,
         `"${t.title.replace(/"/g, '""')}"`,
@@ -520,6 +565,7 @@ export default function TicketsList() {
         `"${(t.technician_email || '').replace(/"/g, '""')}"`,
         t.status,
         `"${(t.category || '').replace(/"/g, '""')}"`,
+        `"${(t.subcategory || '').replace(/"/g, '""')}"`,
         new Date(t.created_at).toISOString()
       ])
     ];
@@ -561,7 +607,7 @@ export default function TicketsList() {
     setSearch('');
   };
 
-  const staffTableColSpan = canEditAll ? 9 : 8;
+  const staffTableColSpan = canEditAll ? 11 : 10;
   const userTableColSpan = 7;
 
   return (
@@ -594,58 +640,6 @@ export default function TicketsList() {
               }}
             />
           )}
-          <TextField
-            select
-            size="small"
-            label="Ordenar"
-            value={sortBy}
-            onChange={(e) => {
-              setSortBy(e.target.value);
-              setSelection((prev) => ({ ...prev, sortBy: e.target.value }));
-            }}
-            sx={{ minWidth: 200 }}
-          >
-            <MenuItem value="date-desc">Más recientes</MenuItem>
-            <MenuItem value="date-asc">Más antiguos</MenuItem>
-            <MenuItem value="priority-desc">Prioridad alta primero</MenuItem>
-            <MenuItem value="title-asc">Título A-Z</MenuItem>
-          </TextField>
-          {isStaffTable && (
-            <>
-              <TextField
-                select
-                size="small"
-                label="Tipo"
-                value={listFilters.type}
-                onChange={(e) =>
-                  updateFilters({
-                    type: e.target.value,
-                    priority: e.target.value === 'requirement' ? '' : listFilters.priority
-                  })
-                }
-                sx={{ minWidth: 150 }}
-              >
-                <MenuItem value="">Todos</MenuItem>
-                {TICKET_TYPE_OPTIONS.map((t) => (
-                  <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                select
-                size="small"
-                label="Prioridad"
-                value={listFilters.priority}
-                disabled={listFilters.type === 'requirement'}
-                onChange={(e) => updateFilters({ priority: e.target.value })}
-                sx={{ minWidth: 140 }}
-              >
-                <MenuItem value="">Todas</MenuItem>
-                <MenuItem value="high">Alta</MenuItem>
-                <MenuItem value="medium">Media</MenuItem>
-                <MenuItem value="low">Baja</MenuItem>
-              </TextField>
-            </>
-          )}
           {isStaffTable && (
             <Button
               variant="outlined"
@@ -659,6 +653,17 @@ export default function TicketsList() {
         </Stack>
       </Paper>
 
+      {isStaffTable && selectedIds.size > 0 && (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 1.5, px: 0.5 }}>
+          <Typography variant="body2" color="text.secondary">
+            {selectedIds.size} seleccionado{selectedIds.size === 1 ? '' : 's'}
+          </Typography>
+          <Button size="small" onClick={() => setSelectedIds(new Set())}>
+            Quitar selección
+          </Button>
+        </Box>
+      )}
+
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress />
@@ -669,15 +674,24 @@ export default function TicketsList() {
           elevation={0}
           sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflowX: 'auto' }}
         >
-          <Table sx={{ minWidth: 1200 }}>
+          <Table sx={{ minWidth: 1480 }}>
             <TableHead>
               <StaffTableHeadRow
                 canEditAll={canEditAll}
-                groups={groups}
-                technicians={allTechnicians}
+                sort={columnSort}
+                highlightSort={sortEngaged}
+                onSort={handleColumnSort}
                 filters={columnFilters}
-                onChange={updateColumnFilters}
+                filterRowOpen={filterRowOpen}
+                focusColumn={focusColumn}
+                onFilterToggle={handleFilterToggle}
+                onCloseFilterRow={() => setFilterRowOpen(false)}
+                onApply={applyColumnFilters}
                 onClear={clearColumnFilters}
+                allSelected={allVisibleSelected}
+                indeterminate={someVisibleSelected}
+                onToggleAll={toggleVisibleSelection}
+                visibleCount={visibleIds.length}
               />
             </TableHead>
             <TableBody>
@@ -692,9 +706,19 @@ export default function TicketsList() {
                 <TableRow
                   key={ticket.id}
                   hover
+                  selected={selectedIds.has(ticket.id)}
                   sx={{ '&:last-child td': { border: 0 }, cursor: 'pointer' }}
                   onClick={() => navigate(`/tickets/${ticket.id}`)}
                 >
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      size="small"
+                      checked={selectedIds.has(ticket.id)}
+                      onChange={() => toggleRowSelection(ticket.id)}
+                      inputProps={{ 'aria-label': `Seleccionar ticket ${ticket.id}` }}
+                      sx={{ p: 0.5 }}
+                    />
+                  </TableCell>
                   <TableCell sx={{ color: 'text.secondary', fontWeight: 500 }}>{ticket.id}</TableCell>
                   <TableCell sx={{ minWidth: 200 }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, wordBreak: 'break-word' }}>
@@ -772,20 +796,14 @@ export default function TicketsList() {
                     </InlineEditSelect>
                   </TableCell>
                   <TableCell>
-                    {ticket.category ? (
-                      <Stack spacing={0.25}>
-                        <Typography variant="caption" sx={{ fontWeight: 600, lineHeight: 1.3 }}>
-                          {ticket.category}
-                        </Typography>
-                        {ticket.subcategory && (
-                          <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.3 }}>
-                            {ticket.subcategory}
-                          </Typography>
-                        )}
-                      </Stack>
-                    ) : (
-                      <Typography variant="caption" color="text.disabled">—</Typography>
-                    )}
+                    <Typography variant="caption" sx={{ fontWeight: ticket.category ? 600 : 400, lineHeight: 1.3 }}>
+                      {ticket.category || '—'}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="caption" color={ticket.subcategory ? 'text.secondary' : 'text.disabled'} sx={{ lineHeight: 1.3 }}>
+                      {ticket.subcategory || '—'}
+                    </Typography>
                   </TableCell>
                   <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(ticket.created_at)}</TableCell>
                   {canEditAll && (
@@ -830,13 +848,13 @@ export default function TicketsList() {
           <Table sx={{ minWidth: 900 }}>
             <TableHead>
               <TableRow sx={{ bgcolor: '#fafbfc' }}>
-                <TableCell sx={{ fontWeight: 600, width: 64 }}>#</TableCell>
-                <TableCell sx={{ fontWeight: 600, minWidth: 200 }}>Título</TableCell>
-                <TableCell sx={{ fontWeight: 600, minWidth: 280 }}>Descripción</TableCell>
-                <TableCell sx={{ fontWeight: 600, minWidth: 110 }}>Tipo</TableCell>
-                <TableCell sx={{ fontWeight: 600, minWidth: 130 }}>Estado</TableCell>
-                <TableCell sx={{ fontWeight: 600, minWidth: 110 }}>Prioridad</TableCell>
-                <TableCell sx={{ fontWeight: 600, minWidth: 120 }}>Fecha</TableCell>
+                <SortableHeaderCell label="#" sortKey="id" sort={columnSort} highlightSort={sortEngaged} onSort={handleColumnSort} width={64} />
+                <SortableHeaderCell label="Título" sortKey="title" sort={columnSort} highlightSort={sortEngaged} onSort={handleColumnSort} minWidth={200} />
+                <SortableHeaderCell label="Descripción" sortKey="description" sort={columnSort} highlightSort={sortEngaged} onSort={handleColumnSort} minWidth={280} />
+                <SortableHeaderCell label="Tipo" sortKey="type" sort={columnSort} highlightSort={sortEngaged} onSort={handleColumnSort} minWidth={110} />
+                <SortableHeaderCell label="Estado" sortKey="status" sort={columnSort} highlightSort={sortEngaged} onSort={handleColumnSort} minWidth={130} />
+                <SortableHeaderCell label="Prioridad" sortKey="priority" sort={columnSort} highlightSort={sortEngaged} onSort={handleColumnSort} minWidth={110} />
+                <SortableHeaderCell label="Fecha" sortKey="date" sort={columnSort} highlightSort={sortEngaged} onSort={handleColumnSort} minWidth={120} />
               </TableRow>
             </TableHead>
             <TableBody>

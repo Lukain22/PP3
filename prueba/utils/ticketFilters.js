@@ -64,23 +64,92 @@ const appendListFilters = (conditions, params, query) => {
   }
 };
 
+const likeContains = (value) => {
+  const escaped = String(value).trim().replace(/[\\%_]/g, (char) => `\\${char}`);
+  return `%${escaped}%`;
+};
+
+const likeClause = (expression) => `${expression} LIKE ? ESCAPE '\\\\'`;
+
+const STATUS_TEXT_MATCHES = [
+  { value: 'open', label: 'abierto' },
+  { value: 'in-progress', label: 'en proceso' },
+  { value: 'on-hold', label: 'en espera' },
+  { value: 'resolved', label: 'resuelto' }
+];
+
+const matchStatusText = (value) => {
+  const needle = String(value || '').trim().toLowerCase();
+  if (!needle) return [];
+  return STATUS_TEXT_MATCHES
+    .filter((status) => status.label.includes(needle) || status.value.includes(needle))
+    .map((status) => status.value);
+};
+
 const appendExtendedListFilters = (conditions, params, query) => {
   appendListFilters(conditions, params, query);
 
-  const ticketId = parseInt(query.ticket_id, 10);
-  if (ticketId) {
-    conditions.push('t.id = ?');
-    params.push(ticketId);
+  if (query.ticket_id && String(query.ticket_id).trim()) {
+    const digits = String(query.ticket_id).replace(/\D/g, '');
+    if (digits) {
+      conditions.push(likeClause('CAST(t.id AS CHAR)'));
+      params.push(likeContains(digits));
+    }
   }
 
   if (query.title && String(query.title).trim()) {
-    conditions.push('t.title LIKE ?');
-    params.push(`%${String(query.title).trim()}%`);
+    conditions.push(likeClause('t.title'));
+    params.push(likeContains(query.title));
   }
 
   if (query.user_email && String(query.user_email).trim()) {
-    conditions.push('u.email LIKE ?');
-    params.push(`%${String(query.user_email).trim()}%`);
+    conditions.push(likeClause('u.email'));
+    params.push(likeContains(query.user_email));
+  }
+
+  if (query.group_name && String(query.group_name).trim()) {
+    conditions.push(likeClause('g.name'));
+    params.push(likeContains(query.group_name));
+  }
+
+  if (query.assignee && String(query.assignee).trim()) {
+    const raw = String(query.assignee).trim();
+    const needle = raw.toLowerCase();
+    const matchesUnassigned = 'sin asignar'.startsWith(needle) || (needle.length >= 4 && 'sin asignar'.includes(needle));
+    if (matchesUnassigned) {
+      conditions.push(`(t.technician_id IS NULL OR ${likeClause('tech.email')})`);
+    } else {
+      conditions.push(likeClause('tech.email'));
+    }
+    params.push(likeContains(raw));
+  }
+
+  if (query.status_q && String(query.status_q).trim()) {
+    const statuses = matchStatusText(query.status_q);
+    if (statuses.length === 0) {
+      conditions.push('1 = 0');
+    } else if (statuses.length === 1) {
+      conditions.push('t.status = ?');
+      params.push(statuses[0]);
+    } else {
+      conditions.push(`t.status IN (${statuses.map(() => '?').join(', ')})`);
+      params.push(...statuses);
+    }
+  }
+
+  if (query.category_q && String(query.category_q).trim()) {
+    conditions.push(likeClause('t.category'));
+    params.push(likeContains(query.category_q));
+  }
+
+  if (query.subcategory && String(query.subcategory).trim()) {
+    conditions.push(likeClause('t.subcategory'));
+    params.push(likeContains(query.subcategory));
+  }
+
+  if (query.date_on && /^\d{4}-\d{2}-\d{2}$/.test(String(query.date_on))) {
+    conditions.push('DATE(t.created_at) = ?');
+    params.push(String(query.date_on));
   }
 
   if (query.technician_ids) {
@@ -161,6 +230,53 @@ const normalizeViewFilters = (raw) => {
   return result;
 };
 
+const TICKET_ORDER_BY = {
+  'id-asc': 't.id ASC',
+  'id-desc': 't.id DESC',
+  'title-asc': 't.title ASC, t.id DESC',
+  'title-desc': 't.title DESC, t.id DESC',
+  'description-asc': 't.description ASC, t.id DESC',
+  'description-desc': 't.description DESC, t.id DESC',
+  'user-asc': 'u.email ASC, t.id DESC',
+  'user-desc': 'u.email DESC, t.id DESC',
+  'group-asc': 'g.name ASC, t.id DESC',
+  'group-desc': 'g.name DESC, t.id DESC',
+  'assignee-asc': 'tech.email IS NULL, tech.email ASC, t.id DESC',
+  'assignee-desc': 'tech.email IS NULL, tech.email DESC, t.id DESC',
+  'type-asc': "FIELD(t.type, 'incident', 'requirement') ASC, t.id DESC",
+  'type-desc': "FIELD(t.type, 'requirement', 'incident') ASC, t.id DESC",
+  'status-asc': "FIELD(t.status, 'open', 'in-progress', 'on-hold', 'resolved') ASC, t.id DESC",
+  'status-desc': "FIELD(t.status, 'resolved', 'on-hold', 'in-progress', 'open') ASC, t.id DESC",
+  'priority-asc': "FIELD(t.priority, 'low', 'medium', 'high') ASC, t.id DESC",
+  'priority-desc': "FIELD(t.priority, 'high', 'medium', 'low') ASC, t.id DESC",
+  'category-asc': 't.category ASC, t.id DESC',
+  'category-desc': 't.category DESC, t.id DESC',
+  'subcategory-asc': 't.subcategory ASC, t.id DESC',
+  'subcategory-desc': 't.subcategory DESC, t.id DESC',
+  'date-asc': 't.created_at ASC, t.id ASC',
+  'date-desc': 't.created_at DESC, t.id DESC'
+};
+
+const STAFF_ONLY_SORTS = new Set([
+  'user-asc',
+  'user-desc',
+  'group-asc',
+  'group-desc',
+  'assignee-asc',
+  'assignee-desc',
+  'category-asc',
+  'category-desc',
+  'subcategory-asc',
+  'subcategory-desc'
+]);
+
+const resolveTicketOrderBy = (sort, profile = 'staff') => {
+  const key = typeof sort === 'string' ? sort : '';
+  if (!TICKET_ORDER_BY[key]) return TICKET_ORDER_BY['date-desc'];
+  if (profile === 'user' && STAFF_ONLY_SORTS.has(key)) return TICKET_ORDER_BY['date-desc'];
+  return TICKET_ORDER_BY[key];
+};
+
 const filtersToQuery = (filters) => {
   const normalized = normalizeViewFilters(filters);
   const query = {};
@@ -182,5 +298,6 @@ module.exports = {
   appendListFilters,
   appendExtendedListFilters,
   normalizeViewFilters,
-  filtersToQuery
+  filtersToQuery,
+  resolveTicketOrderBy
 };

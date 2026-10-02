@@ -161,54 +161,54 @@ export function filtersFromView(view: TicketView): TicketListFilters {
 export interface StaffColumnFilters {
   ticketId: string;
   title: string;
-  groupIds: number[];
-  technicianKeys: string[];
-  statuses: string[];
-  categories: string[];
-  dateFrom: string;
-  dateTo: string;
+  user: string;
+  group: string;
+  assignee: string;
+  status: string;
+  category: string;
+  subcategory: string;
+  date: string;
 }
 
 export const emptyStaffColumnFilters = (): StaffColumnFilters => ({
   ticketId: '',
   title: '',
-  groupIds: [],
-  technicianKeys: [],
-  statuses: [],
-  categories: [],
-  dateFrom: '',
-  dateTo: ''
+  user: '',
+  group: '',
+  assignee: '',
+  status: '',
+  category: '',
+  subcategory: '',
+  date: ''
 });
 
-export function staffColumnFiltersFromView(filters: TicketListFilters): StaffColumnFilters {
-  return {
-    ...emptyStaffColumnFilters(),
-    groupIds: filters.group_id ? [Number(filters.group_id)].filter(Boolean) : [],
-    statuses: filters.status ? filters.status.split(',').filter(Boolean) : []
-  };
+export function staffColumnFiltersFromView(_filters: TicketListFilters): StaffColumnFilters {
+  return emptyStaffColumnFilters();
 }
 
 export function appendStaffColumnFilters(params: URLSearchParams, filters: StaffColumnFilters) {
   if (filters.ticketId.trim()) params.set('ticket_id', filters.ticketId.trim());
   if (filters.title.trim()) params.set('title', filters.title.trim());
-  if (filters.groupIds.length) params.set('group_ids', filters.groupIds.join(','));
-  if (filters.technicianKeys.length) params.set('technician_ids', filters.technicianKeys.join(','));
-  if (filters.statuses.length) params.set('status', filters.statuses.join(','));
-  if (filters.categories.length) params.set('categories', filters.categories.join(','));
-  if (filters.dateFrom) params.set('date_from', filters.dateFrom);
-  if (filters.dateTo) params.set('date_to', filters.dateTo);
+  if (filters.user.trim()) params.set('user_email', filters.user.trim());
+  if (filters.group.trim()) params.set('group_name', filters.group.trim());
+  if (filters.assignee.trim()) params.set('assignee', filters.assignee.trim());
+  if (filters.status.trim()) params.set('status_q', filters.status.trim());
+  if (filters.category.trim()) params.set('category_q', filters.category.trim());
+  if (filters.subcategory.trim()) params.set('subcategory', filters.subcategory.trim());
+  if (filters.date) params.set('date_on', filters.date);
 }
 
 export function hasActiveStaffColumnFilters(filters: StaffColumnFilters): boolean {
   return Boolean(
     filters.ticketId.trim() ||
     filters.title.trim() ||
-    filters.groupIds.length ||
-    filters.technicianKeys.length ||
-    filters.statuses.length ||
-    filters.categories.length ||
-    filters.dateFrom ||
-    filters.dateTo
+    filters.user.trim() ||
+    filters.group.trim() ||
+    filters.assignee.trim() ||
+    filters.status.trim() ||
+    filters.category.trim() ||
+    filters.subcategory.trim() ||
+    filters.date
   );
 }
 
@@ -216,19 +216,16 @@ export function buildTicketQueryParams(
   page: number,
   limit: number,
   filters: TicketListFilters,
-  staffColumnFilters?: StaffColumnFilters
+  staffColumnFilters?: StaffColumnFilters,
+  sort?: string
 ): URLSearchParams {
   const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+  if (sort) params.set('sort', sort);
   if (filters.type) params.set('type', filters.type);
   if (filters.priority) params.set('priority', filters.priority);
-
-  if (staffColumnFilters) {
-    appendStaffColumnFilters(params, staffColumnFilters);
-  } else {
-    if (filters.group_id) params.set('group_id', filters.group_id);
-    if (filters.status) params.set('status', filters.status);
-  }
-
+  if (filters.group_id) params.set('group_id', filters.group_id);
+  if (filters.status) params.set('status', filters.status);
+  if (staffColumnFilters) appendStaffColumnFilters(params, staffColumnFilters);
   return params;
 }
 

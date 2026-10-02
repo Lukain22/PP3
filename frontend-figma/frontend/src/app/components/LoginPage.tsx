@@ -157,6 +157,14 @@ export default function LoginPage() {
               >
                 {loading ? 'Ingresando...' : 'Iniciar Sesión'}
               </Button>
+              <Button
+                fullWidth
+                variant="text"
+                onClick={() => navigate('/forgot-password')}
+                sx={{ mt: 1 }}
+              >
+                Olvidé mi contraseña
+              </Button>
             </form>
           ) : (
             <form onSubmit={handleRegister}>

@@ -1,201 +1,145 @@
-import { useMemo, useState, type ReactNode } from 'react';
-import {
-  Box,
-  Button,
-  Checkbox,
-  InputAdornment,
-  ListItemText,
-  MenuItem,
-  Popover,
-  Stack,
-  TableCell,
-  TableRow,
-  TextField,
-  Typography
-} from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import { CATEGORIES } from '../../lib/categories';
-import { TICKET_STATUS_OPTIONS } from '../../lib/ticketStatus';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Box, Checkbox, IconButton, TableCell, TableRow, TextField, Tooltip } from '@mui/material';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import CloseIcon from '@mui/icons-material/Close';
+import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
+import FilterListIcon from '@mui/icons-material/FilterList';
 import type { StaffColumnFilters } from '../../lib/ticketViews';
-import { hasActiveStaffColumnFilters } from '../../lib/ticketViews';
+import { emptyStaffColumnFilters, hasActiveStaffColumnFilters } from '../../lib/ticketViews';
+import {
+  type TicketSort,
+  type TicketSortKey,
+  isColumnFilterActive
+} from '../../lib/ticketTable';
 
 export type { StaffColumnFilters };
 export { hasActiveStaffColumnFilters };
 
-interface FilterOption {
-  value: string;
-  label: string;
-}
-
 const headerCellSx = {
   fontWeight: 600,
-  bgcolor: '#fafbfc'
+  bgcolor: '#fafbfc',
+  whiteSpace: 'nowrap',
+  py: 1,
+  '& .col-affordance': { opacity: 0 },
+  '&:hover .col-affordance, &:focus-within .col-affordance': { opacity: 1 },
+  '& .col-affordance.is-persistent': { opacity: 1 }
 };
 
-const filterPanelSx = {
-  bgcolor: '#f5f7fa',
-  border: '1px solid',
-  borderColor: 'divider',
-  borderTop: '2px solid',
-  borderTopColor: 'primary.main',
-  borderRadius: '0 0 8px 8px',
-  boxShadow: '0 4px 12px rgba(15, 23, 42, 0.08)',
-  overflow: 'hidden'
+const affordanceButtonSx = {
+  border: 0,
+  background: 'none',
+  padding: 0,
+  margin: 0,
+  font: 'inherit',
+  color: 'inherit',
+  cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 0.25,
+  lineHeight: 1
 };
 
-function FilterPanel({ title, children }: { title: string; children: ReactNode }) {
+function CloseFiltersIcon() {
   return (
-    <Box sx={filterPanelSx}>
-      <Box
+    <Box sx={{ position: 'relative', width: 20, height: 20, display: 'inline-flex' }}>
+      <FilterListIcon sx={{ fontSize: 20 }} />
+      <CloseIcon
         sx={{
-          px: 1.5,
-          py: 0.75,
-          bgcolor: '#fafbfc',
-          borderBottom: '1px solid',
-          borderColor: 'divider'
+          position: 'absolute',
+          right: -4,
+          bottom: -3,
+          fontSize: 13,
+          bgcolor: '#f5f7fa',
+          borderRadius: '50%'
         }}
-      >
-        <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>
-          Filtrar · {title}
-        </Typography>
-      </Box>
-      {children}
+      />
     </Box>
   );
 }
 
-function MultiSelectFilterContent({
-  options,
-  selected,
-  searchable = false,
-  onChange
-}: {
-  options: FilterOption[];
-  selected: string[];
-  searchable?: boolean;
-  onChange: (next: string[]) => void;
-}) {
-  const [query, setQuery] = useState('');
-
-  const filteredOptions = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return options;
-    return options.filter((option) => option.label.toLowerCase().includes(q));
-  }, [options, query]);
-
-  const toggleValue = (value: string) => {
-    onChange(
-      selected.includes(value)
-        ? selected.filter((item) => item !== value)
-        : [...selected, value]
-    );
-  };
-
-  return (
-    <Box sx={{ width: 260, maxHeight: 300, display: 'flex', flexDirection: 'column', bgcolor: '#f5f7fa' }}>
-      {searchable && (
-        <Box sx={{ p: 1, borderBottom: '1px solid', borderColor: 'divider', bgcolor: '#fff' }}>
-          <TextField
-            size="small"
-            fullWidth
-            placeholder="Buscar..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              )
-            }}
-          />
-        </Box>
-      )}
-
-      <Box sx={{ overflow: 'auto', py: 0.5 }}>
-        {filteredOptions.length === 0 ? (
-          <Typography variant="body2" color="text.secondary" sx={{ px: 2, py: 1 }}>
-            Sin resultados
-          </Typography>
-        ) : (
-          filteredOptions.map((option) => (
-            <MenuItem key={option.value} dense onClick={() => toggleValue(option.value)} sx={{ py: 0.25 }}>
-              <Checkbox size="small" checked={selected.includes(option.value)} sx={{ p: 0.5, mr: 0.5 }} />
-              <ListItemText
-                primary={option.label}
-                primaryTypographyProps={{ variant: 'body2', sx: { wordBreak: 'break-word' } }}
-              />
-            </MenuItem>
-          ))
-        )}
-      </Box>
-
-      {selected.length > 0 && (
-        <Box sx={{ p: 1, borderTop: '1px solid', borderColor: 'divider', bgcolor: '#fff' }}>
-          <Button size="small" fullWidth onClick={() => onChange([])}>
-            Limpiar
-          </Button>
-        </Box>
-      )}
-    </Box>
-  );
+function SortGlyph({ active, direction }: { active: boolean; direction: 'asc' | 'desc' }) {
+  const Icon = active && direction === 'asc' ? ArrowUpwardIcon : ArrowDownwardIcon;
+  return <Icon sx={{ fontSize: 15 }} />;
 }
 
-function FilterableHeaderCell({
-  title,
-  active,
+export function SortableHeaderCell({
+  label,
+  sortKey,
+  sort,
+  onSort,
+  filterActive = false,
+  filtersOpen = false,
+  highlightSort = false,
+  onFilter,
   align,
   minWidth,
-  width,
-  children
+  width
 }: {
-  title: string;
-  active?: boolean;
+  label: string;
+  sortKey: TicketSortKey;
+  sort: TicketSort;
+  onSort: (key: TicketSortKey) => void;
+  filterActive?: boolean;
+  filtersOpen?: boolean;
+  highlightSort?: boolean;
+  onFilter?: (key: TicketSortKey) => void;
   align?: 'left' | 'center' | 'right';
   minWidth?: number;
   width?: number;
-  children: ReactNode;
 }) {
-  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
-  const open = Boolean(anchorEl);
+  const active = highlightSort && sort.key === sortKey;
+  const nextDirection = !active ? (sortKey === 'date' ? 'desc' : 'asc') : sort.direction === 'asc' ? 'desc' : 'asc';
+  const sortLabel = nextDirection === 'asc'
+    ? `Ordenar ${label} de menor a mayor`
+    : `Ordenar ${label} de mayor a menor`;
 
   return (
     <TableCell
       align={align}
-      onClick={(e) => setAnchorEl(e.currentTarget)}
+      aria-sort={active ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
       sx={{
         ...headerCellSx,
         minWidth,
         width,
-        cursor: 'pointer',
-        userSelect: 'none',
-        color: active ? 'primary.main' : 'inherit',
+        color: active || filterActive ? 'primary.main' : 'inherit',
         boxShadow: (theme) =>
-          open || active ? `inset 0 -2px 0 ${theme.palette.primary.main}` : 'none',
-        '&:hover': { bgcolor: '#f5f7fa' }
+          filterActive ? `inset 0 -2px 0 ${theme.palette.primary.main}` : 'none'
       }}
     >
-      {title}
-
-      <Popover
-        open={open}
-        anchorEl={anchorEl}
-        onClose={() => setAnchorEl(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-        slotProps={{
-          paper: {
-            sx: {
-              mt: 0,
-              bgcolor: 'transparent',
-              boxShadow: 'none',
-              overflow: 'visible'
-            }
-          }
-        }}
-      >
-        <FilterPanel title={title}>{children}</FilterPanel>
-      </Popover>
+      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25, maxWidth: '100%' }}>
+        <Box
+          component="button"
+          type="button"
+          aria-label={sortLabel}
+          onClick={() => onSort(sortKey)}
+          sx={{ ...affordanceButtonSx, fontWeight: 600 }}
+        >
+          {label}
+          <Box
+            component="span"
+            className={active ? 'col-affordance is-persistent' : 'col-affordance'}
+            aria-hidden
+            sx={{ display: 'inline-flex', color: active ? 'primary.main' : 'text.disabled' }}
+          >
+            <SortGlyph active={active} direction={sort.direction} />
+          </Box>
+        </Box>
+        {onFilter && (
+          <Box
+            component="button"
+            type="button"
+            className={filterActive || filtersOpen ? 'col-affordance is-persistent' : 'col-affordance'}
+            aria-label={`Filtrar ${label}`}
+            aria-expanded={filtersOpen}
+            aria-pressed={filterActive}
+            onClick={() => onFilter(sortKey)}
+            sx={{ ...affordanceButtonSx, color: filterActive ? 'primary.main' : 'text.disabled' }}
+          >
+            <FilterListIcon sx={{ fontSize: 15 }} />
+          </Box>
+        )}
+      </Box>
     </TableCell>
   );
 }
@@ -204,156 +148,248 @@ function PlainHeaderCell({
   title,
   align,
   minWidth,
-  width
+  width,
+  children
 }: {
-  title: string;
+  title?: string;
   align?: 'left' | 'center' | 'right';
   minWidth?: number;
   width?: number;
+  children?: ReactNode;
 }) {
   return (
     <TableCell align={align} sx={{ ...headerCellSx, minWidth, width }}>
-      {title}
+      {children ?? title}
     </TableCell>
+  );
+}
+
+function FilterField({
+  id,
+  value,
+  placeholder,
+  onChange,
+  type = 'text',
+  inputMode
+}: {
+  id: string;
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+  type?: string;
+  inputMode?: 'numeric' | 'text';
+}) {
+  return (
+    <TextField
+      id={id}
+      size="small"
+      fullWidth
+      placeholder={placeholder}
+      value={value}
+      type={type}
+      onChange={(event) => onChange(event.target.value)}
+      inputProps={{ 'aria-label': placeholder, inputMode, autoComplete: 'off' }}
+      sx={{
+        '& .MuiOutlinedInput-root': { bgcolor: '#fff', fontSize: 13 },
+        '& .MuiOutlinedInput-input': { py: 0.7 }
+      }}
+    />
   );
 }
 
 interface StaffTableHeadRowProps {
   canEditAll: boolean;
-  groups: { id: number; name: string }[];
-  technicians: { id: number; email: string }[];
+  sort: TicketSort;
+  highlightSort: boolean;
+  onSort: (key: TicketSortKey) => void;
   filters: StaffColumnFilters;
-  onChange: (patch: Partial<StaffColumnFilters>) => void;
+  filterRowOpen: boolean;
+  focusColumn: TicketSortKey | null;
+  onFilterToggle: (key: TicketSortKey) => void;
+  onCloseFilterRow: () => void;
+  onApply: (next: StaffColumnFilters) => void;
   onClear: () => void;
+  allSelected: boolean;
+  indeterminate: boolean;
+  onToggleAll: () => void;
+  visibleCount: number;
 }
 
 export default function StaffTableHeadRow({
   canEditAll,
-  groups,
-  technicians,
+  sort,
+  highlightSort,
+  onSort,
   filters,
-  onChange,
-  onClear
+  filterRowOpen,
+  focusColumn,
+  onFilterToggle,
+  onCloseFilterRow,
+  onApply,
+  onClear,
+  allSelected,
+  indeterminate,
+  onToggleAll,
+  visibleCount
 }: StaffTableHeadRowProps) {
-  const groupOptions = groups.map((group) => ({ value: String(group.id), label: group.name }));
-  const technicianOptions = [
-    { value: 'unassigned', label: 'Sin asignar' },
-    ...technicians.map((tech) => ({ value: String(tech.id), label: tech.email }))
-  ];
-  const statusOptions = TICKET_STATUS_OPTIONS.map((status) => ({
-    value: status.value,
-    label: status.label
-  }));
-  const categoryOptions = CATEGORIES.map((category) => ({ value: category, label: category }));
+  const [draft, setDraft] = useState(filters);
 
-  const fieldBox = (content: ReactNode) => (
-    <Box sx={{ p: 1.5, width: 240, bgcolor: '#f5f7fa' }}>{content}</Box>
-  );
+  useEffect(() => {
+    setDraft(filters);
+  }, [filters]);
+
+  useEffect(() => {
+    if (!filterRowOpen || !focusColumn) return;
+    const field = document.getElementById(`ticket-filter-${focusColumn}`);
+    field?.focus();
+  }, [filterRowOpen, focusColumn]);
+
+  const filterProps = (key: TicketSortKey) => ({
+    sortKey: key,
+    sort,
+    onSort,
+    highlightSort,
+    filterActive: isColumnFilterActive(filters, key),
+    onFilter: onFilterToggle,
+    filtersOpen: filterRowOpen
+  });
 
   return (
-    <TableRow sx={{ bgcolor: '#fafbfc' }}>
-      <FilterableHeaderCell title="#" width={64} active={Boolean(filters.ticketId.trim())}>
-        {fieldBox(
-          <TextField
+    <>
+      <TableRow sx={{ bgcolor: '#fafbfc' }}>
+        <PlainHeaderCell width={72}>
+          <Checkbox
             size="small"
-            fullWidth
-            autoFocus
-            placeholder="Buscar por ID"
-            value={filters.ticketId}
-            onChange={(e) => onChange({ ticketId: e.target.value.replace(/\D/g, '') })}
-            inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }}
-            sx={{ bgcolor: '#fff' }}
+            checked={allSelected}
+            indeterminate={indeterminate}
+            disabled={visibleCount === 0}
+            onChange={onToggleAll}
+            inputProps={{ 'aria-label': 'Seleccionar tickets visibles' }}
+            sx={{ p: 0.5 }}
           />
-        )}
-      </FilterableHeaderCell>
-
-      <FilterableHeaderCell title="Ticket" minWidth={200} active={Boolean(filters.title.trim())}>
-        {fieldBox(
-          <TextField
-            size="small"
-            fullWidth
-            autoFocus
-            placeholder="Buscar ticket..."
-            value={filters.title}
-            onChange={(e) => onChange({ title: e.target.value })}
-            sx={{ bgcolor: '#fff' }}
-          />
-        )}
-      </FilterableHeaderCell>
-
-      <PlainHeaderCell title="Usuario" minWidth={200} />
-
-      <FilterableHeaderCell title="Grupo" minWidth={180} active={filters.groupIds.length > 0}>
-        <MultiSelectFilterContent
-          searchable
-          options={groupOptions}
-          selected={filters.groupIds.map(String)}
-          onChange={(next) => onChange({ groupIds: next.map(Number).filter(Boolean) })}
-        />
-      </FilterableHeaderCell>
-
-      <FilterableHeaderCell title="Asignado a" minWidth={180} active={filters.technicianKeys.length > 0}>
-        <MultiSelectFilterContent
-          searchable
-          options={technicianOptions}
-          selected={filters.technicianKeys}
-          onChange={(next) => onChange({ technicianKeys: next })}
-        />
-      </FilterableHeaderCell>
-
-      <FilterableHeaderCell title="Estado" minWidth={160} active={filters.statuses.length > 0}>
-        <MultiSelectFilterContent
-          options={statusOptions}
-          selected={filters.statuses}
-          onChange={(next) => onChange({ statuses: next })}
-        />
-      </FilterableHeaderCell>
-
-      <FilterableHeaderCell title="Categoría" minWidth={140} active={filters.categories.length > 0}>
-        <MultiSelectFilterContent
-          options={categoryOptions}
-          selected={filters.categories}
-          onChange={(next) => onChange({ categories: next })}
-        />
-      </FilterableHeaderCell>
-
-      <FilterableHeaderCell
-        title="Fecha"
-        minWidth={120}
-        active={Boolean(filters.dateFrom || filters.dateTo)}
-      >
-        {fieldBox(
-          <Stack spacing={1.25}>
-            <TextField
-              size="small"
-              type="date"
-              label="Desde"
-              value={filters.dateFrom}
-              onChange={(e) => onChange({ dateFrom: e.target.value })}
-              InputLabelProps={{ shrink: true }}
-              fullWidth
-              sx={{ bgcolor: '#fff' }}
+        </PlainHeaderCell>
+        <SortableHeaderCell label="ID" width={72} {...filterProps('id')} />
+        <SortableHeaderCell label="Ticket" minWidth={200} {...filterProps('title')} />
+        <SortableHeaderCell label="Usuario" minWidth={180} {...filterProps('user')} />
+        <SortableHeaderCell label="Grupo" minWidth={150} {...filterProps('group')} />
+        <SortableHeaderCell label="Asignado a" minWidth={180} {...filterProps('assignee')} />
+        <SortableHeaderCell label="Estado" minWidth={140} {...filterProps('status')} />
+        <SortableHeaderCell label="Categoría" minWidth={140} {...filterProps('category')} />
+        <SortableHeaderCell label="Subcategoría" minWidth={150} {...filterProps('subcategory')} />
+        <SortableHeaderCell label="Fecha" minWidth={140} {...filterProps('date')} />
+        {canEditAll && <PlainHeaderCell title="Acciones" width={88} align="center" />}
+      </TableRow>
+      {filterRowOpen && (
+        <TableRow
+          sx={{ bgcolor: '#f5f7fa' }}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') onCloseFilterRow();
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              onApply(draft);
+            }
+          }}
+        >
+          <TableCell sx={{ py: 0.75, px: 0.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.25 }}>
+              <Tooltip title="Cerrar filtros">
+                <IconButton size="small" aria-label="Cerrar filtros" onClick={onCloseFilterRow}>
+                  <CloseFiltersIcon />
+                </IconButton>
+              </Tooltip>
+              {(hasActiveStaffColumnFilters(draft) || hasActiveStaffColumnFilters(filters)) && (
+                <Tooltip title="Limpiar filtros">
+                  <IconButton
+                    size="small"
+                    aria-label="Limpiar filtros"
+                    onClick={() => {
+                      setDraft(emptyStaffColumnFilters());
+                      onClear();
+                    }}
+                  >
+                    <FilterAltOffIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </Box>
+          </TableCell>
+          <TableCell sx={{ py: 0.75, px: 1 }}>
+            <FilterField
+              id="ticket-filter-id"
+              value={draft.ticketId}
+              placeholder="Filtrar ID"
+              inputMode="numeric"
+              onChange={(value) => setDraft((prev) => ({ ...prev, ticketId: value.replace(/\D/g, '') }))}
             />
-            <TextField
-              size="small"
-              type="date"
-              label="Hasta"
-              value={filters.dateTo}
-              onChange={(e) => onChange({ dateTo: e.target.value })}
-              InputLabelProps={{ shrink: true }}
-              fullWidth
-              sx={{ bgcolor: '#fff' }}
+          </TableCell>
+          <TableCell sx={{ py: 0.75, px: 1 }}>
+            <FilterField
+              id="ticket-filter-title"
+              value={draft.title}
+              placeholder="Filtrar ticket"
+              onChange={(value) => setDraft((prev) => ({ ...prev, title: value }))}
             />
-            {hasActiveStaffColumnFilters(filters) && (
-              <Button size="small" variant="text" onClick={onClear} sx={{ alignSelf: 'flex-start', px: 0.5 }}>
-                Limpiar todos los filtros
-              </Button>
-            )}
-          </Stack>
-        )}
-      </FilterableHeaderCell>
-
-      {canEditAll && <PlainHeaderCell title="Acciones" width={96} align="center" />}
-    </TableRow>
+          </TableCell>
+          <TableCell sx={{ py: 0.75, px: 1 }}>
+            <FilterField
+              id="ticket-filter-user"
+              value={draft.user}
+              placeholder="Filtrar usuario"
+              onChange={(value) => setDraft((prev) => ({ ...prev, user: value }))}
+            />
+          </TableCell>
+          <TableCell sx={{ py: 0.75, px: 1 }}>
+            <FilterField
+              id="ticket-filter-group"
+              value={draft.group}
+              placeholder="Filtrar grupo"
+              onChange={(value) => setDraft((prev) => ({ ...prev, group: value }))}
+            />
+          </TableCell>
+          <TableCell sx={{ py: 0.75, px: 1 }}>
+            <FilterField
+              id="ticket-filter-assignee"
+              value={draft.assignee}
+              placeholder="Filtrar asignado"
+              onChange={(value) => setDraft((prev) => ({ ...prev, assignee: value }))}
+            />
+          </TableCell>
+          <TableCell sx={{ py: 0.75, px: 1 }}>
+            <FilterField
+              id="ticket-filter-status"
+              value={draft.status}
+              placeholder="Filtrar estado"
+              onChange={(value) => setDraft((prev) => ({ ...prev, status: value }))}
+            />
+          </TableCell>
+          <TableCell sx={{ py: 0.75, px: 1 }}>
+            <FilterField
+              id="ticket-filter-category"
+              value={draft.category}
+              placeholder="Filtrar categoría"
+              onChange={(value) => setDraft((prev) => ({ ...prev, category: value }))}
+            />
+          </TableCell>
+          <TableCell sx={{ py: 0.75, px: 1 }}>
+            <FilterField
+              id="ticket-filter-subcategory"
+              value={draft.subcategory}
+              placeholder="Filtrar subcategoría"
+              onChange={(value) => setDraft((prev) => ({ ...prev, subcategory: value }))}
+            />
+          </TableCell>
+          <TableCell sx={{ py: 0.75, px: 1 }}>
+            <FilterField
+              id="ticket-filter-date"
+              value={draft.date}
+              placeholder="Filtrar fecha"
+              type="date"
+              onChange={(value) => setDraft((prev) => ({ ...prev, date: value }))}
+            />
+          </TableCell>
+          {canEditAll && <TableCell />}
+        </TableRow>
+      )}
+    </>
   );
 }

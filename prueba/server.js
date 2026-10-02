@@ -20,6 +20,7 @@ const {
   getDefaultGroupId
 } = require('./utils/groups');
 const { initTicketViewsTable } = require('./controllers/viewsController');
+const { initPasswordResetTokensTable } = require('./utils/passwordReset');
 const db = require('./db/db');
 
 const app = express();
@@ -68,6 +69,7 @@ const initUsersTable = () => {
         initTicketResolutionsTable();
         initTicketViewsTable();
         initNotificationsTable();
+        initPasswordResetTokensTable();
         runTicketMigrations();
       }
     );

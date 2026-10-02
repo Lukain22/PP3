@@ -7,7 +7,7 @@ const {
   applySlaFieldsToUpdate,
   appendSlaToFields
 } = require('../utils/sla');
-const { appendExtendedListFilters } = require('../utils/ticketFilters');
+const { appendExtendedListFilters, resolveTicketOrderBy } = require('../utils/ticketFilters');
 const { notifyTicketCreatorOnChanges, notifyOnComment } = require('../utils/notifications');
 
 const SLA_SELECT = 't.sla_response_due, t.sla_resolution_due, t.sla_status';
@@ -37,7 +37,7 @@ exports.getAllTickets = (req, res) => {
   const page  = Math.max(1, parseInt(req.query.page)  || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
   const offset = (page - 1) * limit;
-  const { status, user_email, group_id, type, priority, ticket_id, title, group_ids, technician_ids, categories, date_from, date_to } = req.query;
+  const { status, user_email, group_id, type, priority, ticket_id, title, group_ids, technician_ids, categories, date_from, date_to, group_name, assignee, status_q, category_q, subcategory, date_on, sort } = req.query;
 
   const conditions = [];
   const baseParams = [];
@@ -54,8 +54,15 @@ exports.getAllTickets = (req, res) => {
     technician_ids,
     categories,
     date_from,
-    date_to
+    date_to,
+    group_name,
+    assignee,
+    status_q,
+    category_q,
+    subcategory,
+    date_on
   });
+  const orderBy = resolveTicketOrderBy(sort, 'staff');
 
   const joinClause = 'JOIN users u ON u.id = t.user_id LEFT JOIN `groups` g ON g.id = t.group_id LEFT JOIN users tech ON tech.id = t.technician_id';
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -79,7 +86,7 @@ exports.getAllTickets = (req, res) => {
          FROM tickets t
          ${joinClause}
          ${whereClause}
-         ORDER BY t.created_at DESC
+         ORDER BY ${orderBy}
          LIMIT ? OFFSET ?`,
         [...baseParams, limit, offset],
         (err2, results) => {

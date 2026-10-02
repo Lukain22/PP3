@@ -1,7 +1,7 @@
 const db = require('../db/db');
 const { getUserGroupIds, userCanAccessTicket } = require('../utils/groups');
 const { enrichTickets } = require('../utils/sla');
-const { appendExtendedListFilters } = require('../utils/ticketFilters');
+const { appendExtendedListFilters, resolveTicketOrderBy } = require('../utils/ticketFilters');
 
 const VALID_STATUSES = ['open', 'in-progress', 'on-hold', 'resolved'];
 
@@ -21,7 +21,14 @@ exports.getTechnicianTickets = (req, res) => {
     technician_ids,
     categories,
     date_from,
-    date_to
+    date_to,
+    group_name,
+    assignee,
+    status_q,
+    category_q,
+    subcategory,
+    date_on,
+    sort
   } = req.query;
 
   getUserGroupIds(req.user.id, (groupErr, groupIds) => {
@@ -59,13 +66,21 @@ exports.getTechnicianTickets = (req, res) => {
       technician_ids,
       categories,
       date_from,
-      date_to
+      date_to,
+      group_name,
+      assignee,
+      status_q,
+      category_q,
+      subcategory,
+      date_on
     });
 
     const whereClause = `WHERE ${conditions.join(' AND ')}`;
+    const orderBy = resolveTicketOrderBy(sort, 'staff');
+    const joinClause = 'JOIN users u ON u.id = t.user_id LEFT JOIN `groups` g ON g.id = t.group_id LEFT JOIN users tech ON tech.id = t.technician_id';
 
     db.query(
-      `SELECT COUNT(*) AS total FROM tickets t ${whereClause}`,
+      `SELECT COUNT(*) AS total FROM tickets t ${joinClause} ${whereClause}`,
       params,
       (err, countResult) => {
         if (err) return res.status(500).json({ message: 'Error al obtener tickets' });
@@ -80,11 +95,9 @@ exports.getTechnicianTickets = (req, res) => {
                   t.sla_response_due, t.sla_resolution_due, t.sla_status,
                   t.created_at, t.updated_at, t.user_id, u.email AS user_email
            FROM tickets t
-           JOIN users u ON u.id = t.user_id
-           LEFT JOIN \`groups\` g ON g.id = t.group_id
-           LEFT JOIN users tech ON tech.id = t.technician_id
+           ${joinClause}
            ${whereClause}
-           ORDER BY t.created_at DESC
+           ORDER BY ${orderBy}
            LIMIT ? OFFSET ?`,
           [...params, limit, offset],
           (err2, results) => {
