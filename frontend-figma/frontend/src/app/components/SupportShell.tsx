@@ -31,6 +31,7 @@ interface SupportShellProps {
   backTo?: string;
   headerAction?: ReactNode;
   headerActionInline?: boolean;
+  headerActionGrow?: boolean;
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | false;
 }
 
@@ -52,6 +53,7 @@ export default function SupportShell({
   backTo,
   headerAction,
   headerActionInline = false,
+  headerActionGrow = false,
   maxWidth = false
 }: SupportShellProps) {
   const navigate = useNavigate();
@@ -212,10 +214,16 @@ export default function SupportShell({
                 flexWrap: 'wrap'
               }}
             >
-              <Typography variant="h4" sx={{ fontWeight: 600, fontSize: { xs: '1.35rem', md: '1.75rem' } }}>
+              <Typography variant="h4" sx={{ fontWeight: 600, fontSize: { xs: '1.35rem', md: '1.75rem' }, flexShrink: 0 }}>
                 {title}
               </Typography>
-              {headerAction}
+              {headerActionGrow ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+                  {headerAction}
+                </Box>
+              ) : (
+                headerAction
+              )}
             </Box>
             {subtitle && (
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>

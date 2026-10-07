@@ -19,8 +19,7 @@ import {
   CircularProgress,
   TextField,
   MenuItem,
-  InputAdornment,
-  Stack
+  InputAdornment
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
@@ -611,47 +610,55 @@ export default function TicketsList() {
   const userTableColSpan = 7;
 
   return (
-    <SupportShell title="Solicitudes">
-      <Paper elevation={0} sx={{ p: 2, mb: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-        <TicketViewSelect
-          role={role}
-          groups={groups}
-          selection={selection}
-          currentFilters={listFilters}
-          currentSortBy={sortBy}
-          apiCall={apiCall}
-          onApply={applySelection}
-        />
-
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }} flexWrap="wrap" useFlexGap>
-          {!isStaffTable && (
-            <TextField
-              size="small"
-              placeholder="Buscar en esta página..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              sx={{ flex: 2, minWidth: 280 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" color="action" />
-                  </InputAdornment>
-                )
-              }}
-            />
-          )}
+    <SupportShell
+      title="Solicitudes"
+      headerActionGrow
+      headerAction={
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%', minWidth: 0 }}>
+          <TicketViewSelect
+            inline
+            role={role}
+            groups={groups}
+            selection={selection}
+            currentFilters={listFilters}
+            currentSortBy={sortBy}
+            apiCall={apiCall}
+            onApply={applySelection}
+          />
+          <Box sx={{ flex: 1 }} />
           {isStaffTable && (
-            <Button
-              variant="outlined"
-              startIcon={<FileDownloadIcon />}
-              onClick={exportCsv}
-              disabled={loading || displayTickets.length === 0}
-            >
-              Exportar CSV
-            </Button>
+            <Tooltip title="Exportar">
+              <span>
+                <IconButton
+                  aria-label="Exportar"
+                  color="primary"
+                  onClick={exportCsv}
+                  disabled={loading || displayTickets.length === 0}
+                >
+                  <FileDownloadIcon />
+                </IconButton>
+              </span>
+            </Tooltip>
           )}
-        </Stack>
-      </Paper>
+        </Box>
+      }
+    >
+      {!isStaffTable && (
+        <TextField
+          size="small"
+          placeholder="Buscar en esta página..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          sx={{ mb: 2.5, maxWidth: 420, width: '100%' }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" color="action" />
+              </InputAdornment>
+            )
+          }}
+        />
+      )}
 
       {isStaffTable && selectedIds.size > 0 && (
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 1.5, px: 0.5 }}>

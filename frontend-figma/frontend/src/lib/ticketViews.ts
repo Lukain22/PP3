@@ -300,6 +300,31 @@ export function getLastTicketViewItemKey(role: UserRole): string | null {
   }
 }
 
+const FAVORITE_VIEWS_KEY = 'pp3-ticket-view-favorites';
+
+export function getFavoriteViewKeys(role: UserRole): string[] {
+  try {
+    const raw = localStorage.getItem(FAVORITE_VIEWS_KEY);
+    if (!raw) return [];
+    const map = JSON.parse(raw) as Partial<Record<UserRole, string[]>>;
+    const list = map[role];
+    return Array.isArray(list) ? list.filter((key) => typeof key === 'string' && key.length > 0) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveFavoriteViewKeys(role: UserRole, keys: string[]): void {
+  try {
+    const raw = localStorage.getItem(FAVORITE_VIEWS_KEY);
+    const map: Partial<Record<UserRole, string[]>> = raw ? JSON.parse(raw) : {};
+    map[role] = keys;
+    localStorage.setItem(FAVORITE_VIEWS_KEY, JSON.stringify(map));
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export function resolveTicketViewItemKey(search: string, role: UserRole): string {
   const param = new URLSearchParams(search).get('view');
   if (param) {

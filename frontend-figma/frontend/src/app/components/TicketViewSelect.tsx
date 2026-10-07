@@ -19,6 +19,7 @@ import {
   Select,
   Stack,
   TextField,
+  Tooltip,
   Typography
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
@@ -28,6 +29,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import GroupsIcon from '@mui/icons-material/Groups';
 import PersonIcon from '@mui/icons-material/Person';
 import StarIcon from '@mui/icons-material/Star';
+import StarBorderIcon from '@mui/icons-material/StarBorder';
 import { toast } from 'sonner';
 import type { UserRole } from '../../lib/auth';
 import { TICKET_STATUS_OPTIONS } from '../../lib/ticketStatus';
@@ -38,7 +40,9 @@ import {
   type TicketListFilters,
   type TicketView,
   buildDefaultViewOrder,
+  getFavoriteViewKeys,
   getSystemViewsForRole,
+  saveFavoriteViewKeys,
   selectionFromCustomView,
   selectionFromSystemView,
   sortViewItems,
@@ -60,6 +64,7 @@ interface TicketViewSelectProps {
   currentSortBy: string;
   apiCall: (path: string, options?: RequestInit) => Promise<{ response: Response; data: any } | null>;
   onApply: (selection: ActiveViewSelection) => void;
+  inline?: boolean;
 }
 
 const PRIORITY_OPTIONS = [
@@ -79,10 +84,12 @@ export default function TicketViewSelect({
   currentFilters,
   currentSortBy,
   apiCall,
-  onApply
+  onApply,
+  inline = false
 }: TicketViewSelectProps) {
   const [customViews, setCustomViews] = useState<TicketView[]>([]);
   const [layoutOrder, setLayoutOrder] = useState<string[]>(buildDefaultViewOrder(role));
+  const [favoriteKeys, setFavoriteKeys] = useState<string[]>(() => getFavoriteViewKeys(role));
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingView, setEditingView] = useState<TicketView | null>(null);
@@ -120,7 +127,10 @@ export default function TicketViewSelect({
     }
   };
 
-  useEffect(() => { loadData(); }, [role]);
+  useEffect(() => {
+    setFavoriteKeys(getFavoriteViewKeys(role));
+    loadData();
+  }, [role]);
 
   const menuItems = useMemo(() => {
     const systemItems: ViewMenuItem[] = systemViews.map((system) => ({
@@ -159,9 +169,12 @@ export default function TicketViewSelect({
     closeMenu();
   };
 
-  const persistOrder = async (next: string[]) => {
+  const persistOrder = async (next: string[], nextFavorites: string[] = favoriteKeys) => {
     const previous = layoutOrder;
+    const previousFavorites = favoriteKeys;
     setLayoutOrder(next);
+    setFavoriteKeys(nextFavorites);
+    saveFavoriteViewKeys(role, nextFavorites);
     setReordering(true);
 
     try {
@@ -171,10 +184,14 @@ export default function TicketViewSelect({
       });
       if (!result?.response.ok) {
         setLayoutOrder(previous);
+        setFavoriteKeys(previousFavorites);
+        saveFavoriteViewKeys(role, previousFavorites);
         toast.error(result?.data.message || 'No se pudo guardar el orden');
       }
     } catch {
       setLayoutOrder(previous);
+      setFavoriteKeys(previousFavorites);
+      saveFavoriteViewKeys(role, previousFavorites);
       toast.error('Error conectando con el backend');
     } finally {
       setReordering(false);
@@ -192,7 +209,23 @@ export default function TicketViewSelect({
     const next = [...order];
     next.splice(from, 1);
     next.splice(to, 0, sourceKey);
-    await persistOrder(next);
+    const nextFavorites = next.filter((key) => favoriteKeys.includes(key));
+    await persistOrder(next, nextFavorites);
+  };
+
+  const toggleFavorite = async (itemKey: string) => {
+    const order = menuItems.map((item) => item.itemKey);
+    const currentFavorites = favoriteKeys.filter((key) => order.includes(key));
+    const isFavorite = currentFavorites.includes(itemKey);
+
+    const nextFavorites = isFavorite
+      ? currentFavorites.filter((key) => key !== itemKey)
+      : [...currentFavorites, itemKey];
+
+    const favoriteSet = new Set(nextFavorites);
+    const rest = order.filter((key) => !favoriteSet.has(key));
+    const nextOrder = [...nextFavorites, ...rest];
+    await persistOrder(nextOrder, nextFavorites);
   };
 
   const openCreateDialog = () => {
@@ -292,22 +325,18 @@ export default function TicketViewSelect({
       return;
     }
     toast.success('Vista eliminada');
+    const removedKey = viewIdToItemKey(view.id);
+    const nextFavorites = favoriteKeys.filter((key) => key !== removedKey);
+    if (nextFavorites.length !== favoriteKeys.length) {
+      setFavoriteKeys(nextFavorites);
+      saveFavoriteViewKeys(role, nextFavorites);
+    }
     await loadData();
-  };
-
-  const renderViewIcon = (item: ViewMenuItem) => {
-    if (item.kind === 'system') {
-      return <StarIcon sx={{ fontSize: 16, color: 'warning.main' }} />;
-    }
-    if (item.view.visibility === 'group') {
-      return <GroupsIcon sx={{ fontSize: 16 }} />;
-    }
-    return <PersonIcon sx={{ fontSize: 16 }} />;
   };
 
   return (
     <>
-      <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+      <FormControl fullWidth={!inline} size="small" sx={inline ? { width: { xs: '100%', sm: 340 }, maxWidth: 420, flex: { xs: '1 1 100%', sm: '0 1 340px' } } : { mb: 2 }}>
         <InputLabel id="ticket-view-select-label" shrink>Vista</InputLabel>
         <OutlinedInput
           id="ticket-view-select-label"
@@ -346,6 +375,7 @@ export default function TicketViewSelect({
               (item.kind === 'custom' && selection.kind === 'custom' && selection.viewId === item.view.id);
             const isDragging = draggingKey === item.itemKey;
             const isDragOver = dragOverKey === item.itemKey && draggingKey !== item.itemKey;
+            const isFavorite = favoriteKeys.includes(item.itemKey);
 
             return (
               <ListItemButton
@@ -381,46 +411,112 @@ export default function TicketViewSelect({
                   setDragOverKey(null);
                 }}
                 sx={{
+                  position: 'relative',
                   py: 1,
+                  pr: 1,
                   opacity: isDragging ? 0.45 : 1,
                   cursor: reordering ? 'wait' : 'grab',
                   bgcolor: isDragOver ? 'action.hover' : undefined,
                   borderTop: isDragOver ? '2px solid' : '2px solid transparent',
                   borderColor: isDragOver ? 'primary.main' : 'transparent',
-                  '&:active': { cursor: 'grabbing' }
+                  '&:active': { cursor: 'grabbing' },
+                  '&:hover, &:focus-within': {
+                    pr: item.kind === 'custom' && item.view.is_owner ? 14 : 5.5
+                  },
+                  '& .view-row-actions': {
+                    opacity: 0,
+                    visibility: 'hidden',
+                    pointerEvents: 'none'
+                  },
+                  '&:hover .view-row-actions, &:focus-within .view-row-actions': {
+                    opacity: 1,
+                    visibility: 'visible',
+                    pointerEvents: 'auto'
+                  }
                 }}
               >
                 <DragIndicatorIcon sx={{ fontSize: 18, color: 'text.disabled', mr: 0.5, flexShrink: 0 }} />
-                <Box sx={{ mr: 1, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                  {renderViewIcon(item)}
-                </Box>
+                {item.kind === 'custom' && (
+                  <Box sx={{ mr: 1, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                    {item.view.visibility === 'group' ? (
+                      <GroupsIcon sx={{ fontSize: 16 }} />
+                    ) : (
+                      <PersonIcon sx={{ fontSize: 16 }} />
+                    )}
+                  </Box>
+                )}
                 <ListItemText
                   primary={item.kind === 'system' ? item.system.name : item.view.name}
                   sx={{ minWidth: 0 }}
                 />
-                {item.kind === 'custom' && item.view.is_owner && (
-                  <Stack direction="row" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                <Stack
+                  className="view-row-actions"
+                  direction="row"
+                  onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onDragStart={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  sx={{
+                    position: 'absolute',
+                    right: 4,
+                    top: 0,
+                    bottom: 0,
+                    alignItems: 'center',
+                    pl: 0.5
+                  }}
+                >
+                  <Tooltip title={isFavorite ? 'Quitar de favoritas' : 'Marcar como favorita'}>
                     <IconButton
                       size="small"
+                      aria-label={isFavorite ? 'Quitar de favoritas' : 'Marcar como favorita'}
+                      aria-pressed={isFavorite}
                       onClick={(e) => {
                         e.stopPropagation();
-                        openEditDialog(item.view);
+                        void toggleFavorite(item.itemKey);
                       }}
+                      sx={{ cursor: 'pointer', '&:active': { cursor: 'pointer' } }}
                     >
-                      <EditIcon sx={{ fontSize: 16 }} />
+                      {isFavorite ? (
+                        <StarIcon sx={{ fontSize: 16, color: 'warning.main' }} />
+                      ) : (
+                        <StarBorderIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                      )}
                     </IconButton>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(item.view);
-                      }}
-                    >
-                      <DeleteOutlineIcon sx={{ fontSize: 16 }} />
-                    </IconButton>
-                  </Stack>
-                )}
+                  </Tooltip>
+                  {item.kind === 'custom' && item.view.is_owner && (
+                    <>
+                      <Tooltip title="Editar vista">
+                        <IconButton
+                          size="small"
+                          aria-label="Editar vista"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEditDialog(item.view);
+                          }}
+                          sx={{ cursor: 'pointer', '&:active': { cursor: 'pointer' } }}
+                        >
+                          <EditIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Eliminar vista">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          aria-label="Eliminar vista"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(item.view);
+                          }}
+                          sx={{ cursor: 'pointer', '&:active': { cursor: 'pointer' } }}
+                        >
+                          <DeleteOutlineIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </Tooltip>
+                    </>
+                  )}
+                </Stack>
               </ListItemButton>
             );
           })}
