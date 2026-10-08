@@ -10,6 +10,7 @@ import {
   Divider,
   FormControl,
   IconButton,
+  InputAdornment,
   InputLabel,
   ListItemButton,
   ListItemText,
@@ -28,6 +29,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import GroupsIcon from '@mui/icons-material/Groups';
 import PersonIcon from '@mui/icons-material/Person';
+import SearchIcon from '@mui/icons-material/Search';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import { toast } from 'sonner';
@@ -91,6 +93,7 @@ export default function TicketViewSelect({
   const [layoutOrder, setLayoutOrder] = useState<string[]>(buildDefaultViewOrder(role));
   const [favoriteKeys, setFavoriteKeys] = useState<string[]>(() => getFavoriteViewKeys(role));
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const [viewQuery, setViewQuery] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingView, setEditingView] = useState<TicketView | null>(null);
   const [saving, setSaving] = useState(false);
@@ -146,8 +149,18 @@ export default function TicketViewSelect({
     return sortViewItems([...systemItems, ...customItems], layoutOrder);
   }, [systemViews, customViews, layoutOrder]);
 
+  const visibleMenuItems = useMemo(() => {
+    const query = viewQuery.trim().toLocaleLowerCase();
+    if (!query) return menuItems;
+    return menuItems.filter((item) => {
+      const name = item.kind === 'system' ? item.system.name : item.view.name;
+      return name.toLocaleLowerCase().includes(query);
+    });
+  }, [menuItems, viewQuery]);
+
   const closeMenu = () => {
     setMenuAnchor(null);
+    setViewQuery('');
     setDraggingKey(null);
     setDragOverKey(null);
   };
@@ -369,7 +382,36 @@ export default function TicketViewSelect({
         }}
       >
         <Box sx={{ py: 0.5 }}>
-          {menuItems.map((item) => {
+          <Box
+            sx={{
+              position: 'sticky',
+              top: 0,
+              zIndex: 1,
+              bgcolor: 'background.paper',
+              px: 1,
+              pt: 0.5,
+              pb: 1
+            }}
+          >
+            <TextField
+              autoFocus
+              size="small"
+              fullWidth
+              placeholder="Buscar vista..."
+              value={viewQuery}
+              onChange={(e) => setViewQuery(e.target.value)}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" color="action" />
+                    </InputAdornment>
+                  )
+                }
+              }}
+            />
+          </Box>
+          {visibleMenuItems.map((item) => {
             const isActive =
               (item.kind === 'system' && selection.kind === 'system' && selection.key === item.system.key) ||
               (item.kind === 'custom' && selection.kind === 'custom' && selection.viewId === item.view.id);
@@ -520,6 +562,12 @@ export default function TicketViewSelect({
               </ListItemButton>
             );
           })}
+
+          {visibleMenuItems.length === 0 && (
+            <Typography variant="body2" color="text.secondary" sx={{ px: 2, py: 1.5 }}>
+              Ninguna vista coincide
+            </Typography>
+          )}
 
           <Divider sx={{ my: 0.5 }} />
 

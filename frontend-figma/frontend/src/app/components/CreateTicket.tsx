@@ -127,7 +127,7 @@ export default function CreateTicket() {
 
   return (
     <SupportShell
-      title="Nueva solicitud"
+      title=""
     >
       <Box
         component="form"
