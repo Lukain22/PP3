@@ -3,6 +3,7 @@ const db = require('../db/db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { sendMail, isMailConfigured } = require('../utils/mailer');
+const { assignDefaultRole } = require('../rbac/service');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const RESET_TOKEN_MINUTES = 60;
@@ -62,7 +63,7 @@ exports.register = async (req, res) => {
     db.query(
       'INSERT INTO users (email, password_hash) VALUES (?, ?)',
       [email.toLowerCase().trim(), hashedPassword],
-      (err) => {
+      (err, result) => {
         if (err) {
           if (err.code === 'ER_DUP_ENTRY') {
             return res.status(409).json({ message: 'Este correo ya está registrado' });
@@ -70,6 +71,10 @@ exports.register = async (req, res) => {
           console.error('Error en registro:', err.code);
           return res.status(500).json({ message: 'Error al registrar el usuario' });
         }
+
+        assignDefaultRole(result.insertId, 'user').catch((assignErr) => {
+          console.error('Error asignando rol inicial:', assignErr.code || assignErr.message);
+        });
 
         res.status(201).json({ message: 'Usuario registrado' });
       }

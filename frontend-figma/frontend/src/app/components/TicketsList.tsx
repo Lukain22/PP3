@@ -28,7 +28,7 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
-import { getToken, clearAuth, getRole } from '../../lib/auth';
+import { getToken, clearAuth, getRole, can } from '../../lib/auth';
 import { getTicketTypeLabel, getTicketTypeColor } from '../../lib/ticketTypes';
 import {
   getPriorityLabel,
@@ -813,7 +813,7 @@ export default function TicketsList() {
                     </Typography>
                   </TableCell>
                   <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(ticket.created_at)}</TableCell>
-                  {canEditAll && (
+                  {canEditAll && can('tickets.delete') && (
                     <TableCell align="center" onClick={(e) => e.stopPropagation()}>
                       <Tooltip title="Eliminar">
                         <span>

@@ -12,6 +12,7 @@ import InsertDriveFileOutlinedIcon from '@mui/icons-material/InsertDriveFileOutl
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { toast } from 'sonner';
+import { can } from '../../lib/auth';
 import {
   ACCEPTED_FILE_LABEL,
   ACCEPTED_FILE_TYPES,
@@ -191,6 +192,7 @@ export default function TicketAttachments({
   const [uploading, setUploading] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
   const isPendingMode = !ticketId && !!onPendingFilesChange;
+  const allowUpload = showUpload && can('tickets.attach');
 
   const loadAttachments = async () => {
     if (!ticketId) return;
@@ -275,7 +277,7 @@ export default function TicketAttachments({
   const filesToShow = isPendingMode ? pendingFiles : attachments;
   const hasFiles = filesToShow.length > 0;
 
-  const uploadButton = showUpload ? (
+  const uploadButton = allowUpload ? (
     <>
       <input
         ref={fileInputRef}
@@ -357,7 +359,7 @@ export default function TicketAttachments({
 
   return (
     <Box>
-      {showUpload && !uploadBelowFiles && (
+      {allowUpload && !uploadBelowFiles && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: hasFiles ? 1.5 : 0 }}>
           {uploadButton}
           <Typography variant="caption" color="text.secondary">
@@ -373,7 +375,7 @@ export default function TicketAttachments({
       ) : hasFiles ? (
         fileList
       ) : (
-        !showUpload && (
+        !allowUpload && (
           <Typography variant="body2" color="text.secondary">
             Sin archivos adjuntos.
           </Typography>

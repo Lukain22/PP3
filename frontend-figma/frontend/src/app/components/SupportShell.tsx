@@ -18,7 +18,7 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import NotificationBell from './NotificationBell';
 import UserProfileMenu from './UserProfileMenu';
-import { isAdmin, isTechnician, getHomePath, getRole } from '../../lib/auth';
+import { isAdmin, getHomePath, getRole, can } from '../../lib/auth';
 import { getTicketsPath } from '../../lib/ticketViews';
 
 type Crumb = { label: string; to?: string };
@@ -57,7 +57,7 @@ export default function SupportShell({
   maxWidth = false
 }: SupportShellProps) {
   const navigate = useNavigate();
-  const canCreateTicket = !isTechnician();
+  const canCreateTicket = can('tickets.create');
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f0f2f5' }}>
@@ -107,7 +107,7 @@ export default function SupportShell({
 
           <Box sx={{ flexGrow: 1 }} />
 
-          {isAdmin() && (
+          {can('admin.access') && (
             <Tooltip title="Administración">
               <IconButton onClick={() => navigate('/admin')} size="small" color="primary" sx={{ flexShrink: 0 }}>
                 <AdminPanelSettingsIcon fontSize="small" />

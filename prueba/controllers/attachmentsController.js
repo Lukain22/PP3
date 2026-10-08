@@ -2,6 +2,7 @@ const fs = require('fs');
 const db = require('../db/db');
 const { loadTicketWithAccess } = require('./ticketsController');
 const { getMimeType, getStoredPath } = require('../utils/attachments');
+const { assertPermission } = require('../rbac/guard');
 
 const mapAttachment = (row) => ({
   id: row.id,
@@ -37,6 +38,13 @@ exports.getTicketAttachments = (req, res) => {
 };
 
 exports.uploadTicketAttachments = (req, res) => {
+  assertPermission(req, res, 'tickets.attach').then((allowed) => {
+    if (!allowed) return;
+    runUploadTicketAttachments(req, res);
+  });
+};
+
+const runUploadTicketAttachments = (req, res) => {
   const { id } = req.params;
 
   loadTicketWithAccess(req, id, (accessErr, ticket) => {

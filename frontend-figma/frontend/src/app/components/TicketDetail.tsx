@@ -27,7 +27,7 @@ import SendIcon from '@mui/icons-material/Send';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
-import { getToken, clearAuth, isAdmin, isTechnician, getEmail, getHomePath } from '../../lib/auth';
+import { getToken, clearAuth, isAdmin, isTechnician, getEmail, getHomePath, can } from '../../lib/auth';
 import { CATEGORIES, SUBCATEGORIES, type Category } from '../../lib/categories';
 import {
   getTicketTypeLabel,
@@ -309,6 +309,13 @@ export default function TicketDetail() {
   const admin = isAdmin();
   const technician = isTechnician();
   const staff = admin || technician;
+  const canEditTickets = can('tickets.edit');
+  const canTransfer = can('assignments.transfer');
+  const canAssign = can('assignments.self') || can('assignments.others');
+  const canComment = can('tickets.comment');
+  const canResolve = can('tickets.resolve');
+  const canReopen = can('tickets.reopen');
+  const canModerateComments = can('tickets.edit') && can('admin.access');
   const homePath = getHomePath();
 
   const [ticket, setTicket] = useState<Ticket | null>(null);
@@ -400,13 +407,13 @@ export default function TicketDetail() {
   };
 
   const loadGroupTechnicians = async (groupId: number | '') => {
-    if (!groupId) {
+    if (!groupId || !canAssign) {
       setGroupTechnicians([]);
       return;
     }
-    const result = await apiCall(`/admin/groups/${groupId}`);
+    const result = await apiCall(`/tickets/assignees?group_id=${groupId}`);
     if (result?.response.ok) {
-      setGroupTechnicians(Array.isArray(result.data.technicians) ? result.data.technicians : []);
+      setGroupTechnicians(Array.isArray(result.data) ? result.data : []);
     }
   };
 
@@ -416,23 +423,23 @@ export default function TicketDetail() {
   }, [id]);
 
   useEffect(() => {
-    if (!admin) return;
-    apiCall('/admin/groups').then((result) => {
+    if (!canTransfer) return;
+    apiCall('/tickets/transfer-groups').then((result) => {
       if (result?.response.ok) {
         setGroups(Array.isArray(result.data) ? result.data : []);
       }
     });
-  }, [admin]);
+  }, [id]);
 
   useEffect(() => {
-    if (!admin) return;
+    if (!canAssign) return;
     const groupId = editing ? formData.group_id : ticket?.group_id;
     if (!groupId) {
       setGroupTechnicians([]);
       return;
     }
     loadGroupTechnicians(groupId);
-  }, [admin, editing, formData.group_id, ticket?.group_id]);
+  }, [canAssign, editing, formData.group_id, ticket?.group_id]);
 
   const getStatusLabel = getTicketStatusLabel;
   const getStatusColor = getTicketStatusColor;
@@ -671,9 +678,13 @@ export default function TicketDetail() {
     ? SUBCATEGORIES[ticket.category as Category] ?? []
     : [];
 
-  const statusOptions = admin
-    ? TICKET_STATUS_OPTIONS
-    : TICKET_STATUS_OPTIONS.filter((s) => s.value !== 'on-hold');
+  const statusOptions = TICKET_STATUS_OPTIONS.filter((option) => {
+    if (!ticket || option.value === ticket.status) return true;
+    if (option.value === 'resolved') return canResolve;
+    if (ticket.status === 'resolved') return canReopen;
+    return canEditTickets;
+  });
+  const canChangeStatus = statusOptions.some((option) => ticket && option.value !== ticket.status);
 
   const inlineDisabled = Boolean(fieldBusy || saving);
 
@@ -982,7 +993,7 @@ export default function TicketDetail() {
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                     Estado
                   </Typography>
-                  {(admin || technician) ? (
+                  {canChangeStatus ? (
                     <InlineEditSelect
                       value={ticket.status}
                       disabled={inlineDisabled}
@@ -1006,7 +1017,7 @@ export default function TicketDetail() {
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                       Prioridad
                     </Typography>
-                    {admin ? (
+                    {staff && canEditTickets ? (
                       <InlineEditSelect
                         value={ticket.priority || 'medium'}
                         disabled={inlineDisabled}
@@ -1093,7 +1104,7 @@ export default function TicketDetail() {
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                     Grupo
                   </Typography>
-                  {admin ? (
+                  {canTransfer ? (
                     <InlineEditSelect
                       value={ticket.group_id ?? ''}
                       disabled={inlineDisabled}
@@ -1123,7 +1134,7 @@ export default function TicketDetail() {
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                     Técnico
                   </Typography>
-                  {admin ? (
+                  {canAssign ? (
                     <InlineEditSelect
                       value={ticket.technician_id ?? ''}
                       disabled={inlineDisabled || !ticket.group_id}
@@ -1186,6 +1197,7 @@ export default function TicketDetail() {
           <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
             Comentarios
           </Typography>
+          {canComment && (
           <Button
             variant="outlined"
             size="small"
@@ -1194,6 +1206,7 @@ export default function TicketDetail() {
           >
             Agregar comentario
           </Button>
+          )}
         </Box>
 
         <Stack spacing={1} sx={{ maxHeight: 320, overflowY: 'auto' }}>
@@ -1207,7 +1220,7 @@ export default function TicketDetail() {
                 key={comment.id}
                 comment={comment}
                 formatDateTime={formatDateTime}
-                admin={admin}
+                admin={canModerateComments}
                 isEditing={editingCommentId === comment.id}
                 editingText={editingCommentText}
                 busy={busyCommentId === comment.id}
@@ -1295,12 +1308,14 @@ export default function TicketDetail() {
             </Typography>
           </Box>
           <Box>
+            {canReopen && (
             <Button variant="contained" disabled={reopening} onClick={handleReopen}>
               {reopening ? 'Reabriendo...' : 'Reabrir solicitud'}
             </Button>
+            )}
           </Box>
         </>
-      ) : (
+      ) : canResolve ? (
         <>
           <TextField
             fullWidth
@@ -1324,6 +1339,10 @@ export default function TicketDetail() {
             </Typography>
           </Box>
         </>
+      ) : (
+        <Typography variant="body2" color="text.secondary">
+          No tenés permiso para resolver este ticket.
+        </Typography>
       )}
     </Stack>
   ) : isResolved && resolution ? (

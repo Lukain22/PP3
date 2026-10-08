@@ -21,6 +21,7 @@ const {
 } = require('./utils/groups');
 const { initTicketViewsTable } = require('./controllers/viewsController');
 const { initPasswordResetTokensTable } = require('./utils/passwordReset');
+const { initRbac } = require('./rbac/service');
 const db = require('./db/db');
 
 const app = express();
@@ -70,6 +71,7 @@ const initUsersTable = () => {
         initTicketViewsTable();
         initNotificationsTable();
         initPasswordResetTokensTable();
+        initRbac();
         runTicketMigrations();
       }
     );

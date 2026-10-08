@@ -18,6 +18,7 @@ const {
   notifyTicketCreatorOnResolution,
   notifyOnComment
 } = require('../utils/notifications');
+const { assertPermission, assertTicketMutation } = require('../rbac/guard');
 
 const SLA_SELECT = 'sla_response_due, sla_resolution_due, sla_status, sla_paused_at';
 
@@ -191,6 +192,13 @@ exports.getTicketById = (req, res) => {
 };
 
 exports.createTicket = (req, res) => {
+  assertPermission(req, res, 'tickets.create').then((allowed) => {
+    if (!allowed) return;
+    runCreateTicket(req, res);
+  });
+};
+
+const runCreateTicket = (req, res) => {
   const { title, description, status, priority, type } = req.body;
   const isAdmin = req.user.role === 'admin';
 
@@ -276,14 +284,9 @@ exports.createTicket = (req, res) => {
 exports.updateTicketStatus = (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
-  const role = req.user.role;
-  const isStaff = role === 'admin' || role === 'technician';
 
   if (!VALID_STATUSES.includes(status)) {
     return res.status(400).json({ message: 'Estado inválido' });
-  }
-  if (!isStaff && status === 'on-hold') {
-    return res.status(403).json({ message: 'No tenés permiso para poner el ticket en espera' });
   }
 
   loadTicketWithAccess(req, id, (selectErr, oldTicket) => {
@@ -291,6 +294,9 @@ exports.updateTicketStatus = (req, res) => {
     if (!oldTicket) return res.status(404).json({ message: 'Ticket no encontrado' });
 
     const oldStatus = oldTicket.status;
+
+    assertTicketMutation(req, res, oldTicket, { status }).then((allowed) => {
+      if (!allowed) return;
 
     loadPolicies((policyErr, policies) => {
       if (policyErr) {
@@ -330,15 +336,13 @@ exports.updateTicketStatus = (req, res) => {
         }
       );
     });
+    });
   });
 };
 
 exports.updateTicket = (req, res) => {
   const { id } = req.params;
-  const { title, description, status, priority, type, technician_id } = req.body;
-  const role = req.user.role;
-  const isAdmin = role === 'admin';
-  const isTechnician = role === 'technician';
+  const { title, description, status, priority, type, technician_id, group_id } = req.body;
 
   if (title !== undefined && !String(title).trim()) {
     return res.status(400).json({ message: 'El título no puede estar vacío' });
@@ -351,18 +355,6 @@ exports.updateTicket = (req, res) => {
   }
   if (type !== undefined && !VALID_TYPES.includes(type)) {
     return res.status(400).json({ message: 'Tipo inválido' });
-  }
-  if (isTechnician && (title !== undefined || description !== undefined || priority !== undefined || type !== undefined)) {
-    return res.status(403).json({ message: 'Como técnico solo podés cambiar el estado o la asignación del ticket' });
-  }
-  if (technician_id !== undefined && !isAdmin && !isTechnician) {
-    return res.status(403).json({ message: 'No tenés permiso para asignar técnico' });
-  }
-  if (!isAdmin && !isTechnician && (status !== undefined || priority !== undefined || type !== undefined)) {
-    return res.status(403).json({ message: 'No tenés permiso para cambiar estado, prioridad o tipo' });
-  }
-  if (!isAdmin && status === 'on-hold') {
-    return res.status(403).json({ message: 'No tenés permiso para poner el ticket en espera' });
   }
 
   const effectiveType = type !== undefined ? type : undefined;
@@ -384,6 +376,9 @@ exports.updateTicket = (req, res) => {
     if (nextType === 'requirement' && priority !== undefined && priority !== null) {
       return res.status(400).json({ message: 'Los requerimientos no tienen prioridad' });
     }
+
+    assertTicketMutation(req, res, oldTicket, req.body).then((allowed) => {
+      if (!allowed) return;
 
     const applyUpdate = () => {
       loadPolicies((policyErr, policies) => {
@@ -419,6 +414,11 @@ exports.updateTicket = (req, res) => {
           fields.push('type = ?');
           values.push(type);
           updates.type = type;
+        }
+        if (group_id !== undefined) {
+          fields.push('group_id = ?');
+          values.push(group_id || null);
+          updates.group_id = group_id || null;
         }
         if (technician_id !== undefined) {
           fields.push('technician_id = ?');
@@ -459,28 +459,29 @@ exports.updateTicket = (req, res) => {
       });
     };
 
-    if (technician_id !== undefined && (isAdmin || isTechnician)) {
-      const nextTechnicianId = technician_id || null;
+    const applyAssignment = () => {
+      if (technician_id === undefined) return applyUpdate();
 
-      if (!nextTechnicianId) {
-        return applyUpdate();
-      }
+      const nextTechnicianId = technician_id || null;
+      const effectiveGroupId = group_id !== undefined ? group_id : oldTicket.group_id;
+
+      if (!nextTechnicianId) return applyUpdate();
 
       const parsedTechnicianId = parseInt(nextTechnicianId, 10);
       if (!parsedTechnicianId) {
         return res.status(400).json({ message: 'Técnico inválido' });
       }
 
-      if (!oldTicket.group_id) {
+      if (!effectiveGroupId) {
         return res.status(400).json({ message: 'Asigná un grupo antes de seleccionar un técnico' });
       }
 
-      return db.query(
+      db.query(
         `SELECT u.id
          FROM users u
          JOIN user_groups ug ON ug.user_id = u.id
          WHERE u.id = ? AND u.role = 'technician' AND ug.group_id = ?`,
-        [parsedTechnicianId, oldTicket.group_id],
+        [parsedTechnicianId, effectiveGroupId],
         (techErr, techRows) => {
           if (techErr) return res.status(500).json({ message: 'Error al verificar técnico' });
           if (techRows.length === 0) {
@@ -489,9 +490,18 @@ exports.updateTicket = (req, res) => {
           applyUpdate();
         }
       );
+    };
+
+    if (group_id) {
+      return db.query('SELECT id FROM `groups` WHERE id = ?', [group_id], (gErr, gRows) => {
+        if (gErr) return res.status(500).json({ message: 'Error al verificar grupo' });
+        if (gRows.length === 0) return res.status(400).json({ message: 'Grupo inválido' });
+        applyAssignment();
+      });
     }
 
-    applyUpdate();
+    applyAssignment();
+    });
   });
 };
 
@@ -540,6 +550,13 @@ exports.getTicketComments = (req, res) => {
 };
 
 exports.addTicketComment = (req, res) => {
+  assertPermission(req, res, 'tickets.comment').then((allowed) => {
+    if (!allowed) return;
+    runAddTicketComment(req, res);
+  });
+};
+
+const runAddTicketComment = (req, res) => {
   const { id } = req.params;
   const { content } = req.body;
 
@@ -585,13 +602,16 @@ exports.getTicketResolution = (req, res) => {
 };
 
 exports.saveTicketResolution = (req, res) => {
+  assertPermission(req, res, 'tickets.resolve').then((allowed) => {
+    if (!allowed) return;
+    runSaveTicketResolution(req, res);
+  });
+};
+
+const runSaveTicketResolution = (req, res) => {
   const { id } = req.params;
   const { content } = req.body;
-  const role = req.user.role;
 
-  if (role !== 'admin' && role !== 'technician') {
-    return res.status(403).json({ message: 'Solo técnicos o administradores pueden registrar resoluciones' });
-  }
   if (!content || !String(content).trim()) {
     return res.status(400).json({ message: 'La resolución no puede estar vacía' });
   }
@@ -666,25 +686,63 @@ exports.saveTicketResolution = (req, res) => {
 
 exports.deleteTicket = (req, res) => {
   const { id } = req.params;
-  const isAdmin = req.user.role === 'admin';
 
-  const sql = isAdmin
-    ? 'DELETE FROM tickets WHERE id = ?'
-    : 'DELETE FROM tickets WHERE id = ? AND user_id = ?';
-  const params = isAdmin ? [id] : [id, req.user.id];
+  assertPermission(req, res, 'tickets.delete').then((allowed) => {
+    if (!allowed) return;
 
-  db.query(sql, params, (err, result) => {
-      if (err) {
-        return res.status(500).json({ message: 'Error al eliminar ticket' });
-      }
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ message: 'Ticket no encontrado' });
-      }
-      res.json({ message: 'Ticket eliminado' });
-    }
-  );
+    loadTicketWithAccess(req, id, (err, ticket) => {
+      if (err) return res.status(500).json({ message: 'Error al eliminar ticket' });
+      if (!ticket) return res.status(404).json({ message: 'Ticket no encontrado' });
+
+      db.query('DELETE FROM tickets WHERE id = ?', [id], (delErr, result) => {
+        if (delErr) return res.status(500).json({ message: 'Error al eliminar ticket' });
+        if (result.affectedRows === 0) return res.status(404).json({ message: 'Ticket no encontrado' });
+        res.json({ message: 'Ticket eliminado' });
+      });
+    });
+  });
 };
 
 exports.initTicketsTable = initTicketsTable;
 exports.initCommentsTable = initCommentsTable;
 exports.loadTicketWithAccess = loadTicketWithAccess;
+
+exports.listTransferGroups = async (req, res) => {
+  try {
+    const { getRequestAccess, query } = require('../rbac/service');
+    const access = await getRequestAccess(req);
+    if (!access.has('assignments.transfer')) return res.json([]);
+    const groups = await query('SELECT id, name FROM `groups` ORDER BY name ASC');
+    res.json(groups.filter((group) => access.canTransferTo(group.id)));
+  } catch (err) {
+    console.error('Error en listTransferGroups:', err.code || err.message);
+    res.status(500).json({ message: 'Error al obtener grupos' });
+  }
+};
+
+exports.listAssigneesByGroup = (req, res) => {
+  const { getRequestAccess } = require('../rbac/service');
+  const groupId = Number(req.query.group_id);
+  if (!groupId) return res.json([]);
+
+  getRequestAccess(req).then((access) => {
+    if (!access.has('assignments.self') && !access.has('assignments.others')) return res.json([]);
+    if (access.has('assignments.transfer') && !access.canTransferTo(groupId)) return res.json([]);
+
+    db.query(
+      `SELECT u.id, u.email
+       FROM user_groups ug
+       JOIN users u ON u.id = ug.user_id
+       WHERE ug.group_id = ? AND u.role = 'technician'
+       ORDER BY u.email ASC`,
+      [groupId],
+      (techErr, rows) => {
+        if (techErr) return res.status(500).json({ message: 'Error al obtener técnicos' });
+        const list = access.has('assignments.others')
+          ? rows
+          : rows.filter((row) => Number(row.id) === Number(req.user.id));
+        res.json(list);
+      }
+    );
+  }).catch(() => res.status(500).json({ message: 'Error al validar permisos' }));
+};

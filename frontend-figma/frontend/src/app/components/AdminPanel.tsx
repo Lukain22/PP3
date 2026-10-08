@@ -4,40 +4,43 @@ import {
   Paper,
   Typography,
   Grid,
-  Button,
-  Chip
+  Button
 } from '@mui/material';
 import PeopleIcon from '@mui/icons-material/People';
 import GroupWorkIcon from '@mui/icons-material/GroupWork';
 import TimerIcon from '@mui/icons-material/Timer';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import SupportShell from './SupportShell';
+import { can } from '../../lib/auth';
 
 const sections = [
   {
     title: 'Grupos',
     description: 'Organizá equipos de resolución y asigná técnicos.',
     icon: <GroupWorkIcon fontSize="large" color="primary" />,
-    to: '/admin/groups'
+    to: '/admin/groups',
+    permission: 'admin.groups'
   },
   {
     title: 'SLA',
     description: 'Configurá tiempos de respuesta y resolución por prioridad.',
     icon: <TimerIcon fontSize="large" color="primary" />,
-    to: '/admin/sla'
+    to: '/admin/sla',
+    permission: 'admin.settings'
   },
   {
     title: 'Usuarios',
     description: 'Gestioná cuentas, roles y pertenencia a grupos.',
     icon: <PeopleIcon fontSize="large" color="primary" />,
-    to: '/admin/users'
+    to: '/admin/users',
+    permission: 'admin.users'
   },
   {
     title: 'Roles',
-    description: 'Próximamente: permisos granulares por rol.',
-    icon: <AdminPanelSettingsIcon fontSize="large" color="disabled" />,
-    to: '',
-    disabled: true
+    description: 'Definí roles, permisos y a qué grupos puede derivar cada uno.',
+    icon: <AdminPanelSettingsIcon fontSize="large" color="primary" />,
+    to: '/admin/roles',
+    permission: 'admin.roles'
   }
 ];
 
@@ -50,7 +53,7 @@ export default function AdminPanel() {
       subtitle="Configuración del sistema de soporte"
     >
       <Grid container spacing={2.5}>
-        {sections.map((section) => (
+        {sections.filter((section) => can(section.permission)).map((section) => (
           <Grid key={section.title} size={{ xs: 12, sm: 6, md: 3 }}>
             <Paper
               elevation={0}
@@ -62,26 +65,21 @@ export default function AdminPanel() {
                 borderRadius: 2,
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 1.5,
-                opacity: section.disabled ? 0.72 : 1
+                gap: 1.5
               }}
             >
               <Box>{section.icon}</Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.05rem' }}>
-                  {section.title}
-                </Typography>
-                {section.disabled && <Chip label="Próximamente" size="small" />}
-              </Box>
+              <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.05rem' }}>
+                {section.title}
+              </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
                 {section.description}
               </Typography>
               <Button
-                variant={section.disabled ? 'outlined' : 'contained'}
-                disabled={section.disabled}
-                onClick={() => section.to && navigate(section.to)}
+                variant="contained"
+                onClick={() => navigate(section.to)}
               >
-                {section.disabled ? 'En desarrollo' : 'Abrir'}
+                Abrir
               </Button>
             </Paper>
           </Grid>

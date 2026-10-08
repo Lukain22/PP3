@@ -21,7 +21,7 @@ import {
 import SaveIcon from '@mui/icons-material/Save';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
-import { getToken, clearAuth, type UserRole } from '../../lib/auth';
+import { getToken, clearAuth, type UserRole, refreshAccess, type AccessPermission } from '../../lib/auth';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -60,6 +60,11 @@ export default function AdminUserDetail() {
   const [role, setRole] = useState<UserRole>('user');
   const [groupIds, setGroupIds] = useState<number[]>([]);
   const [allGroups, setAllGroups] = useState<GroupOption[]>([]);
+  const [roleOptions, setRoleOptions] = useState<{ id: number; name: string; is_active: boolean }[]>([]);
+  const [assignedRoleIds, setAssignedRoleIds] = useState<number[]>([]);
+  const [effectivePermissions, setEffectivePermissions] = useState<AccessPermission[]>([]);
+  const [isSuperuser, setIsSuperuser] = useState(false);
+  const [savingRoles, setSavingRoles] = useState(false);
 
   const apiCall = async (path: string, options: RequestInit = {}) => {
     const token = getToken();
@@ -75,7 +80,6 @@ export default function AdminUserDetail() {
     });
 
     if (response.status === 401) { clearAuth(); navigate('/'); return null; }
-    if (response.status === 403) { navigate('/dashboard'); return null; }
 
     const data = await response.json().catch(() => ({}));
     return { response, data };
@@ -104,6 +108,19 @@ export default function AdminUserDetail() {
 
     if (groupsResult?.response.ok) {
       setAllGroups(Array.isArray(groupsResult.data) ? groupsResult.data : []);
+    }
+
+    const [accessResult, optionsResult] = await Promise.all([
+      apiCall(`/admin/users/${id}/access`),
+      apiCall('/admin/users/role-options')
+    ]);
+    if (accessResult?.response.ok) {
+      setAssignedRoleIds((accessResult.data.assignments || []).map((item: { id: number }) => item.id));
+      setEffectivePermissions(accessResult.data.permissions || []);
+      setIsSuperuser(Boolean(accessResult.data.is_superuser));
+    }
+    if (optionsResult?.response.ok) {
+      setRoleOptions(Array.isArray(optionsResult.data) ? optionsResult.data : []);
     }
 
     setLoading(false);
@@ -149,6 +166,37 @@ export default function AdminUserDetail() {
     new Date(d).toLocaleString('es-ES', {
       year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
     });
+
+  const handleSaveRoles = async () => {
+    setSavingRoles(true);
+    try {
+      const result = await apiCall(`/admin/users/${id}/roles`, {
+        method: 'PUT',
+        body: JSON.stringify({ role_ids: assignedRoleIds })
+      });
+      if (!result) return;
+      if (!result.response.ok) {
+        toast.error(result.data.message || 'No se pudieron guardar los roles');
+        return;
+      }
+      setAssignedRoleIds((result.data.assignments || []).map((item: { id: number }) => item.id));
+      setEffectivePermissions(result.data.permissions || []);
+      setIsSuperuser(Boolean(result.data.is_superuser));
+      await refreshAccess();
+      toast.success('Roles actualizados');
+    } catch {
+      toast.error('Error conectando con el backend');
+    } finally {
+      setSavingRoles(false);
+    }
+  };
+
+  const permissionsByModule = effectivePermissions.reduce<Record<string, AccessPermission[]>>((acc, item) => {
+    const key = item.module_label || item.module;
+    acc[key] = acc[key] || [];
+    acc[key].push(item);
+    return acc;
+  }, {});
 
   if (loading) {
     return (
@@ -247,6 +295,81 @@ export default function AdminUserDetail() {
               Volver
             </Button>
           </Stack>
+        </Stack>
+      </Paper>
+
+      <Paper elevation={0} sx={{ p: { xs: 2, md: 3 }, mt: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+        <Stack spacing={2.5}>
+          <Box>
+            <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 600 }}>
+              Roles y permisos
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              Si el usuario tiene varios roles, los permisos se combinan.
+            </Typography>
+          </Box>
+
+          {isSuperuser && (
+            <Typography variant="body2">
+              El perfil de cuenta Administrador tiene acceso total, además de los roles que tenga asignados.
+            </Typography>
+          )}
+
+          <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+            {assignedRoleIds.length === 0 && (
+              <Typography variant="body2" color="text.secondary">Sin roles asignados</Typography>
+            )}
+            {roleOptions.filter((item) => assignedRoleIds.includes(item.id)).map((item) => (
+              <Chip
+                key={item.id}
+                label={item.name}
+                onDelete={() => setAssignedRoleIds((current) => current.filter((roleId) => roleId !== item.id))}
+              />
+            ))}
+          </Stack>
+
+          <FormControl fullWidth>
+            <InputLabel id="assign-roles-label">Agregar roles</InputLabel>
+            <Select
+              labelId="assign-roles-label"
+              multiple
+              value={assignedRoleIds}
+              onChange={(e) => setAssignedRoleIds(e.target.value as number[])}
+              input={<OutlinedInput label="Agregar roles" />}
+              renderValue={(selected) => roleOptions.filter((item) => selected.includes(item.id)).map((item) => item.name).join(', ')}
+            >
+              {roleOptions.map((item) => (
+                <MenuItem key={item.id} value={item.id}>
+                  <Checkbox checked={assignedRoleIds.includes(item.id)} />
+                  <ListItemText primary={item.is_active ? item.name : `${item.name} (inactivo)`} />
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <Box>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>Permisos heredados</Typography>
+            {Object.keys(permissionsByModule).length === 0 ? (
+              <Typography variant="body2" color="text.secondary">Este usuario no tiene permisos por roles.</Typography>
+            ) : (
+              <Stack spacing={1.25}>
+                {Object.entries(permissionsByModule).map(([moduleName, items]) => (
+                  <Box key={moduleName}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>{moduleName}</Typography>
+                    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+                      {items.map((item) => (
+                        <Chip key={item.code} label={item.name} size="small" variant="outlined" />
+                      ))}
+                    </Stack>
+                  </Box>
+                ))}
+              </Stack>
+            )}
+          </Box>
+
+          <Button variant="contained" disabled={savingRoles} onClick={handleSaveRoles}>
+            {savingRoles ? 'Guardando...' : 'Guardar roles'}
+          </Button>
         </Stack>
       </Paper>
     </SupportShell>

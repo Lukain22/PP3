@@ -9,6 +9,8 @@ const {
 } = require('../utils/sla');
 const { appendExtendedListFilters, resolveTicketOrderBy } = require('../utils/ticketFilters');
 const { notifyTicketCreatorOnChanges, notifyOnComment } = require('../utils/notifications');
+const { assertTicketMutation } = require('../rbac/guard');
+const { syncSystemRoleForAccount } = require('../rbac/service');
 
 const SLA_SELECT = 't.sla_response_due, t.sla_resolution_due, t.sla_status';
 
@@ -248,6 +250,10 @@ exports.updateAnyTicket = (req, res) => {
     }
 
     const oldTicket = rows[0];
+
+    assertTicketMutation(req, res, oldTicket, req.body).then((allowed) => {
+      if (!allowed) return;
+
     const nextType = type !== undefined ? type : oldTicket.type;
 
     if (nextType === 'requirement' && priority !== undefined && priority !== null) {
@@ -295,6 +301,7 @@ exports.updateAnyTicket = (req, res) => {
     }
 
     validateTechnicianAndUpdate(oldTicket.group_id);
+    });
   });
 };
 
@@ -559,7 +566,9 @@ exports.updateUserRole = (req, res) => {
     if (role !== undefined) {
       db.query('UPDATE users SET role = ? WHERE id = ?', [role, id], (err) => {
         if (err) return finish(err);
-        applyGroups(finish);
+        syncSystemRoleForAccount(id, role)
+          .then(() => applyGroups(finish))
+          .catch((syncErr) => finish(syncErr));
       });
     } else {
       applyGroups(finish);

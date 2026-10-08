@@ -12,7 +12,7 @@ import {
   Tab
 } from '@mui/material';
 import { toast } from 'sonner';
-import { setAuth, getHomePath, type UserRole } from '../../lib/auth';
+import { setAuth, getHomePath, refreshAccess, type UserRole } from '../../lib/auth';
 
 const API_URL = `${import.meta.env.VITE_API_URL as string}/auth`;
 
@@ -43,6 +43,7 @@ export default function LoginPage() {
       }
 
       setAuth(data.token, (data.role as UserRole) || 'user');
+      await refreshAccess();
       navigate(getHomePath());
     } catch (error) {
       console.error(error);
