@@ -20,7 +20,7 @@ const headerCellSx = {
   fontWeight: 600,
   bgcolor: '#fafbfc',
   whiteSpace: 'nowrap',
-  py: 1,
+  py: 0.625,
   '& .col-affordance': { opacity: 0 },
   '&:hover .col-affordance, &:focus-within .col-affordance': { opacity: 1 },
   '& .col-affordance.is-persistent': { opacity: 1 }

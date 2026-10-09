@@ -33,6 +33,7 @@ interface SupportShellProps {
   headerActionInline?: boolean;
   headerActionGrow?: boolean;
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | false;
+  compact?: boolean;
 }
 
 export function toggleUiMode() {
@@ -54,13 +55,23 @@ export default function SupportShell({
   headerAction,
   headerActionInline = false,
   headerActionGrow = false,
-  maxWidth = false
+  maxWidth = false,
+  compact = false
 }: SupportShellProps) {
   const navigate = useNavigate();
   const canCreateTicket = can('tickets.create');
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f0f2f5' }}>
+    <Box sx={{
+      minHeight: '100vh',
+      bgcolor: '#f0f2f5',
+      ...(compact && {
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden'
+      })
+    }}>
       <AppBar
         position="static"
         elevation={0}
@@ -155,9 +166,15 @@ export default function SupportShell({
         maxWidth={maxWidth}
         disableGutters={maxWidth === false}
         sx={{
-          py: 3,
-          px: maxWidth === false ? { xs: 2, sm: 3, md: 4, xl: 5 } : undefined,
-          width: '100%'
+          py: compact ? 1.25 : 3,
+          px: maxWidth === false ? (compact ? { xs: 1.5, sm: 2 } : { xs: 2, sm: 3, md: 4, xl: 5 }) : undefined,
+          width: '100%',
+          ...(compact && {
+            flex: 1,
+            minHeight: 0,
+            display: 'flex',
+            flexDirection: 'column'
+          })
         }}
       >
         {breadcrumbs && breadcrumbs.length > 0 && (
@@ -183,7 +200,7 @@ export default function SupportShell({
           </Breadcrumbs>
         )}
 
-        <Box sx={{ mb: 2.5, display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+        <Box sx={{ mb: compact ? 1 : 2.5, display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
           {backTo && (
             <Tooltip title="Volver">
               <IconButton
@@ -214,7 +231,15 @@ export default function SupportShell({
                 flexWrap: 'wrap'
               }}
             >
-              <Typography variant="h4" sx={{ fontWeight: 600, fontSize: { xs: '1.35rem', md: '1.75rem' }, flexShrink: 0 }}>
+              <Typography
+                variant={compact ? 'h6' : 'h4'}
+                sx={{
+                  fontWeight: 600,
+                  fontSize: compact ? '1.125rem' : { xs: '1.35rem', md: '1.75rem' },
+                  lineHeight: compact ? 1.2 : undefined,
+                  flexShrink: 0
+                }}
+              >
                 {title}
               </Typography>
               {headerActionGrow ? (
@@ -233,7 +258,9 @@ export default function SupportShell({
           </Box>
         </Box>
 
-        {children}
+        <Box sx={compact ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } : undefined}>
+          {children}
+        </Box>
       </Container>
     </Box>
   );

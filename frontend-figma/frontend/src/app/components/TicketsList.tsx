@@ -13,7 +13,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TableFooter,
   Chip,
   Checkbox,
   CircularProgress,
@@ -115,62 +114,75 @@ function truncateDescription(text: string, max = 80): string {
   return text.length > max ? `${text.slice(0, max)}…` : text;
 }
 
+const denseTableSx = {
+  '& .MuiTableCell-root': {
+    py: 0.5,
+    px: 1,
+    fontSize: '0.8125rem',
+    lineHeight: 1.3
+  },
+  '& .MuiTableCell-head': {
+    py: 0.625,
+    fontSize: '0.75rem',
+    fontWeight: 600
+  },
+  '& .MuiChip-root': {
+    height: 22,
+    fontSize: '0.75rem'
+  }
+};
+
 function TicketsTableFooter({
-  colSpan,
   total,
   page,
   totalPages,
   onPageChange
 }: {
-  colSpan: number;
   total: number;
   page: number;
   totalPages: number;
   onPageChange: (page: number) => void;
 }) {
   return (
-    <TableFooter>
-      <TableRow>
-        <TableCell
-          colSpan={colSpan}
-          sx={{
-            borderTop: '1px solid',
-            borderColor: 'divider',
-            bgcolor: '#fafbfc',
-            py: 1.25,
-            px: 2
-          }}
+    <Box
+      sx={{
+        flexShrink: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 2,
+        px: 1.5,
+        py: 0.5,
+        borderTop: '1px solid',
+        borderColor: 'divider',
+        bgcolor: '#fafbfc'
+      }}
+    >
+      <Typography variant="body2" color="text.secondary">
+        {total} solicitud{total === 1 ? '' : 'es'}
+      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <IconButton
+          size="small"
+          aria-label="Página anterior"
+          disabled={page <= 1}
+          onClick={() => onPageChange(page - 1)}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
-            <Typography variant="body2" color="text.secondary">
-              {total} solicitud{total === 1 ? '' : 'es'}
-            </Typography>
-
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <IconButton
-                size="small"
-                aria-label="Página anterior"
-                disabled={page <= 1}
-                onClick={() => onPageChange(page - 1)}
-              >
-                <ChevronLeftIcon fontSize="small" />
-              </IconButton>
-              <Typography variant="body2" color="text.secondary" sx={{ minWidth: 88, textAlign: 'center' }}>
-                Pág. {page} / {totalPages}
-              </Typography>
-              <IconButton
-                size="small"
-                aria-label="Página siguiente"
-                disabled={page >= totalPages}
-                onClick={() => onPageChange(page + 1)}
-              >
-                <ChevronRightIcon fontSize="small" />
-              </IconButton>
-            </Box>
-          </Box>
-        </TableCell>
-      </TableRow>
-    </TableFooter>
+          <ChevronLeftIcon fontSize="small" />
+        </IconButton>
+        <Typography variant="body2" color="text.secondary" sx={{ minWidth: 88, textAlign: 'center' }}>
+          Pág. {page} / {totalPages}
+        </Typography>
+        <IconButton
+          size="small"
+          aria-label="Página siguiente"
+          disabled={page >= totalPages}
+          onClick={() => onPageChange(page + 1)}
+        >
+          <ChevronRightIcon fontSize="small" />
+        </IconButton>
+      </Box>
+    </Box>
   );
 }
 
@@ -661,14 +673,21 @@ export default function TicketsList() {
   };
 
   const staffTableColSpan = canEditAll ? 11 : 10;
-  const userTableColSpan = 7;
 
   return (
     <SupportShell
+      compact
       title="Solicitudes"
       headerActionGrow
       headerAction={
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%', minWidth: 0 }}>
+        <Box sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5,
+          width: '100%',
+          minWidth: 0,
+          '& .MuiInputBase-root': { minHeight: 32 }
+        }}>
           <TicketViewSelect
             inline
             role={role}
@@ -697,13 +716,14 @@ export default function TicketsList() {
         </Box>
       }
     >
+      <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       {!isStaffTable && (
         <TextField
           size="small"
           placeholder="Buscar en esta página..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          sx={{ mb: 2.5, maxWidth: 420, width: '100%' }}
+          sx={{ mb: 1, maxWidth: 420, width: '100%', flexShrink: 0 }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -715,7 +735,7 @@ export default function TicketsList() {
       )}
 
       {isStaffTable && selectedIds.size > 0 && (
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 1.5, px: 0.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 0.75, px: 0.5, flexShrink: 0 }}>
           <Typography variant="body2" color="text.secondary">
             {selectedIds.size} seleccionado{selectedIds.size === 1 ? '' : 's'}
           </Typography>
@@ -730,12 +750,21 @@ export default function TicketsList() {
           <CircularProgress />
         </Box>
       ) : isStaffTable ? (
-        <TableContainer
-          component={Paper}
+        <Paper
           elevation={0}
-          sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflowX: 'auto' }}
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 2,
+            overflow: 'hidden'
+          }}
         >
-          <Table sx={{ minWidth: 1480 }}>
+          <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+          <Table stickyHeader size="small" sx={{ minWidth: 1480, ...denseTableSx }}>
             <TableHead>
               <StaffTableHeadRow
                 canEditAll={canEditAll}
@@ -781,13 +810,13 @@ export default function TicketsList() {
                     />
                   </TableCell>
                   <TableCell sx={{ color: 'text.secondary', fontWeight: 500 }}>{ticket.id}</TableCell>
-                  <TableCell sx={{ minWidth: 200 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, wordBreak: 'break-word' }}>
+                  <TableCell sx={{ minWidth: 200, maxWidth: 320 }}>
+                    <Typography variant="body2" noWrap title={ticket.title} sx={{ fontWeight: 600 }}>
                       {ticket.title}
                     </Typography>
                   </TableCell>
-                  <TableCell>
-                    <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
+                  <TableCell sx={{ maxWidth: 200 }}>
+                    <Typography variant="caption" color="text.secondary" noWrap title={ticket.user_email || ''}>
                       {ticket.user_email || '—'}
                     </Typography>
                   </TableCell>
@@ -890,26 +919,35 @@ export default function TicketsList() {
                 ))
               )}
             </TableBody>
-            <TicketsTableFooter
-              colSpan={staffTableColSpan}
-              total={total}
-              page={page}
-              totalPages={totalPages}
-              onPageChange={handlePageChange}
-            />
           </Table>
-        </TableContainer>
+          </TableContainer>
+          <TicketsTableFooter
+            total={total}
+            page={page}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+          />
+        </Paper>
       ) : displayTickets.length === 0 ? (
         <Paper sx={{ p: 5, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
           <Typography color="text.secondary">{emptyMessage}</Typography>
         </Paper>
       ) : (
-        <TableContainer
-          component={Paper}
+        <Paper
           elevation={0}
-          sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflowX: 'auto' }}
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 2,
+            overflow: 'hidden'
+          }}
         >
-          <Table sx={{ minWidth: 900 }}>
+          <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+          <Table stickyHeader size="small" sx={{ minWidth: 900, ...denseTableSx }}>
             <TableHead>
               <TableRow sx={{ bgcolor: '#fafbfc' }}>
                 <SortableHeaderCell label="#" sortKey="id" sort={columnSort} highlightSort={sortEngaged} onSort={handleColumnSort} width={64} />
@@ -930,24 +968,13 @@ export default function TicketsList() {
                   onClick={() => navigate(`/tickets/${ticket.id}`)}
                 >
                   <TableCell sx={{ color: 'text.secondary', fontWeight: 500 }}>{ticket.id}</TableCell>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 600, wordBreak: 'break-word' }}>
+                  <TableCell sx={{ maxWidth: 280 }}>
+                    <Typography variant="body2" noWrap title={ticket.title} sx={{ fontWeight: 600 }}>
                       {ticket.title}
                     </Typography>
                   </TableCell>
-                  <TableCell>
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
-                        wordBreak: 'break-word'
-                      }}
-                      title={ticket.description}
-                    >
+                  <TableCell sx={{ maxWidth: 360 }}>
+                    <Typography variant="caption" color="text.secondary" noWrap title={ticket.description}>
                       {truncateDescription(ticket.description)}
                     </Typography>
                   </TableCell>
@@ -982,16 +1009,17 @@ export default function TicketsList() {
                 </TableRow>
               ))}
             </TableBody>
-            <TicketsTableFooter
-              colSpan={userTableColSpan}
-              total={total}
-              page={page}
-              totalPages={totalPages}
-              onPageChange={handlePageChange}
-            />
           </Table>
-        </TableContainer>
+          </TableContainer>
+          <TicketsTableFooter
+            total={total}
+            page={page}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+          />
+        </Paper>
       )}
+      </Box>
     </SupportShell>
   );
 }
