@@ -293,11 +293,12 @@ exports.updateAnyTicket = (req, res) => {
     };
 
     if (group_id !== undefined) {
-      return db.query('SELECT id FROM `groups` WHERE id = ?', [group_id], (gErr, gRows) => {
+      db.query('SELECT id FROM `groups` WHERE id = ?', [group_id], (gErr, gRows) => {
         if (gErr) return res.status(500).json({ message: 'Error al verificar grupo' });
         if (gRows.length === 0) return res.status(400).json({ message: 'Grupo inválido' });
         validateTechnicianAndUpdate(group_id);
       });
+      return;
     }
 
     validateTechnicianAndUpdate(oldTicket.group_id);
@@ -524,11 +525,11 @@ exports.updateUserRole = (req, res) => {
   const { role, group_ids } = req.body;
 
   if (role !== undefined && !VALID_ROLES.includes(role)) {
-    return res.status(400).json({ message: 'Rol inválido' });
+    return res.status(400).json({ message: 'Perfil inválido' });
   }
 
   if (Number(id) === req.user.id && role !== undefined) {
-    return res.status(400).json({ message: 'No podés cambiar tu propio rol' });
+    return res.status(400).json({ message: 'No podés cambiar tu propio perfil' });
   }
 
   if (role === 'technician' && group_ids !== undefined && (!Array.isArray(group_ids) || group_ids.length === 0)) {

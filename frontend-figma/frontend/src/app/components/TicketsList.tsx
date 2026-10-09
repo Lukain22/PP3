@@ -185,6 +185,7 @@ export default function TicketsList() {
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [groups, setGroups] = useState<GroupOption[]>([]);
+  const [transferGroups, setTransferGroups] = useState<GroupOption[]>([]);
   const [groupTechnicians, setGroupTechnicians] = useState<Record<number, TechnicianOption[]>>({});
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -209,6 +210,8 @@ export default function TicketsList() {
 
   const isStaffTable = listMode === 'admin' || listMode === 'technician';
   const canEditAll = listMode === 'admin';
+  const canChangeGroup = canEditAll || listMode === 'technician';
+  const groupChoices = listMode === 'technician' ? transferGroups : groups;
 
   const apiCall = async (path: string, options: RequestInit = {}) => {
     const token = getToken();
@@ -258,13 +261,27 @@ export default function TicketsList() {
   const loadGroups = async (mode: ListMode) => {
     if (mode === 'user') {
       setGroups([]);
+      setTransferGroups([]);
       return;
     }
-    const path = mode === 'admin' ? '/admin/groups' : '/technician/groups';
-    const result = await apiCall(path);
+    if (mode === 'technician') {
+      const [memberResult, transferResult] = await Promise.all([
+        apiCall('/technician/groups'),
+        apiCall('/tickets/transfer-groups')
+      ]);
+      if (memberResult?.response.ok) {
+        setGroups(Array.isArray(memberResult.data) ? memberResult.data : []);
+      }
+      if (transferResult?.response.ok) {
+        setTransferGroups(Array.isArray(transferResult.data) ? transferResult.data : []);
+      }
+      return;
+    }
+    const result = await apiCall('/admin/groups');
     if (result?.response.ok) {
       setGroups(Array.isArray(result.data) ? result.data : []);
     }
+    setTransferGroups([]);
   };
 
   useEffect(() => {
@@ -383,21 +400,34 @@ export default function TicketsList() {
     setPage(1);
   };
 
+  const assigneeGroupKey = useMemo(() => {
+    const ids = new Set<number>();
+    groupChoices.forEach((group) => ids.add(Number(group.id)));
+    tickets.forEach((ticket) => {
+      if (ticket.group_id) ids.add(Number(ticket.group_id));
+    });
+    return [...ids].filter((id) => id > 0).sort((a, b) => a - b).join(',');
+  }, [groupChoices, tickets]);
+
   useEffect(() => {
-    if (!isStaffTable || groups.length === 0) return;
+    if (!isStaffTable || !assigneeGroupKey) {
+      setGroupTechnicians({});
+      return;
+    }
+    let cancelled = false;
     const loadTechnicians = async () => {
-      const groupPath = (id: number) =>
-        listMode === 'admin' ? `/admin/groups/${id}` : `/technician/groups/${id}`;
       const entries = await Promise.all(
-        groups.map(async (group) => {
-          const result = await apiCall(groupPath(group.id));
-          return [group.id, result?.response.ok ? result.data.technicians || [] : []] as const;
+        assigneeGroupKey.split(',').map(async (id) => {
+          const result = await apiCall(`/tickets/assignees?group_id=${id}`);
+          const list = result?.response.ok && Array.isArray(result.data) ? result.data : [];
+          return [Number(id), list] as const;
         })
       );
-      setGroupTechnicians(Object.fromEntries(entries));
+      if (!cancelled) setGroupTechnicians(Object.fromEntries(entries));
     };
     loadTechnicians();
-  }, [groups, isStaffTable, listMode]);
+    return () => { cancelled = true; };
+  }, [isStaffTable, assigneeGroupKey]);
 
   const displayTickets = useMemo(() => {
     if (isStaffTable) return tickets;
@@ -481,16 +511,40 @@ export default function TicketsList() {
   const handleGroupChange = async (ticketId: number, newGroupId: number) => {
     setBusyId(ticketId);
     try {
-      const result = await apiCall(`/admin/tickets/${ticketId}`, {
+      const current = tickets.find((ticket) => ticket.id === ticketId);
+      const members = groupTechnicians[newGroupId] || [];
+      const keepAssignee = Boolean(
+        current?.technician_id && members.some((tech) => tech.id === current.technician_id)
+      );
+      const result = await apiCall(patchPath(ticketId), {
         method: 'PATCH',
-        body: JSON.stringify({ group_id: newGroupId })
+        body: JSON.stringify(
+          keepAssignee
+            ? { group_id: newGroupId }
+            : { group_id: newGroupId, technician_id: null }
+        )
       });
       if (!result) return;
       if (!result.response.ok) { toast.error(result.data.message || 'No se pudo actualizar'); return; }
-      const groupName = groups.find((g) => g.id === newGroupId)?.name || '';
-      setTickets((prev) =>
-        prev.map((t) => (t.id === ticketId ? { ...t, group_id: newGroupId, group_name: groupName } : t))
-      );
+      const groupName = groupChoices.find((g) => g.id === newGroupId)?.name
+        || groups.find((g) => g.id === newGroupId)?.name
+        || '';
+      const staysInQueue = listMode !== 'technician' || groups.some((g) => g.id === newGroupId);
+      setTickets((prev) => (
+        staysInQueue
+          ? prev.map((t) => (
+            t.id === ticketId
+              ? {
+                ...t,
+                group_id: newGroupId,
+                group_name: groupName,
+                ...(keepAssignee ? {} : { technician_id: null, technician_email: null })
+              }
+              : t
+          ))
+          : prev.filter((t) => t.id !== ticketId)
+      ));
+      if (!staysInQueue) setTotal((current) => Math.max(0, current - 1));
       toast.success('Grupo actualizado');
     } catch {
       toast.error('Error conectando con el backend');
@@ -509,7 +563,7 @@ export default function TicketsList() {
       if (!result) return;
       if (!result.response.ok) { toast.error(result.data.message || 'No se pudo actualizar'); return; }
       const technicianEmail = newTechnicianId
-        ? (groupTechnicians[groupId || 0] || []).find((tech) => tech.id === newTechnicianId)?.email || ''
+        ? (groupTechnicians[Number(groupId) || 0] || []).find((tech) => tech.id === newTechnicianId)?.email || ''
         : '';
       setTickets((prev) =>
         prev.map((t) =>
@@ -738,10 +792,10 @@ export default function TicketsList() {
                     </Typography>
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
-                    {canEditAll ? (
+                    {canChangeGroup ? (
                       <InlineEditSelect
                         value={ticket.group_id ?? ''}
-                        disabled={busyId === ticket.id || groups.length === 0}
+                        disabled={busyId === ticket.id || groupChoices.length === 0}
                         display={
                           <Typography variant="caption" sx={{ wordBreak: 'break-word' }}>
                             {ticket.group_name || '—'}
@@ -749,7 +803,10 @@ export default function TicketsList() {
                         }
                         onChange={(val) => handleGroupChange(ticket.id, Number(val))}
                       >
-                        {groups.map((g) => (
+                        {(ticket.group_id && !groupChoices.some((g) => g.id === ticket.group_id)
+                          ? [{ id: ticket.group_id, name: ticket.group_name || 'Grupo actual' }, ...groupChoices]
+                          : groupChoices
+                        ).map((g) => (
                           <MenuItem key={g.id} value={g.id}>{g.name}</MenuItem>
                         ))}
                       </InlineEditSelect>
@@ -779,7 +836,7 @@ export default function TicketsList() {
                       }
                     >
                       <MenuItem value=""><em>Sin asignar</em></MenuItem>
-                      {(groupTechnicians[ticket.group_id || 0] || []).map((tech) => (
+                      {(groupTechnicians[Number(ticket.group_id) || 0] || []).map((tech) => (
                         <MenuItem key={tech.id} value={tech.id}>{tech.email}</MenuItem>
                       ))}
                     </InlineEditSelect>

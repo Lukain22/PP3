@@ -406,17 +406,6 @@ export default function TicketDetail() {
     }
   };
 
-  const loadGroupTechnicians = async (groupId: number | '') => {
-    if (!groupId || !canAssign) {
-      setGroupTechnicians([]);
-      return;
-    }
-    const result = await apiCall(`/tickets/assignees?group_id=${groupId}`);
-    if (result?.response.ok) {
-      setGroupTechnicians(Array.isArray(result.data) ? result.data : []);
-    }
-  };
-
   useEffect(() => {
     if (!getToken()) { navigate('/'); return; }
     Promise.all([loadTicket(), loadComments(), loadHistory(), loadResolution()]).finally(() => setLoading(false));
@@ -438,7 +427,13 @@ export default function TicketDetail() {
       setGroupTechnicians([]);
       return;
     }
-    loadGroupTechnicians(groupId);
+    let cancelled = false;
+    setGroupTechnicians([]);
+    apiCall(`/tickets/assignees?group_id=${groupId}`).then((result) => {
+      if (cancelled || !result?.response.ok) return;
+      setGroupTechnicians(Array.isArray(result.data) ? result.data : []);
+    });
+    return () => { cancelled = true; };
   }, [canAssign, editing, formData.group_id, ticket?.group_id]);
 
   const getStatusLabel = getTicketStatusLabel;
@@ -490,12 +485,19 @@ export default function TicketDetail() {
         technician_id: formData.technician_id || null
       };
 
+      const classification = {
+        status: formData.status,
+        category: formData.category || null,
+        subcategory: formData.subcategory || null,
+        ...(isIncident(formData.type) ? { priority: formData.priority } : { priority: null })
+      };
+
       const payload = admin
         ? isIncident(formData.type)
           ? { ...basePayload, priority: formData.priority }
           : basePayload
         : staff
-          ? { status: formData.status }
+          ? classification
           : {
               title: formData.title,
               description: formData.description
@@ -939,17 +941,59 @@ export default function TicketDetail() {
               )}
 
               {technician && !admin && (
-                <TextField
-                  select
-                  fullWidth
-                  label="Estado"
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                >
-                  {TICKET_STATUS_OPTIONS.filter((s) => s.value !== 'on-hold').map((s) => (
-                    <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
-                  ))}
-                </TextField>
+                <>
+                  <TextField
+                    select
+                    fullWidth
+                    label="Estado"
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  >
+                    {statusOptions.map((s) => (
+                      <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
+                    ))}
+                  </TextField>
+                  {isIncident(formData.type) && (
+                    <TextField
+                      select
+                      fullWidth
+                      label="Prioridad"
+                      value={formData.priority}
+                      onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+                    >
+                      <MenuItem value="low">Baja</MenuItem>
+                      <MenuItem value="medium">Media</MenuItem>
+                      <MenuItem value="high">Alta</MenuItem>
+                    </TextField>
+                  )}
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                    <TextField
+                      select
+                      fullWidth
+                      label="Categoría"
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value, subcategory: '' })}
+                    >
+                      <MenuItem value=""><em>Sin categoría</em></MenuItem>
+                      {CATEGORIES.map((c) => (
+                        <MenuItem key={c} value={c}>{c}</MenuItem>
+                      ))}
+                    </TextField>
+                    <TextField
+                      select
+                      fullWidth
+                      label="Subcategoría"
+                      value={formData.subcategory}
+                      disabled={!formData.category}
+                      onChange={(e) => setFormData({ ...formData, subcategory: e.target.value })}
+                    >
+                      <MenuItem value=""><em>Sin subcategoría</em></MenuItem>
+                      {availableSubcategories.map((s) => (
+                        <MenuItem key={s} value={s}>{s}</MenuItem>
+                      ))}
+                    </TextField>
+                  </Stack>
+                </>
               )}
             </Stack>
           ) : (
@@ -1017,7 +1061,7 @@ export default function TicketDetail() {
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                       Prioridad
                     </Typography>
-                    {staff && canEditTickets ? (
+                    {canEditTickets ? (
                       <InlineEditSelect
                         value={ticket.priority || 'medium'}
                         disabled={inlineDisabled}
@@ -1051,7 +1095,7 @@ export default function TicketDetail() {
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                     Categoría
                   </Typography>
-                  {admin ? (
+                  {canEditTickets ? (
                     <InlineEditSelect
                       value={ticket.category || ''}
                       disabled={inlineDisabled}
@@ -1078,7 +1122,7 @@ export default function TicketDetail() {
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                     Subcategoría
                   </Typography>
-                  {admin ? (
+                  {canEditTickets ? (
                     <InlineEditSelect
                       value={ticket.subcategory || ''}
                       disabled={inlineDisabled || !ticket.category}

@@ -95,7 +95,7 @@ export default function AdminUsers() {
               <TableRow sx={{ bgcolor: '#fafbfc' }}>
                 <TableCell sx={{ fontWeight: 600, width: 64 }}>#</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Correo</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: 140 }}>Rol</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: 160 }}>Perfil</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Grupos</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 140 }}>Registrado</TableCell>
               </TableRow>

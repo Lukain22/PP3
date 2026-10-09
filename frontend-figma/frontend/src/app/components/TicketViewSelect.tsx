@@ -101,12 +101,14 @@ export default function TicketViewSelect({
   const [draggingKey, setDraggingKey] = useState<string | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const didDragRef = useRef(false);
+  const [assigneeOptions, setAssigneeOptions] = useState<{ id: number; email: string }[]>([]);
   const [form, setForm] = useState({
     name: '',
     visibility: 'personal' as 'personal' | 'group',
     share_group_id: '' as number | '',
     type: '',
     filter_group_id: '',
+    technician_id: '',
     status: [] as string[],
     priority: '',
     sort_by: 'date-desc'
@@ -114,6 +116,21 @@ export default function TicketViewSelect({
 
   const systemViews = useMemo(() => getSystemViewsForRole(role), [role]);
   const menuOpen = Boolean(menuAnchor);
+
+  useEffect(() => {
+    if (!dialogOpen) return;
+    const groupId = Number(form.filter_group_id);
+    if (!groupId) {
+      setAssigneeOptions([]);
+      return;
+    }
+    let cancelled = false;
+    apiCall(`/tickets/assignees?group_id=${groupId}`).then((result) => {
+      if (cancelled) return;
+      setAssigneeOptions(result?.response.ok && Array.isArray(result.data) ? result.data : []);
+    });
+    return () => { cancelled = true; };
+  }, [dialogOpen, form.filter_group_id]);
 
   const loadData = async () => {
     const [viewsResult, layoutResult] = await Promise.all([
@@ -250,6 +267,7 @@ export default function TicketViewSelect({
       share_group_id: '',
       type: currentFilters.type,
       filter_group_id: currentFilters.group_id,
+      technician_id: currentFilters.technician_id,
       status: currentFilters.status ? currentFilters.status.split(',').filter(Boolean) : [],
       priority: currentFilters.priority,
       sort_by: currentSortBy
@@ -270,6 +288,7 @@ export default function TicketViewSelect({
         : view.filters.group_id
           ? String(view.filters.group_id)
           : '',
+      technician_id: view.filters.technician_id ? String(view.filters.technician_id) : '',
       status: view.filters.status || [],
       priority: view.filters.priority || '',
       sort_by: view.sort_by || 'date-desc'
@@ -290,6 +309,7 @@ export default function TicketViewSelect({
     const filters = viewFiltersToPayload({
       type: form.type,
       group_id: form.filter_group_id,
+      technician_id: form.technician_id,
       status: form.status.join(','),
       priority: form.priority
     });
@@ -596,9 +616,23 @@ export default function TicketViewSelect({
               <MenuItem value="">Todos</MenuItem>
               {TICKET_TYPE_OPTIONS.map((t) => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}
             </TextField>
-            <TextField select label="Grupo (filtro)" value={form.filter_group_id} onChange={(e) => setForm({ ...form, filter_group_id: e.target.value })} fullWidth>
+            <TextField select label="Grupo (filtro)" value={form.filter_group_id} onChange={(e) => setForm({ ...form, filter_group_id: e.target.value, technician_id: '' })} fullWidth>
               <MenuItem value="">Todos</MenuItem>
               {groups.map((g) => <MenuItem key={g.id} value={String(g.id)}>{g.name}</MenuItem>)}
+            </TextField>
+            <TextField
+              select
+              label="Asignado a"
+              value={form.technician_id}
+              disabled={!form.filter_group_id}
+              helperText={form.filter_group_id ? 'Solo técnicos de ese grupo' : 'Elegí un grupo para ver sus técnicos'}
+              onChange={(e) => setForm({ ...form, technician_id: e.target.value })}
+              fullWidth
+            >
+              <MenuItem value="">Todos</MenuItem>
+              {assigneeOptions.map((tech) => (
+                <MenuItem key={tech.id} value={String(tech.id)}>{tech.email}</MenuItem>
+              ))}
             </TextField>
             <FormControl fullWidth>
               <InputLabel id="view-status-label">Estado (filtro)</InputLabel>

@@ -223,7 +223,7 @@ export default function AdminGroupDetail() {
 
             {allTechnicians.length === 0 ? (
               <Typography variant="body2" color="text.secondary">
-                No hay técnicos registrados. Asigná el rol Técnico a usuarios desde Usuarios.
+                No hay técnicos registrados. Asigná el perfil Técnico a usuarios desde Usuarios.
               </Typography>
             ) : (
               <FormControl fullWidth>

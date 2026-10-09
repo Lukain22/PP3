@@ -10,6 +10,14 @@ const VALID_CATEGORIES = [
   'Otro'
 ];
 
+const VALID_SUBCATEGORIES = {
+  Hardware: ['Computadora / Notebook', 'Impresora', 'Proyector', 'Periféricos', 'Otro'],
+  Software: ['Sistema operativo', 'Aplicaciones', 'Correo electrónico', 'Antivirus', 'Otro'],
+  'Red / Conectividad': ['Internet', 'Wi-Fi', 'Red local', 'VPN', 'Otro'],
+  'Acceso / Cuentas': ['Contraseña olvidada', 'Permisos', 'Usuario nuevo', 'Campus virtual', 'Otro'],
+  Otro: ['Consulta general', 'Otro']
+};
+
 const parseStatusFilter = (statusQuery) => {
   if (!statusQuery) return [];
   return String(statusQuery)
@@ -220,6 +228,11 @@ const normalizeViewFilters = (raw) => {
     if (parsed) result.filter_group_id = parsed;
   }
 
+  if (result.filter_group_id && filters.technician_id) {
+    const technicianId = parseInt(filters.technician_id, 10);
+    if (technicianId) result.technician_id = technicianId;
+  }
+
   if (Array.isArray(filters.status)) {
     const statuses = filters.status.filter((s) => VALID_STATUSES.includes(s));
     if (statuses.length > 0) result.status = statuses;
@@ -284,6 +297,7 @@ const filtersToQuery = (filters) => {
   if (normalized.type) query.type = normalized.type;
   if (normalized.priority) query.priority = normalized.priority;
   if (normalized.filter_group_id) query.group_id = String(normalized.filter_group_id);
+  if (normalized.technician_id) query.technician_ids = String(normalized.technician_id);
   if (normalized.status?.length) query.status = normalized.status.join(',');
 
   return query;
@@ -294,6 +308,7 @@ module.exports = {
   VALID_PRIORITIES,
   VALID_TYPES,
   VALID_CATEGORIES,
+  VALID_SUBCATEGORIES,
   parseStatusFilter,
   appendListFilters,
   appendExtendedListFilters,

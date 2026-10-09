@@ -241,7 +241,7 @@ export default function AdminUserDetail() {
           <TextField
             select
             fullWidth
-            label="Rol"
+            label="Perfil"
             value={role}
             onChange={(e) => setRole(e.target.value as UserRole)}
           >
@@ -278,7 +278,7 @@ export default function AdminUserDetail() {
 
           {role !== 'technician' && (
             <Typography variant="body2" color="text.secondary">
-              Los grupos de soporte solo aplican al rol Técnico.
+              Los grupos de soporte solo aplican al perfil Técnico.
             </Typography>
           )}
 

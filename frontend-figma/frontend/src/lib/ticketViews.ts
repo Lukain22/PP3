@@ -4,6 +4,7 @@ export interface TicketViewFilters {
   type?: string | null;
   filter_group_id?: number | null;
   group_id?: number | null;
+  technician_id?: number | null;
   status?: string[];
   priority?: string | null;
 }
@@ -42,6 +43,7 @@ export interface SystemViewDefinition {
 export interface TicketListFilters {
   type: string;
   group_id: string;
+  technician_id: string;
   status: string;
   priority: string;
 }
@@ -59,6 +61,7 @@ export interface ActiveViewSelection {
 export const emptyTicketListFilters = (): TicketListFilters => ({
   type: '',
   group_id: '',
+  technician_id: '',
   status: '',
   priority: ''
 });
@@ -153,6 +156,7 @@ export function filtersFromView(view: TicketView): TicketListFilters {
   return {
     type: f.type || '',
     group_id: groupId ? String(groupId) : '',
+    technician_id: groupId && f.technician_id ? String(f.technician_id) : '',
     status: f.status?.length ? f.status.join(',') : '',
     priority: f.priority || ''
   };
@@ -224,6 +228,7 @@ export function buildTicketQueryParams(
   if (filters.type) params.set('type', filters.type);
   if (filters.priority) params.set('priority', filters.priority);
   if (filters.group_id) params.set('group_id', filters.group_id);
+  if (filters.group_id && filters.technician_id) params.set('technician_ids', filters.technician_id);
   if (filters.status) params.set('status', filters.status);
   if (staffColumnFilters) appendStaffColumnFilters(params, staffColumnFilters);
   return params;
@@ -233,6 +238,7 @@ export function viewFiltersToPayload(filters: TicketListFilters): TicketViewFilt
   const payload: TicketViewFilters = {};
   if (filters.type) payload.type = filters.type;
   if (filters.group_id) payload.filter_group_id = Number(filters.group_id);
+  if (filters.group_id && filters.technician_id) payload.technician_id = Number(filters.technician_id);
   if (filters.priority) payload.priority = filters.priority;
   if (filters.status) {
     payload.status = filters.status.split(',').filter(Boolean);

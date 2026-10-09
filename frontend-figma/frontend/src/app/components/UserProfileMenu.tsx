@@ -71,7 +71,7 @@ export default function UserProfileMenu() {
             {email || 'Usuario'}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
-            {roleLabel}
+            Perfil: {roleLabel}
           </Typography>
         </Box>
 

@@ -30,7 +30,7 @@ const sections = [
   },
   {
     title: 'Usuarios',
-    description: 'Gestioná cuentas, roles y pertenencia a grupos.',
+    description: 'Gestioná cuentas, perfiles y pertenencia a grupos.',
     icon: <PeopleIcon fontSize="large" color="primary" />,
     to: '/admin/users',
     permission: 'admin.users'

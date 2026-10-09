@@ -12,7 +12,7 @@ const {
   formatDateForDb
 } = require('../utils/sla');
 const { getDefaultGroupId, getUserGroupIds, userCanAccessTicket } = require('../utils/groups');
-const { appendListFilters, resolveTicketOrderBy } = require('../utils/ticketFilters');
+const { appendListFilters, resolveTicketOrderBy, VALID_CATEGORIES, VALID_SUBCATEGORIES } = require('../utils/ticketFilters');
 const {
   notifyTicketCreatorOnChanges,
   notifyTicketCreatorOnResolution,
@@ -342,7 +342,7 @@ exports.updateTicketStatus = (req, res) => {
 
 exports.updateTicket = (req, res) => {
   const { id } = req.params;
-  const { title, description, status, priority, type, technician_id, group_id } = req.body;
+  const { title, description, status, priority, category, subcategory, type, technician_id, group_id } = req.body;
 
   if (title !== undefined && !String(title).trim()) {
     return res.status(400).json({ message: 'El título no puede estar vacío' });
@@ -366,6 +366,9 @@ exports.updateTicket = (req, res) => {
   if (priority !== undefined && priority !== null && !VALID_PRIORITIES.includes(priority)) {
     return res.status(400).json({ message: 'Prioridad inválida' });
   }
+  if (category !== undefined && category !== null && category !== '' && !VALID_CATEGORIES.includes(category)) {
+    return res.status(400).json({ message: 'Categoría inválida' });
+  }
 
   loadTicketWithAccess(req, id, (selectErr, oldTicket) => {
     if (selectErr) return res.status(500).json({ message: 'Error al obtener ticket' });
@@ -375,6 +378,14 @@ exports.updateTicket = (req, res) => {
 
     if (nextType === 'requirement' && priority !== undefined && priority !== null) {
       return res.status(400).json({ message: 'Los requerimientos no tienen prioridad' });
+    }
+
+    const nextCategory = category !== undefined ? (category || null) : oldTicket.category;
+    if (subcategory !== undefined && subcategory) {
+      const allowedSubs = VALID_SUBCATEGORIES[nextCategory] || [];
+      if (!allowedSubs.includes(subcategory)) {
+        return res.status(400).json({ message: 'Subcategoría inválida para esa categoría' });
+      }
     }
 
     assertTicketMutation(req, res, oldTicket, req.body).then((allowed) => {
@@ -414,6 +425,16 @@ exports.updateTicket = (req, res) => {
           fields.push('type = ?');
           values.push(type);
           updates.type = type;
+        }
+        if (category !== undefined) {
+          fields.push('category = ?');
+          values.push(category || null);
+          updates.category = category || null;
+        }
+        if (subcategory !== undefined) {
+          fields.push('subcategory = ?');
+          values.push(subcategory || null);
+          updates.subcategory = subcategory || null;
         }
         if (group_id !== undefined) {
           fields.push('group_id = ?');
@@ -493,11 +514,12 @@ exports.updateTicket = (req, res) => {
     };
 
     if (group_id) {
-      return db.query('SELECT id FROM `groups` WHERE id = ?', [group_id], (gErr, gRows) => {
+      db.query('SELECT id FROM `groups` WHERE id = ?', [group_id], (gErr, gRows) => {
         if (gErr) return res.status(500).json({ message: 'Error al verificar grupo' });
         if (gRows.length === 0) return res.status(400).json({ message: 'Grupo inválido' });
         applyAssignment();
       });
+      return;
     }
 
     applyAssignment();
