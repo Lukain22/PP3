@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import {
   Box,
@@ -46,6 +46,9 @@ import {
 import { TICKET_STATUS_OPTIONS, getTicketStatusLabel, getTicketStatusColor } from '../../lib/ticketStatus';
 import TicketAttachments from './TicketAttachments';
 import InlineEditSelect from './InlineEditSelect';
+import RichTextEditor, { type RichTextEditorHandle } from './richtext/RichTextEditor';
+import RichTextView from './richtext/RichTextView';
+import { isDescriptionEmpty } from '../../lib/richText';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -329,6 +332,7 @@ export default function TicketDetail() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const editorRef = useRef<RichTextEditorHandle>(null);
   const [commentText, setCommentText] = useState('');
   const [commentDialogOpen, setCommentDialogOpen] = useState(false);
   const [postingComment, setPostingComment] = useState(false);
@@ -467,16 +471,27 @@ export default function TicketDetail() {
   };
 
   const handleSave = async () => {
-    if (!formData.title.trim() || !formData.description.trim()) {
+    const sendsDescription = admin || !staff;
+    if (!formData.title.trim() || (sendsDescription && isDescriptionEmpty(formData.description))) {
       toast.error('Título y descripción son requeridos');
       return;
+    }
+
+    let description = formData.description;
+    if (sendsDescription && id && editorRef.current?.hasPendingImages()) {
+      const flushed = await editorRef.current.flushPendingImages(id);
+      if (!flushed.ok) {
+        toast.error('No se pudieron guardar las imágenes pegadas');
+        return;
+      }
+      description = flushed.html;
     }
 
     setSaving(true);
     try {
       const basePayload = {
         title: formData.title,
-        description: formData.description,
+        description,
         status: formData.status,
         type: formData.type,
         category: formData.category || null,
@@ -500,7 +515,7 @@ export default function TicketDetail() {
           ? classification
           : {
               title: formData.title,
-              description: formData.description
+              description
             };
 
       const result = await apiCall(admin ? `/admin/tickets/${id}` : `/tickets/${id}`, {
@@ -775,19 +790,22 @@ export default function TicketDetail() {
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 />
-                <TextField
-                  fullWidth
-                  label="Descripción"
+                <RichTextEditor
+                  ref={editorRef}
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  multiline
-                  minRows={6}
+                  ticketId={id}
+                  onChange={(html) => setFormData((prev) => ({ ...prev, description: html }))}
                 />
                 {attachmentsSection}
               </>
             )}
 
-            {technician && !admin && attachmentsSection}
+            {technician && !admin && (
+              <>
+                <RichTextView value={ticket.description} ticketId={ticket.id} />
+                {attachmentsSection}
+              </>
+            )}
 
             {!staff && (
               <>
@@ -797,13 +815,11 @@ export default function TicketDetail() {
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 />
-                <TextField
-                  fullWidth
-                  label="Descripción"
+                <RichTextEditor
+                  ref={editorRef}
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  multiline
-                  minRows={6}
+                  ticketId={id}
+                  onChange={(html) => setFormData((prev) => ({ ...prev, description: html }))}
                 />
                 {attachmentsSection}
               </>
@@ -811,9 +827,7 @@ export default function TicketDetail() {
           </Stack>
         ) : (
           <Stack spacing={2}>
-            <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
-              {ticket.description}
-            </Typography>
+            <RichTextView value={ticket.description} ticketId={ticket.id} />
 
             {attachmentsSection}
           </Stack>

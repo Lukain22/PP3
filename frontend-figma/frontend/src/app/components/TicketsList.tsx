@@ -110,8 +110,9 @@ function resolveInitialSelection(search: string, role: ReturnType<typeof getRole
 }
 
 function truncateDescription(text: string, max = 80): string {
-  if (!text) return '—';
-  return text.length > max ? `${text.slice(0, max)}…` : text;
+  const plain = (text || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
+  if (!plain) return '—';
+  return plain.length > max ? `${plain.slice(0, max)}…` : plain;
 }
 
 const denseTableSx = {
@@ -449,7 +450,7 @@ export default function TicketsList() {
     return tickets.filter(
       (t) =>
         t.title.toLowerCase().includes(q) ||
-        (t.description || '').toLowerCase().includes(q) ||
+        truncateDescription(t.description, 10000).toLowerCase().includes(q) ||
         (t.user_email || '').toLowerCase().includes(q) ||
         (t.technician_email || '').toLowerCase().includes(q) ||
         String(t.id).includes(q)
@@ -698,6 +699,27 @@ export default function TicketsList() {
             apiCall={apiCall}
             onApply={applySelection}
           />
+          {!isStaffTable && (
+            <TextField
+              size="small"
+              placeholder="Buscar en esta página..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              sx={{
+                width: { xs: '100%', sm: 280 },
+                maxWidth: 320,
+                flex: { xs: '1 1 160px', sm: '0 1 280px' },
+                '& .MuiInputBase-root': { height: 30, bgcolor: '#fff' }
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" color="action" />
+                  </InputAdornment>
+                )
+              }}
+            />
+          )}
           <Box sx={{ flex: 1 }} />
           {isStaffTable && (
             <Tooltip title="Exportar">
@@ -717,23 +739,6 @@ export default function TicketsList() {
       }
     >
       <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-      {!isStaffTable && (
-        <TextField
-          size="small"
-          placeholder="Buscar en esta página..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          sx={{ mb: 1, maxWidth: 420, width: '100%', flexShrink: 0 }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" color="action" />
-              </InputAdornment>
-            )
-          }}
-        />
-      )}
-
       {isStaffTable && selectedIds.size > 0 && (
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 0.75, px: 0.5, flexShrink: 0 }}>
           <Typography variant="body2" color="text.secondary">
@@ -974,7 +979,7 @@ export default function TicketsList() {
                     </Typography>
                   </TableCell>
                   <TableCell sx={{ maxWidth: 360 }}>
-                    <Typography variant="caption" color="text.secondary" noWrap title={ticket.description}>
+                    <Typography variant="caption" color="text.secondary" noWrap title={truncateDescription(ticket.description, 500)}>
                       {truncateDescription(ticket.description)}
                     </Typography>
                   </TableCell>

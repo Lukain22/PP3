@@ -62,8 +62,9 @@ export function formatHistoryValue(field: string | null, value: string | null): 
   if (field && HISTORY_VALUE_LABELS[field]?.[value]) {
     return HISTORY_VALUE_LABELS[field][value];
   }
-  if (field === 'description' && value.length > 80) {
-    return `${value.slice(0, 80)}…`;
+  if (field === 'description') {
+    const text = value.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
+    return text.length > 80 ? `${text.slice(0, 80)}…` : text || '—';
   }
   if (field === 'resolution' && value.length > 120) {
     return `${value.slice(0, 120)}…`;

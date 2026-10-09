@@ -268,7 +268,7 @@ export default function TicketsList() {
                   >
                     <TableCell>#{ticket.id}</TableCell>
                     <TableCell>{ticket.title}</TableCell>
-                    <TableCell>{ticket.description}</TableCell>
+                    <TableCell>{ticket.description.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()}</TableCell>
                     <TableCell sx={{ minWidth: 160 }} onClick={(e) => e.stopPropagation()}>
                       <TextField
                         select

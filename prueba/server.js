@@ -108,6 +108,9 @@ const runTicketMigrations = () => {
   db.query('ALTER TABLE tickets ADD COLUMN technician_id INT NULL DEFAULT NULL', (err) => {
     if (err && err.errno !== 1060) console.error('Error migrando columna technician_id:', err.code);
   });
+  db.query('ALTER TABLE tickets MODIFY COLUMN description MEDIUMTEXT NOT NULL', (err) => {
+    if (err) console.error('Error migrando description a MEDIUMTEXT:', err.code);
+  });
   db.query('ALTER TABLE tickets MODIFY COLUMN priority VARCHAR(50) DEFAULT NULL', (err) => {
     if (err && err.errno !== 1060) console.error('Error migrando priority nullable:', err.code);
     backfillSlaData();

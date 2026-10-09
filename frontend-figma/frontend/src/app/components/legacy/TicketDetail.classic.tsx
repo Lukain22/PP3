@@ -16,6 +16,7 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { toast } from 'sonner';
 import UiModeToggle from '../UiModeToggle';
+import RichTextView from '../richtext/RichTextView';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -151,9 +152,9 @@ export default function TicketDetailClassic() {
           <Typography variant="h5" sx={{ mb: 1 }}>
             {ticket.title}
           </Typography>
-          <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', mb: 2 }}>
-            {ticket.description}
-          </Typography>
+          <Box sx={{ mb: 2 }}>
+            <RichTextView value={ticket.description} ticketId={ticket.id} />
+          </Box>
           <Typography variant="caption" color="text.secondary">
             {new Date(ticket.created_at).toLocaleString('es-ES')}
           </Typography>

@@ -19,6 +19,7 @@ const {
   notifyOnComment
 } = require('../utils/notifications');
 const { assertPermission, assertTicketMutation } = require('../rbac/guard');
+const { sanitizeDescription, isEmptyDescription } = require('../utils/richText');
 
 const SLA_SELECT = 'sla_response_due, sla_resolution_due, sla_status, sla_paused_at';
 
@@ -202,7 +203,8 @@ const runCreateTicket = (req, res) => {
   const { title, description, status, priority, type } = req.body;
   const isAdmin = req.user.role === 'admin';
 
-  if (!title || !description) {
+  const cleanDescription = sanitizeDescription(description);
+  if (!title || isEmptyDescription(cleanDescription)) {
     return res.status(400).json({ message: 'Título y descripción son requeridos' });
   }
 
@@ -245,7 +247,7 @@ const runCreateTicket = (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         title,
-        description,
+        cleanDescription,
         ticketStatus,
         ticketPriority,
         ticketType,
@@ -347,7 +349,8 @@ exports.updateTicket = (req, res) => {
   if (title !== undefined && !String(title).trim()) {
     return res.status(400).json({ message: 'El título no puede estar vacío' });
   }
-  if (description !== undefined && !String(description).trim()) {
+  const cleanDescription = description !== undefined ? sanitizeDescription(description) : undefined;
+  if (cleanDescription !== undefined && isEmptyDescription(cleanDescription)) {
     return res.status(400).json({ message: 'La descripción no puede estar vacía' });
   }
   if (status !== undefined && !VALID_STATUSES.includes(status)) {
@@ -406,10 +409,10 @@ exports.updateTicket = (req, res) => {
           values.push(String(title).trim());
           updates.title = String(title).trim();
         }
-        if (description !== undefined) {
+        if (cleanDescription !== undefined) {
           fields.push('description = ?');
-          values.push(String(description).trim());
-          updates.description = String(description).trim();
+          values.push(cleanDescription);
+          updates.description = cleanDescription;
         }
         if (status !== undefined) {
           fields.push('status = ?');

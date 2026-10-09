@@ -40,7 +40,8 @@ export async function fetchTicketAttachments(ticketId: number | string): Promise
 
 export async function uploadTicketAttachments(
   ticketId: number | string,
-  files: File[]
+  files: File[],
+  options?: { inline?: boolean }
 ): Promise<{ ok: boolean; message?: string; data?: TicketAttachment[] }> {
   const token = getToken();
   if (!token) return { ok: false, message: 'Sesión expirada' };
@@ -48,6 +49,7 @@ export async function uploadTicketAttachments(
 
   const formData = new FormData();
   files.forEach((file) => formData.append('files', file));
+  if (options?.inline) formData.append('inline', '1');
 
   const response = await fetch(`${API_URL}/tickets/${ticketId}/attachments`, {
     method: 'POST',

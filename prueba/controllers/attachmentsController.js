@@ -26,7 +26,7 @@ exports.getTicketAttachments = (req, res) => {
       `SELECT a.*, u.email AS uploaded_by_email
        FROM ticket_attachments a
        JOIN users u ON u.id = a.user_id
-       WHERE a.ticket_id = ?
+       WHERE a.ticket_id = ? AND a.is_inline = 0
        ORDER BY a.created_at ASC`,
       [id],
       (err, rows) => {
@@ -56,17 +56,19 @@ const runUploadTicketAttachments = (req, res) => {
       return res.status(400).json({ message: 'No se recibieron archivos' });
     }
 
+    const inline = req.body.inline === '1' || req.body.inline === 'true' ? 1 : 0;
     const values = files.map((file) => [
       id,
       req.user.id,
       file.originalname,
       file.filename,
       getMimeType(file.originalname),
-      file.size
+      file.size,
+      inline
     ]);
 
     db.query(
-      `INSERT INTO ticket_attachments (ticket_id, user_id, original_name, stored_name, mime_type, size_bytes)
+      `INSERT INTO ticket_attachments (ticket_id, user_id, original_name, stored_name, mime_type, size_bytes, is_inline)
        VALUES ?`,
       [values],
       (err) => {

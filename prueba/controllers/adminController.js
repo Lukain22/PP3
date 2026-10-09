@@ -10,6 +10,7 @@ const {
 const { appendExtendedListFilters, resolveTicketOrderBy } = require('../utils/ticketFilters');
 const { notifyTicketCreatorOnChanges, notifyOnComment } = require('../utils/notifications');
 const { assertTicketMutation } = require('../rbac/guard');
+const { sanitizeDescription, isEmptyDescription } = require('../utils/richText');
 const { syncSystemRoleForAccount } = require('../rbac/service');
 
 const SLA_SELECT = 't.sla_response_due, t.sla_resolution_due, t.sla_status';
@@ -142,7 +143,8 @@ exports.updateAnyTicket = (req, res) => {
   if (title !== undefined && !String(title).trim()) {
     return res.status(400).json({ message: 'El título no puede estar vacío' });
   }
-  if (description !== undefined && !String(description).trim()) {
+  const cleanDescription = description !== undefined ? sanitizeDescription(description) : undefined;
+  if (cleanDescription !== undefined && isEmptyDescription(cleanDescription)) {
     return res.status(400).json({ message: 'La descripción no puede estar vacía' });
   }
   if (status !== undefined && !VALID_STATUSES.includes(status)) {
@@ -181,7 +183,7 @@ exports.updateAnyTicket = (req, res) => {
       const updates = {};
 
       if (title !== undefined) { fields.push('title = ?'); values.push(String(title).trim()); updates.title = String(title).trim(); }
-      if (description !== undefined) { fields.push('description = ?'); values.push(String(description).trim()); updates.description = String(description).trim(); }
+      if (cleanDescription !== undefined) { fields.push('description = ?'); values.push(cleanDescription); updates.description = cleanDescription; }
       if (status !== undefined) { fields.push('status = ?'); values.push(status); updates.status = status; }
       if (priority !== undefined) { fields.push('priority = ?'); values.push(priority); updates.priority = priority; }
       if (type !== undefined) { fields.push('type = ?'); values.push(type); updates.type = type; }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Box,
@@ -22,6 +22,8 @@ import { isAdmin, getRole } from '../../lib/auth';
 import { getTicketsPath } from '../../lib/ticketViews';
 import { TICKET_TYPE_OPTIONS } from '../../lib/ticketTypes';
 import { uploadTicketAttachments } from '../../lib/attachments';
+import { descriptionWithoutPending, isDescriptionEmpty } from '../../lib/richText';
+import RichTextEditor, { type RichTextEditorHandle } from './richtext/RichTextEditor';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -36,6 +38,7 @@ export default function CreateTicket() {
   const admin = isAdmin();
   const [loading, setLoading] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const editorRef = useRef<RichTextEditorHandle>(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -55,7 +58,7 @@ export default function CreateTicket() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.title.trim() || !formData.description.trim()) {
+    if (!formData.title.trim() || isDescriptionEmpty(formData.description)) {
       toast.error('Completá el asunto y la descripción');
       return;
     }
@@ -65,6 +68,14 @@ export default function CreateTicket() {
       navigate('/');
       return;
     }
+
+    const hasPendingImages = editorRef.current?.hasPendingImages() ?? false;
+    const description = hasPendingImages
+      ? (() => {
+          const withoutImages = descriptionWithoutPending(formData.description);
+          return isDescriptionEmpty(withoutImages) ? '<p>Imagen adjunta</p>' : withoutImages;
+        })()
+      : formData.description;
 
     setLoading(true);
 
@@ -77,17 +88,17 @@ export default function CreateTicket() {
         },
         body: JSON.stringify(
           admin
-            ? formData.type === 'incident'
-              ? formData
+                ? formData.type === 'incident'
+              ? { ...formData, description }
               : {
                   title: formData.title,
-                  description: formData.description,
+                  description,
                   type: formData.type,
                   status: formData.status
                 }
             : {
                 title: formData.title,
-                description: formData.description,
+                description,
                 type: formData.type,
                 status: 'open'
               }
@@ -112,6 +123,28 @@ export default function CreateTicket() {
         if (!uploadResult.ok) {
           toast.error(uploadResult.message || 'La solicitud se creó pero falló la subida de archivos');
           navigate(getTicketsPath(getRole()));
+          return;
+        }
+      }
+
+      if (hasPendingImages && data.id && editorRef.current) {
+        const flushed = await editorRef.current.flushPendingImages(data.id);
+        if (!flushed.ok) {
+          toast.error('La solicitud se creó, pero no se pudieron guardar las imágenes pegadas');
+          navigate(`/tickets/${data.id}`);
+          return;
+        }
+        const patch = await fetch(`${API_URL}/tickets/${data.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ description: flushed.html })
+        });
+        if (!patch.ok) {
+          toast.error('La solicitud se creó, pero no se pudo guardar la descripción con imágenes');
+          navigate(`/tickets/${data.id}`);
           return;
         }
       }
@@ -174,15 +207,14 @@ export default function CreateTicket() {
             placeholder="Ej: No puedo acceder al campus virtual"
             sx={{ mt: 2, mb: 2.5 }}
           />
-          <TextField
-            fullWidth
-            label="Descripción"
+          <Typography variant="body2" sx={{ mb: 0.75, fontWeight: 600 }}>
+            Descripción
+          </Typography>
+          <RichTextEditor
+            ref={editorRef}
             value={formData.description}
-            onChange={handleChange('description')}
-            required
-            multiline
-            minRows={8}
-            placeholder="¿Qué pasó? ¿Cuándo empezó? ¿Qué intentaste hacer?"
+            onChange={(html) => setFormData((prev) => ({ ...prev, description: html }))}
+            placeholder="¿Qué pasó? ¿Cuándo empezó? ¿Qué intentaste hacer? Podés pegar capturas con Ctrl + V."
           />
 
           <Box sx={{ mt: 2.5 }}>

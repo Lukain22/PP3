@@ -44,6 +44,7 @@ const initAttachmentsTable = () => {
       stored_name VARCHAR(255) NOT NULL,
       mime_type VARCHAR(100) NOT NULL,
       size_bytes INT NOT NULL,
+      is_inline TINYINT(1) NOT NULL DEFAULT 0,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
       FOREIGN KEY (user_id) REFERENCES users(id)
@@ -53,9 +54,28 @@ const initAttachmentsTable = () => {
   db.query(sql, (err) => {
     if (err) {
       console.error('Error creando tabla ticket_attachments:', err.code);
-    } else {
-      console.log('Tabla ticket_attachments lista');
+      return;
     }
+    console.log('Tabla ticket_attachments lista');
+    db.query(
+      'ALTER TABLE ticket_attachments ADD COLUMN is_inline TINYINT(1) NOT NULL DEFAULT 0',
+      (alterErr) => {
+        if (alterErr && alterErr.errno !== 1060) {
+          console.error('Error migrando is_inline:', alterErr.code);
+          return;
+        }
+        db.query(
+          `UPDATE ticket_attachments a
+           JOIN tickets t ON t.id = a.ticket_id
+           SET a.is_inline = 1
+           WHERE a.is_inline = 0
+             AND t.description LIKE CONCAT('%data-attachment-id="', a.id, '"%')`,
+          (updateErr) => {
+            if (updateErr) console.error('Error marcando imágenes de la descripción:', updateErr.code);
+          }
+        );
+      }
+    );
   });
 };
 
