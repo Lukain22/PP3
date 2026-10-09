@@ -42,6 +42,16 @@ const {
   updateGroup,
   deleteGroup
 } = require('../controllers/groupsController');
+const {
+  listSolutions,
+  getSolution,
+  listSolutionGroups,
+  createSolution,
+  updateSolution,
+  setSolutionStatus,
+  setSolutionApproval,
+  deleteSolution
+} = require('../controllers/solutionsController');
 
 router.use(authMiddleware, requirePermission('admin.access'));
 
@@ -80,5 +90,15 @@ router.get('/roles/:id', requirePermission('admin.roles'), getRole);
 router.patch('/roles/:id', requirePermission('admin.roles'), updateRole);
 router.delete('/roles/:id', requirePermission('admin.roles'), deleteRole);
 router.post('/roles/:id/duplicate', requirePermission('admin.roles'), duplicateRole);
+
+const canManageSolutions = requirePermission('kb.create', 'kb.edit', 'kb.delete', 'kb.publish', 'kb.approve');
+router.get('/solutions/groups', canManageSolutions, listSolutionGroups);
+router.get('/solutions', canManageSolutions, listSolutions);
+router.post('/solutions', requirePermission('kb.create'), createSolution);
+router.get('/solutions/:id', canManageSolutions, getSolution);
+router.patch('/solutions/:id', requirePermission('kb.edit'), updateSolution);
+router.patch('/solutions/:id/status', requirePermission('kb.publish'), setSolutionStatus);
+router.patch('/solutions/:id/approval', requirePermission('kb.approve'), setSolutionApproval);
+router.delete('/solutions/:id', requirePermission('kb.delete'), deleteSolution);
 
 module.exports = router;

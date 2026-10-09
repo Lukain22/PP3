@@ -48,6 +48,7 @@ import TicketAttachments from './TicketAttachments';
 import InlineEditSelect from './InlineEditSelect';
 import RichTextEditor, { type RichTextEditorHandle } from './richtext/RichTextEditor';
 import RichTextView from './richtext/RichTextView';
+import TicketSolutions from './TicketSolutions';
 import { isDescriptionEmpty } from '../../lib/richText';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
@@ -326,6 +327,7 @@ export default function TicketDetail() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [resolution, setResolution] = useState<Resolution | null>(null);
   const [resolutionText, setResolutionText] = useState('');
+  const [resolutionSection, setResolutionSection] = useState<'resolution' | 'solutions'>('resolution');
   const [savingResolution, setSavingResolution] = useState(false);
   const [reopening, setReopening] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
@@ -1361,7 +1363,7 @@ export default function TicketDetail() {
               <Box component="span" sx={{ fontWeight: 700 }}>Resuelto por</Box>{' '}
               {resolution.resolved_by_email} · {formatDateTime(resolution.updated_at || resolution.created_at)}
             </Typography>
-            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word', maxHeight: 'clamp(140px, calc(100vh - 460px), 240px)', overflowY: 'auto', overflowX: 'hidden' }}>
               {resolution.content}
             </Typography>
           </Box>
@@ -1374,17 +1376,32 @@ export default function TicketDetail() {
           </Box>
         </>
       ) : canResolve ? (
-        <>
+        <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 0, maxHeight: 'calc(100vh - 320px)' }}>
           <TextField
             fullWidth
             multiline
             minRows={6}
+            maxRows={8}
             label="Registrar resolución"
             value={resolutionText}
             onChange={(e) => setResolutionText(e.target.value)}
             placeholder="Describí cómo se resolvió el ticket..."
+            sx={{
+              flex: '1 1 auto',
+              minHeight: 0,
+              '& .MuiInputBase-root': { alignItems: 'flex-start' },
+              '& textarea': {
+                maxHeight: 'clamp(140px, calc(100vh - 460px), 240px) !important',
+                overflowY: 'auto !important',
+                overflowX: 'hidden',
+                overflowWrap: 'anywhere',
+                wordBreak: 'break-word',
+                whiteSpace: 'pre-wrap',
+                resize: 'none'
+              }
+            }}
           />
-          <Box>
+          <Box sx={{ flexShrink: 0, pt: 1.5 }}>
             <Button
               variant="contained"
               disabled={savingResolution || !resolutionText.trim()}
@@ -1396,7 +1413,7 @@ export default function TicketDetail() {
               Al guardar, el ticket pasará a estado resuelto con tu nombre y la fecha actual.
             </Typography>
           </Box>
-        </>
+        </Box>
       ) : (
         <Typography variant="body2" color="text.secondary">
           No tenés permiso para resolver este ticket.
@@ -1409,7 +1426,7 @@ export default function TicketDetail() {
         <Box component="span" sx={{ fontWeight: 700 }}>Resuelto por</Box>{' '}
         {resolution.resolved_by_email} · {formatDateTime(resolution.updated_at || resolution.created_at)}
       </Typography>
-      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word', maxHeight: 'clamp(140px, calc(100vh - 460px), 240px)', overflowY: 'auto', overflowX: 'hidden' }}>
         {resolution.content}
       </Typography>
     </Box>
@@ -1438,7 +1455,33 @@ export default function TicketDetail() {
         <Box sx={{ p: { xs: 2, md: 3 } }}>
           {activeTab === 0 && detailPanel}
           {activeTab === 1 && historyPanel}
-          {activeTab === 2 && resolutionPanel}
+          {activeTab === 2 && (staff ? (
+            <Stack spacing={2}>
+              <Tabs
+                value={resolutionSection}
+                onChange={(_, value) => setResolutionSection(value)}
+                sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36, textTransform: 'none', fontWeight: 600 } }}
+              >
+                <Tab value="resolution" label="Resolución" />
+                <Tab value="solutions" label="Soluciones" />
+              </Tabs>
+              {resolutionSection === 'resolution' ? resolutionPanel : canResolve ? (
+                <TicketSolutions
+                  ticketId={String(id)}
+                  canApply={!isResolved}
+                  onApply={(text) => {
+                    setResolutionText((prev) => prev.trim() ? `${prev.trim()}\n\n${text}` : text);
+                    setResolutionSection('resolution');
+                    toast.success('Solución aplicada correctamente.');
+                  }}
+                />
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  No tenés permiso para consultar soluciones.
+                </Typography>
+              )}
+            </Stack>
+          ) : resolutionPanel)}
         </Box>
       </Paper>
     </SupportShell>

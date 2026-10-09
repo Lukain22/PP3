@@ -10,6 +10,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import GroupWorkIcon from '@mui/icons-material/GroupWork';
 import TimerIcon from '@mui/icons-material/Timer';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 import SupportShell from './SupportShell';
 import { can } from '../../lib/auth';
 
@@ -41,6 +42,13 @@ const sections = [
     icon: <AdminPanelSettingsIcon fontSize="large" color="primary" />,
     to: '/admin/roles',
     permission: 'admin.roles'
+  },
+  {
+    title: 'Soluciones',
+    description: 'Base de conocimiento para reutilizar resoluciones por grupo.',
+    icon: <MenuBookIcon fontSize="large" color="primary" />,
+    to: '/admin/solutions',
+    permission: ['kb.create', 'kb.edit', 'kb.delete', 'kb.publish', 'kb.approve']
   }
 ];
 
@@ -53,7 +61,7 @@ export default function AdminPanel() {
       subtitle="Configuración del sistema de soporte"
     >
       <Grid container spacing={2.5}>
-        {sections.filter((section) => can(section.permission)).map((section) => (
+        {sections.filter((section) => Array.isArray(section.permission) ? section.permission.some((code) => can(code)) : can(section.permission)).map((section) => (
           <Grid key={section.title} size={{ xs: 12, sm: 6, md: 3 }}>
             <Paper
               elevation={0}

@@ -18,6 +18,8 @@ import AdminGroupDetail from './components/AdminGroupDetail';
 import AdminSlaPolicies from './components/AdminSlaPolicies';
 import AdminRoles from './components/AdminRoles';
 import AdminRoleDetail from './components/AdminRoleDetail';
+import AdminSolutions from './components/AdminSolutions';
+import AdminSolutionForm from './components/AdminSolutionForm';
 import DashboardClassic from './components/legacy/Dashboard.classic';
 import TicketsListClassic from './components/legacy/TicketsList.classic';
 import CreateTicketClassic from './components/legacy/CreateTicket.classic';
@@ -51,9 +53,10 @@ function RequireAdmin({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-function RequirePermission({ code, children }: { code: string; children: ReactNode }) {
+function RequirePermission({ code, anyOf, children }: { code?: string; anyOf?: string[]; children: ReactNode }) {
   if (!getToken()) return <Navigate to="/" replace />;
-  if (!can(code)) return <Navigate to="/admin" replace />;
+  const allowed = anyOf?.length ? anyOf.some((item) => can(item)) : Boolean(code && can(code));
+  if (!allowed) return <Navigate to="/admin" replace />;
   return <>{children}</>;
 }
 
@@ -108,6 +111,9 @@ export default function App() {
           <Route path="/admin/roles" element={<RequirePermission code="admin.roles"><AdminRoles /></RequirePermission>} />
           <Route path="/admin/roles/new" element={<RequirePermission code="admin.roles"><AdminRoleDetail /></RequirePermission>} />
           <Route path="/admin/roles/:id" element={<RequirePermission code="admin.roles"><AdminRoleDetail /></RequirePermission>} />
+          <Route path="/admin/solutions" element={<RequirePermission anyOf={['kb.create', 'kb.edit', 'kb.delete', 'kb.publish', 'kb.approve']}><AdminSolutions /></RequirePermission>} />
+          <Route path="/admin/solutions/new" element={<RequirePermission code="kb.create"><AdminSolutionForm /></RequirePermission>} />
+          <Route path="/admin/solutions/:id" element={<RequirePermission code="kb.edit"><AdminSolutionForm /></RequirePermission>} />
           <Route path="/panel-tecnico" element={<RequireTechnician><Navigate to="/tickets?view=system:all_my_groups" replace /></RequireTechnician>} />
           <Route path="/technician" element={<Navigate to="/tickets?view=system:all_my_groups" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />

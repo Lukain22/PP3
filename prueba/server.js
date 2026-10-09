@@ -8,6 +8,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const technicianRoutes = require('./routes/technicianRoutes');
 const viewsRoutes = require('./routes/viewsRoutes');
 const notificationsRoutes = require('./routes/notificationsRoutes');
+const solutionRoutes = require('./routes/solutionRoutes');
 const { initTicketsTable, initCommentsTable } = require('./controllers/ticketsController');
 const { initTicketHistoryTable } = require('./utils/ticketHistory');
 const { initNotificationsTable } = require('./utils/notifications');
@@ -22,6 +23,7 @@ const {
 const { initTicketViewsTable } = require('./controllers/viewsController');
 const { initPasswordResetTokensTable } = require('./utils/passwordReset');
 const { initRbac } = require('./rbac/service');
+const { initSolutionsTables } = require('./utils/solutions');
 const db = require('./db/db');
 
 const app = express();
@@ -35,6 +37,7 @@ app.use('/admin', adminRoutes);
 app.use('/technician', technicianRoutes);
 app.use('/views', viewsRoutes);
 app.use('/notifications', notificationsRoutes);
+app.use('/solutions', solutionRoutes);
 
 const initUsersTable = () => {
   const createSql = `
@@ -72,6 +75,7 @@ const initUsersTable = () => {
         initNotificationsTable();
         initPasswordResetTokensTable();
         initRbac();
+        initSolutionsTables();
         runTicketMigrations();
       }
     );
