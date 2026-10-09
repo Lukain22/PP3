@@ -8,13 +8,8 @@ import {
   Typography,
   ToggleButton,
   ToggleButtonGroup,
-  Divider,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText
+  Tooltip
 } from '@mui/material';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
 import TicketAttachments from './TicketAttachments';
@@ -158,151 +153,135 @@ export default function CreateTicket() {
     }
   };
 
+  const choiceSx = {
+    px: 1.5,
+    py: 0.25,
+    textTransform: 'none',
+    fontSize: '0.8125rem',
+    fontWeight: 600,
+    lineHeight: 1.4
+  };
+
   return (
     <SupportShell
-      title=""
+      compact
+      title="Nueva solicitud"
+      headerAction={
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Button size="small" onClick={() => navigate('/dashboard')} sx={{ height: 32 }}>
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            form="create-ticket-form"
+            variant="contained"
+            size="small"
+            disabled={loading}
+            sx={{ height: 32 }}
+          >
+            {loading ? 'Enviando...' : 'Enviar solicitud'}
+          </Button>
+        </Box>
+      }
     >
       <Box
         component="form"
+        id="create-ticket-form"
         onSubmit={handleSubmit}
         sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '1fr 320px' },
-          gap: 2.5,
-          alignItems: 'start'
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
         }}
       >
-        <Paper elevation={0} sx={{ p: { xs: 2, md: 3 }, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-          <Typography variant="overline" color="primary" sx={{ fontWeight: 600 }}>
-            Tipo de solicitud
-          </Typography>
-          <ToggleButtonGroup
-            exclusive
-            fullWidth
-            value={formData.type}
-            onChange={(_, val) => val && setFormData({ ...formData, type: val, priority: val === 'incident' ? formData.priority : 'medium' })}
-            sx={{ mt: 2, mb: 3 }}
-          >
-            {TICKET_TYPE_OPTIONS.map((t) => (
-              <ToggleButton key={t.value} value={t.value} sx={{ flex: 1, py: 1.25, flexDirection: 'column' }}>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {t.label}
+        <Paper
+          elevation={0}
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            p: { xs: 1.5, md: 2 },
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 2,
+            overflow: 'hidden'
+          }}
+        >
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.25, mb: 1.5, flexShrink: 0 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+              Tipo
+            </Typography>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={formData.type}
+              onChange={(_, val) => val && setFormData({ ...formData, type: val, priority: val === 'incident' ? formData.priority : 'medium' })}
+            >
+              {TICKET_TYPE_OPTIONS.map((t) => (
+                <ToggleButton key={t.value} value={t.value} sx={choiceSx}>
+                  <Tooltip title={t.hint}>
+                    <span>{t.label}</span>
+                  </Tooltip>
+                </ToggleButton>
+              ))}
+            </ToggleButtonGroup>
+            {admin && formData.type === 'incident' && (
+              <>
+                <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary', ml: { sm: 1 } }}>
+                  Prioridad
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {t.hint}
-                </Typography>
-              </ToggleButton>
-            ))}
-          </ToggleButtonGroup>
+                <ToggleButtonGroup
+                  exclusive
+                  size="small"
+                  value={formData.priority}
+                  onChange={(_, val) => val && setFormData({ ...formData, priority: val })}
+                >
+                  {priorityOptions.map((p) => (
+                    <ToggleButton key={p.value} value={p.value} sx={choiceSx}>
+                      <Tooltip title={p.hint}>
+                        <span>{p.label}</span>
+                      </Tooltip>
+                    </ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
+              </>
+            )}
+          </Box>
 
-          <Typography variant="overline" color="primary" sx={{ fontWeight: 600 }}>
-            Detalle
-          </Typography>
           <TextField
             fullWidth
+            size="small"
             label="Asunto"
             value={formData.title}
             onChange={handleChange('title')}
             required
             placeholder="Ej: No puedo acceder al campus virtual"
-            sx={{ mt: 2, mb: 2.5 }}
-          />
-          <Typography variant="body2" sx={{ mb: 0.75, fontWeight: 600 }}>
-            Descripción
-          </Typography>
-          <RichTextEditor
-            ref={editorRef}
-            value={formData.description}
-            onChange={(html) => setFormData((prev) => ({ ...prev, description: html }))}
-            placeholder="¿Qué pasó? ¿Cuándo empezó? ¿Qué intentaste hacer? Podés pegar capturas con Ctrl + V."
+            sx={{ mb: 1.5, flexShrink: 0 }}
           />
 
-          <Box sx={{ mt: 2.5 }}>
-            <TicketAttachments
-              pendingFiles={pendingFiles}
-              onPendingFilesChange={setPendingFiles}
-              showTitleWhenHasFiles
-              uploadBelowFiles
+          <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 600, flexShrink: 0 }}>
+            Descripción
+          </Typography>
+          <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <RichTextEditor
+              ref={editorRef}
+              bounded
+              value={formData.description}
+              onChange={(html) => setFormData((prev) => ({ ...prev, description: html }))}
+              placeholder="¿Qué pasó? ¿Cuándo empezó? ¿Qué intentaste hacer? Podés pegar capturas con Ctrl + V."
             />
           </Box>
 
-          {admin && formData.type === 'incident' && (
-            <>
-              <Divider sx={{ my: 3 }} />
-
-              <Typography variant="overline" color="primary" sx={{ fontWeight: 600 }}>
-                Paso 2 — Prioridad
-              </Typography>
-              <ToggleButtonGroup
-                exclusive
-                fullWidth
-                value={formData.priority}
-                onChange={(_, val) => val && setFormData({ ...formData, priority: val })}
-                sx={{ mt: 2 }}
-              >
-                {priorityOptions.map((p) => (
-                  <ToggleButton key={p.value} value={p.value} sx={{ flex: 1, py: 1.25, flexDirection: 'column' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {p.label}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {p.hint}
-                    </Typography>
-                  </ToggleButton>
-                ))}
-              </ToggleButtonGroup>
-            </>
-          )}
-
+          <Box sx={{ mt: 1.25, flexShrink: 0 }}>
+            <TicketAttachments
+              pendingFiles={pendingFiles}
+              onPendingFilesChange={setPendingFiles}
+            />
+          </Box>
         </Paper>
-
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Paper elevation={0} sx={{ p: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: '#fafbfc' }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>
-              Antes de enviar
-            </Typography>
-            <List dense disablePadding>
-              {(admin
-                ? [
-                    'Un asunto claro ayuda a priorizar el caso.',
-                    'Elegí la prioridad según el impacto real.',
-                    'Podés adjuntar capturas, documentos o planillas.'
-                  ]
-                : [
-                    'Un asunto claro ayuda al equipo a entender tu caso.',
-                    'Describí qué intentaste y qué mensaje de error viste.',
-                    'Podés adjuntar capturas, documentos o planillas.'
-                  ]
-              ).map((text) => (
-                <ListItem key={text} disableGutters sx={{ alignItems: 'flex-start' }}>
-                  <ListItemIcon sx={{ minWidth: 32, mt: 0.25 }}>
-                    <CheckCircleOutlineIcon color="primary" fontSize="small" />
-                  </ListItemIcon>
-                  <ListItemText primary={text} primaryTypographyProps={{ variant: 'body2' }} />
-                </ListItem>
-              ))}
-            </List>
-          </Paper>
-
-          <Paper
-            elevation={0}
-            sx={{
-              p: 2,
-              border: '1px solid',
-              borderColor: 'divider',
-              borderRadius: 2,
-              position: { md: 'sticky' },
-              top: 16
-            }}
-          >
-            <Button type="submit" variant="contained" fullWidth disabled={loading} size="large">
-              {loading ? 'Enviando...' : 'Enviar solicitud'}
-            </Button>
-            <Button fullWidth variant="text" sx={{ mt: 1 }} onClick={() => navigate('/dashboard')}>
-              Cancelar
-            </Button>
-          </Paper>
-        </Box>
       </Box>
     </SupportShell>
   );

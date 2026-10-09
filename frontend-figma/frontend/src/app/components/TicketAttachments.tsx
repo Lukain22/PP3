@@ -16,6 +16,7 @@ import { can } from '../../lib/auth';
 import {
   ACCEPTED_FILE_LABEL,
   ACCEPTED_FILE_TYPES,
+  MAX_ATTACHMENT_BYTES,
   type TicketAttachment,
   deleteTicketAttachment,
   downloadTicketAttachment,
@@ -209,9 +210,15 @@ export default function TicketAttachments({
   }, [ticketId]);
 
   const handleFilePick = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const picked = Array.from(event.target.files || []);
+    const selected = Array.from(event.target.files || []);
     event.target.value = '';
 
+    if (selected.length === 0) return;
+
+    const picked = selected.filter((file) => file.size <= MAX_ATTACHMENT_BYTES);
+    if (picked.length < selected.length) {
+      toast.error('Cada archivo puede pesar hasta 4 MB');
+    }
     if (picked.length === 0) return;
 
     if (isPendingMode) {

@@ -5,8 +5,10 @@ const API_URL = import.meta.env.VITE_API_URL as string;
 export const ACCEPTED_FILE_TYPES =
   '.jpg,.jpeg,.png,.gif,.webp,.bmp,.txt,.csv,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.7z';
 
+export const MAX_ATTACHMENT_BYTES = 4 * 1024 * 1024;
+
 export const ACCEPTED_FILE_LABEL =
-  'JPEG, PNG, TXT, Word, Excel, PDF, ZIP y otros (máx. 10 MB, hasta 5 archivos)';
+  'JPEG, PNG, TXT, Word, Excel, PDF, ZIP y otros (máx. 4 MB, hasta 5 archivos)';
 
 export interface TicketAttachment {
   id: number;

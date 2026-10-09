@@ -36,7 +36,7 @@ router.post('/:id/attachments', authMiddleware, (req, res, next) => {
   upload.array('files', 5)(req, res, (err) => {
     if (err) {
       if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({ message: 'Archivo demasiado grande (máx. 10 MB)' });
+        return res.status(400).json({ message: 'Archivo demasiado grande (máx. 4 MB)' });
       }
       if (err.code === 'LIMIT_FILE_COUNT') {
         return res.status(400).json({ message: 'Máximo 5 archivos por vez' });

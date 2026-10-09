@@ -33,7 +33,7 @@ import TableCell from '@tiptap/extension-table-cell';
 import TableHeader from '@tiptap/extension-table-header';
 import { Extension } from '@tiptap/core';
 import { toast } from 'sonner';
-import { uploadTicketAttachments } from '../../../lib/attachments';
+import { MAX_ATTACHMENT_BYTES, uploadTicketAttachments } from '../../../lib/attachments';
 import { fetchAttachmentObjectUrl, htmlForStorage } from '../../../lib/richText';
 import './richText.css';
 
@@ -90,6 +90,7 @@ interface RichTextEditorProps {
   onChange: (html: string) => void;
   ticketId?: number | string;
   placeholder?: string;
+  bounded?: boolean;
 }
 
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp']);
@@ -97,7 +98,7 @@ const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp']);
 function imageFileFromClipboard(file: File) {
   const type = file.type || 'image/png';
   const ext = (type.split('/')[1] || 'png').replace('jpeg', 'jpg');
-  if (!IMAGE_EXTENSIONS.has(ext) || file.size > 10 * 1024 * 1024) return null;
+  if (!IMAGE_EXTENSIONS.has(ext) || file.size > MAX_ATTACHMENT_BYTES) return null;
   const name = file.name && file.name.includes('.') ? file.name : `captura-${Date.now()}.${ext}`;
   return new File([file], name, { type });
 }
@@ -125,7 +126,8 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
   value,
   onChange,
   ticketId,
-  placeholder = 'Describí el problema. Podés pegar capturas con Ctrl + V.'
+  placeholder = 'Describí el problema. Podés pegar capturas con Ctrl + V.',
+  bounded = false
 }, ref) {
   const filesRef = useRef(new Map<string, File>());
   const lastHtml = useRef(value);
@@ -159,7 +161,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
         const files = collectImageFiles(event.clipboardData);
         if (hasImage && files.length === 0) {
           event.preventDefault();
-          toast.error('La imagen debe ser PNG, JPG, GIF, WEBP o BMP y pesar menos de 10 MB');
+          toast.error('La imagen debe ser PNG, JPG, GIF, WEBP o BMP y pesar menos de 4 MB');
           return true;
         }
         if (files.length === 0) return false;
@@ -294,7 +296,10 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
   const run = (action: () => void) => () => action();
 
   return (
-    <Box className="rich-text-shell">
+    <Box
+      className={bounded ? 'rich-text-shell is-bounded' : 'rich-text-shell'}
+      sx={bounded ? { flex: 1, minHeight: 0 } : undefined}
+    >
       <Box className="rich-text-toolbar">
         <Tooltip title="Negrita"><IconButton size="small" onClick={run(() => editor.chain().focus().toggleBold().run())} sx={{ color: mark(editor.isActive('bold')) }}><FormatBoldIcon fontSize="small" /></IconButton></Tooltip>
         <Tooltip title="Cursiva"><IconButton size="small" onClick={run(() => editor.chain().focus().toggleItalic().run())} sx={{ color: mark(editor.isActive('italic')) }}><FormatItalicIcon fontSize="small" /></IconButton></Tooltip>
@@ -363,7 +368,9 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
         <Tooltip title="Insertar tabla"><IconButton size="small" onClick={run(() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run())}><TableChartIcon fontSize="small" /></IconButton></Tooltip>
         <Tooltip title="Eliminar tabla"><IconButton size="small" onClick={run(() => editor.chain().focus().deleteTable().run())}><DeleteOutlineIcon fontSize="small" /></IconButton></Tooltip>
       </Box>
-      <EditorContent editor={editor} />
+      <Box className="rich-text-scroll">
+        <EditorContent editor={editor} />
+      </Box>
     </Box>
   );
 });
