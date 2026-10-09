@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Box,
@@ -21,9 +21,11 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Link
+  Link,
+  InputAdornment
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import SearchIcon from '@mui/icons-material/Search';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
@@ -39,6 +41,25 @@ interface Group {
   created_at: string;
 }
 
+const denseTableSx = {
+  '& .MuiTableCell-root': {
+    py: 0.5,
+    px: 1,
+    fontSize: '0.8125rem',
+    lineHeight: 1.3
+  },
+  '& .MuiTableCell-head': {
+    py: 0.625,
+    fontSize: '0.75rem',
+    fontWeight: 600,
+    bgcolor: '#fafbfc'
+  },
+  '& .MuiChip-root': {
+    height: 22,
+    fontSize: '0.75rem'
+  }
+};
+
 export default function AdminGroups() {
   const navigate = useNavigate();
   const [groups, setGroups] = useState<Group[]>([]);
@@ -48,6 +69,7 @@ export default function AdminGroups() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState('');
 
   const apiCall = async (path: string, options: RequestInit = {}) => {
     const token = getToken();
@@ -144,92 +166,161 @@ export default function AdminGroups() {
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' });
 
+  const visibleGroups = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return groups;
+    return groups.filter((group) => {
+      const kind = group.is_default ? 'principal' : 'resolución';
+      return [String(group.id), group.name, group.description || '', kind].join(' ').toLowerCase().includes(query);
+    });
+  }, [groups, search]);
+
   return (
     <SupportShell
-      title="Grupos de soporte"
-      subtitle={loading ? 'Cargando...' : `${groups.length} grupo${groups.length === 1 ? '' : 's'}`}
+      compact
+      title="Grupos"
       backTo="/admin"
+      headerActionInline
+      headerActionGrow
       headerAction={
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
-          Nuevo grupo
-        </Button>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', width: '100%' }}>
+          <TextField
+            size="small"
+            placeholder="Buscar por nombre o descripción..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            sx={{ width: { xs: '100%', sm: 320 }, '& .MuiInputBase-root': { height: 30 } }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" color="action" />
+                </InputAdornment>
+              )
+            }}
+          />
+          <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={openCreate} sx={{ height: 30, ml: 'auto' }}>
+            Nuevo grupo
+          </Button>
+        </Box>
       }
     >
+      <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress />
         </Box>
       ) : (
-        <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-          <Table>
-            <TableHead>
-              <TableRow sx={{ bgcolor: '#fafbfc' }}>
-                <TableCell sx={{ fontWeight: 600, width: 64 }}>#</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Nombre</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Descripción</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: 120 }}>Tipo</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: 130 }}>Creado</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: 80 }} align="center">Acciones</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {groups.map((group) => (
-                <TableRow
-                  key={group.id}
-                  hover
-                  sx={{ cursor: 'pointer', '&:last-child td': { border: 0 } }}
-                  onClick={() => navigate(`/admin/groups/${group.id}`)}
-                >
-                  <TableCell sx={{ color: 'text.secondary' }}>{group.id}</TableCell>
-                  <TableCell>
-                    <Link
-                      component="button"
-                      underline="hover"
-                      variant="body2"
-                      sx={{ fontWeight: 600, textAlign: 'left' }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/admin/groups/${group.id}`);
-                      }}
-                    >
-                      {group.name}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" color="text.secondary">
-                      {group.description || '—'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    {group.is_default ? (
-                      <Chip label="Principal" color="primary" size="small" />
-                    ) : (
-                      <Chip label="Resolución" size="small" variant="outlined" />
-                    )}
-                  </TableCell>
-                  <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(group.created_at)}</TableCell>
-                  <TableCell align="center" onClick={(e) => e.stopPropagation()}>
-                    {!group.is_default && (
-                      <Tooltip title="Eliminar">
-                        <span>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            disabled={busyId === group.id}
-                            onClick={(e) => handleDelete(group, e)}
-                          >
-                            <DeleteOutlineIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    )}
-                  </TableCell>
+        <Paper
+          elevation={0}
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 2,
+            overflow: 'hidden'
+          }}
+        >
+          <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+            <Table stickyHeader size="small" sx={denseTableSx}>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ width: 64 }}>#</TableCell>
+                  <TableCell>Nombre</TableCell>
+                  <TableCell>Descripción</TableCell>
+                  <TableCell sx={{ width: 120 }}>Tipo</TableCell>
+                  <TableCell sx={{ width: 130 }}>Creado</TableCell>
+                  <TableCell sx={{ width: 80 }} align="center">Acciones</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              </TableHead>
+              <TableBody>
+                {visibleGroups.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} sx={{ py: 4, textAlign: 'center' }}>
+                      <Typography color="text.secondary">
+                        {search.trim() ? 'Sin resultados para esa búsqueda.' : 'No hay grupos.'}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : visibleGroups.map((group) => (
+                  <TableRow
+                    key={group.id}
+                    hover
+                    sx={{ cursor: 'pointer', '&:last-child td': { border: 0 } }}
+                    onClick={() => navigate(`/admin/groups/${group.id}`)}
+                  >
+                    <TableCell sx={{ color: 'text.secondary' }}>{group.id}</TableCell>
+                    <TableCell sx={{ maxWidth: 240 }}>
+                      <Link
+                        component="button"
+                        underline="hover"
+                        variant="body2"
+                        noWrap
+                        title={group.name}
+                        sx={{ fontWeight: 600, display: 'block', maxWidth: '100%', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/admin/groups/${group.id}`);
+                        }}
+                      >
+                        {group.name}
+                      </Link>
+                    </TableCell>
+                    <TableCell sx={{ maxWidth: 420 }}>
+                      <Typography variant="body2" color="text.secondary" noWrap title={group.description || ''}>
+                        {group.description || '—'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      {group.is_default ? (
+                        <Chip label="Principal" color="primary" size="small" />
+                      ) : (
+                        <Chip label="Resolución" size="small" variant="outlined" />
+                      )}
+                    </TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(group.created_at)}</TableCell>
+                    <TableCell align="center" onClick={(e) => e.stopPropagation()}>
+                      {!group.is_default && (
+                        <Tooltip title="Eliminar">
+                          <span>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              disabled={busyId === group.id}
+                              onClick={(e) => handleDelete(group, e)}
+                            >
+                              <DeleteOutlineIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <Box
+            sx={{
+              flexShrink: 0,
+              px: 1.5,
+              py: 0.5,
+              borderTop: '1px solid',
+              borderColor: 'divider',
+              bgcolor: '#fafbfc'
+            }}
+          >
+            <Typography variant="body2" color="text.secondary">
+              {search.trim() && visibleGroups.length !== groups.length
+                ? `${visibleGroups.length} de ${groups.length} grupos`
+                : `${groups.length} grupo${groups.length === 1 ? '' : 's'}`}
+            </Typography>
+          </Box>
+        </Paper>
       )}
+      </Box>
 
       <Dialog open={dialogOpen} onClose={() => !saving && setDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Nuevo grupo</DialogTitle>

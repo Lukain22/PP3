@@ -30,6 +30,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import GroupsIcon from '@mui/icons-material/Groups';
 import PersonIcon from '@mui/icons-material/Person';
 import SearchIcon from '@mui/icons-material/Search';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import { toast } from 'sonner';
@@ -369,19 +370,28 @@ export default function TicketViewSelect({
 
   return (
     <>
-      <FormControl fullWidth={!inline} size="small" sx={inline ? { width: { xs: '100%', sm: 340 }, maxWidth: 420, flex: { xs: '1 1 100%', sm: '0 1 340px' } } : { mb: 2 }}>
-        <InputLabel id="ticket-view-select-label" shrink>Vista</InputLabel>
+      <FormControl fullWidth={!inline} size="small" sx={inline ? { width: { xs: '100%', sm: 260 }, maxWidth: 280, flex: { xs: '1 1 100%', sm: '0 1 260px' } } : { mb: 2 }}>
+        {!inline && <InputLabel id="ticket-view-select-label" shrink>Vista</InputLabel>}
         <OutlinedInput
           id="ticket-view-select-label"
           readOnly
-          label="Vista"
-          notched
+          label={inline ? undefined : 'Vista'}
+          notched={!inline}
           value={selection.name}
           onClick={(e) => setMenuAnchor(e.currentTarget)}
-          sx={{ cursor: 'pointer', bgcolor: '#fff' }}
+          aria-label="Vista"
+          sx={inline ? {
+            cursor: 'pointer',
+            bgcolor: '#fff',
+            height: 30,
+            borderRadius: 1.5,
+            fontSize: '0.8125rem',
+            '& .MuiOutlinedInput-input': { py: 0, px: 0.25 }
+          } : { cursor: 'pointer', bgcolor: '#fff' }}
           startAdornment={
-            <StarIcon sx={{ fontSize: 18, color: 'primary.main', mr: 1 }} />
+            <StarIcon sx={{ fontSize: inline ? 15 : 18, color: 'primary.main', mr: inline ? 0.5 : 1 }} />
           }
+          endAdornment={inline ? <ExpandMoreIcon sx={{ fontSize: 18, color: 'text.secondary' }} /> : undefined}
         />
       </FormControl>
 
@@ -394,7 +404,7 @@ export default function TicketViewSelect({
         slotProps={{
           paper: {
             sx: {
-              width: menuAnchor?.offsetWidth || 320,
+              width: Math.max(menuAnchor?.offsetWidth || 260, 280),
               maxHeight: 420,
               overflow: 'auto'
             }

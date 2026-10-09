@@ -686,7 +686,7 @@ export default function TicketsList() {
           gap: 1.5,
           width: '100%',
           minWidth: 0,
-          '& .MuiInputBase-root': { minHeight: 32 }
+          '& .MuiInputBase-root': { minHeight: 30 }
         }}>
           <TicketViewSelect
             inline
