@@ -17,6 +17,7 @@ import {
   Checkbox,
   CircularProgress,
   TextField,
+  Menu,
   MenuItem,
   InputAdornment
 } from '@mui/material';
@@ -27,7 +28,7 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
-import { getToken, clearAuth, getRole, can } from '../../lib/auth';
+import { getToken, clearAuth, getRole, getEmail, can } from '../../lib/auth';
 import { getTicketTypeLabel, getTicketTypeColor } from '../../lib/ticketTypes';
 import {
   getPriorityLabel,
@@ -66,6 +67,7 @@ import {
   systemViewKeyToItemKey,
   viewIdToItemKey
 } from '../../lib/ticketViews';
+import { downloadTableExport, type ExportFormat } from '../../lib/tableExport';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -220,6 +222,8 @@ export default function TicketsList() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
   const [filterRowOpen, setFilterRowOpen] = useState(false);
   const [focusColumn, setFocusColumn] = useState<TicketSortKey | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportAnchor, setExportAnchor] = useState<HTMLElement | null>(null);
 
   const isStaffTable = listMode === 'admin' || listMode === 'technician';
   const canEditAll = listMode === 'admin';
@@ -615,35 +619,73 @@ export default function TicketsList() {
     }
   };
 
-  const exportCsv = () => {
-    const selectedOnPage = selectedIds.size
-      ? displayTickets.filter((ticket) => selectedIds.has(ticket.id))
-      : [];
-    const rowsToExport = selectedOnPage.length > 0 ? selectedOnPage : displayTickets;
-    if (rowsToExport.length === 0) return;
-    const rows = [
-      ['ID', 'Usuario', 'Título', 'Grupo', 'Asignado a', 'Estado', 'Categoría', 'Subcategoría', 'Fecha'],
-      ...rowsToExport.map((t) => [
-        t.id,
-        `"${(t.user_email || '').replace(/"/g, '""')}"`,
-        `"${t.title.replace(/"/g, '""')}"`,
-        `"${(t.group_name || '').replace(/"/g, '""')}"`,
-        `"${(t.technician_email || '').replace(/"/g, '""')}"`,
-        t.status,
-        `"${(t.category || '').replace(/"/g, '""')}"`,
-        `"${(t.subcategory || '').replace(/"/g, '""')}"`,
-        new Date(t.created_at).toISOString()
-      ])
-    ];
-    const csv = rows.map((r) => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'solicitudes.csv';
-    link.click();
-    URL.revokeObjectURL(url);
-    toast.success('CSV descargado');
+  const fetchTicketsForExport = async () => {
+    const collected: Ticket[] = [];
+    let currentPage = 1;
+    let pages = 1;
+    while (currentPage <= pages) {
+      const params = buildTicketQueryParams(
+        currentPage,
+        100,
+        listFilters,
+        isStaffTable ? columnFilters : undefined,
+        sortToQuery(columnSort)
+      );
+      const result = await apiCall(`${getTicketsApiPath(listMode)}?${params}`);
+      if (!result?.response.ok) {
+        throw new Error(result?.data?.message || 'No se pudieron obtener las solicitudes');
+      }
+      const batch = Array.isArray(result.data.data) ? result.data.data as Ticket[] : [];
+      collected.push(...batch);
+      pages = Number(result.data.totalPages) || 1;
+      if (batch.length === 0) break;
+      currentPage += 1;
+      if (collected.length > 20000) {
+        throw new Error('La exportación supera los 20.000 registros');
+      }
+    }
+    return selectedIds.size > 0 ? collected.filter((ticket) => selectedIds.has(ticket.id)) : collected;
+  };
+
+  const exportTickets = async (format: ExportFormat) => {
+    setExportAnchor(null);
+    setExporting(true);
+    try {
+      const rows = await fetchTicketsForExport();
+      if (rows.length === 0) {
+        toast.error('No hay registros para exportar');
+        return;
+      }
+      const filename = await downloadTableExport({
+        filenameBase: 'Tickets',
+        format,
+        rows,
+        meta: { generatedBy: getEmail() },
+        columns: [
+          { header: 'ID', value: (ticket) => ticket.id, width: 10 },
+          { header: 'Ticket', value: (ticket) => ticket.title, width: 36 },
+          { header: 'Usuario', value: (ticket) => ticket.user_email || '', width: 28 },
+          { header: 'Grupo', value: (ticket) => ticket.group_name || '', width: 22 },
+          { header: 'Asignado a', value: (ticket) => ticket.technician_email || 'Sin asignar', width: 28 },
+          { header: 'Estado', value: (ticket) => getTicketStatusLabel(ticket.status), width: 16 },
+          { header: 'Categoría', value: (ticket) => ticket.category || '', width: 18 },
+          { header: 'Subcategoría', value: (ticket) => ticket.subcategory || '', width: 20 },
+          {
+            header: 'Fecha',
+            value: (ticket) => {
+              const date = new Date(ticket.created_at);
+              return Number.isNaN(date.getTime()) ? '' : date;
+            },
+            width: 14
+          }
+        ]
+      });
+      toast.success(`Archivo descargado: ${filename}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo exportar');
+    } finally {
+      setExporting(false);
+    }
   };
 
   const formatDate = (d: string) =>
@@ -722,18 +764,28 @@ export default function TicketsList() {
           )}
           <Box sx={{ flex: 1 }} />
           {isStaffTable && (
-            <Tooltip title="Exportar">
-              <span>
-                <IconButton
-                  aria-label="Exportar"
-                  color="primary"
-                  onClick={exportCsv}
-                  disabled={loading || displayTickets.length === 0}
-                >
-                  <FileDownloadIcon />
-                </IconButton>
-              </span>
-            </Tooltip>
+            <>
+              <Tooltip title="Exportar">
+                <span>
+                  <IconButton
+                    aria-label="Exportar"
+                    color="primary"
+                    onClick={(event) => setExportAnchor(event.currentTarget)}
+                    disabled={loading || exporting || total === 0}
+                  >
+                    {exporting ? <CircularProgress size={18} /> : <FileDownloadIcon />}
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Menu
+                anchorEl={exportAnchor}
+                open={Boolean(exportAnchor)}
+                onClose={() => setExportAnchor(null)}
+              >
+                <MenuItem onClick={() => void exportTickets('xlsx')}>Excel (.xlsx)</MenuItem>
+                <MenuItem onClick={() => void exportTickets('csv')}>CSV (.csv)</MenuItem>
+              </Menu>
+            </>
           )}
         </Box>
       }
