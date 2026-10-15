@@ -74,9 +74,44 @@ const initAttachmentsTable = () => {
             if (updateErr) console.error('Error marcando imágenes de la descripción:', updateErr.code);
           }
         );
+        db.query(
+          "ALTER TABLE ticket_attachments ADD COLUMN context VARCHAR(20) NOT NULL DEFAULT 'ticket'",
+          (contextErr) => {
+            if (contextErr && contextErr.errno !== 1060) {
+              console.error('Error migrando context:', contextErr.code);
+              return;
+            }
+            db.query(
+              'ALTER TABLE ticket_attachments ADD COLUMN comment_id INT NULL DEFAULT NULL',
+              (commentErr) => {
+                if (commentErr && commentErr.errno !== 1060) {
+                  console.error('Error migrando comment_id:', commentErr.code);
+                }
+              }
+            );
+          }
+        );
       }
     );
   });
+};
+
+const removeScopedAttachments = (whereSql, params, callback) => {
+  db.query(
+    `SELECT ticket_id, stored_name FROM ticket_attachments WHERE ${whereSql}`,
+    params,
+    (err, rows) => {
+      if (err) return callback(err);
+      db.query(`DELETE FROM ticket_attachments WHERE ${whereSql}`, params, (delErr) => {
+        if (!delErr && Array.isArray(rows)) {
+          rows.forEach((row) => {
+            fs.unlink(getStoredPath(row.ticket_id, row.stored_name), () => {});
+          });
+        }
+        callback(delErr);
+      });
+    }
+  );
 };
 
 const ensureTicketDir = (ticketId) => {
@@ -107,5 +142,6 @@ module.exports = {
   ensureTicketDir,
   isAllowedExtension,
   getMimeType,
-  getStoredPath
+  getStoredPath,
+  removeScopedAttachments
 };

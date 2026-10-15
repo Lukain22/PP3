@@ -17,6 +17,7 @@ import {
   ACCEPTED_FILE_LABEL,
   ACCEPTED_FILE_TYPES,
   MAX_ATTACHMENT_BYTES,
+  type AttachmentScope,
   type TicketAttachment,
   deleteTicketAttachment,
   downloadTicketAttachment,
@@ -33,6 +34,10 @@ interface TicketAttachmentsProps {
   compact?: boolean;
   showTitleWhenHasFiles?: boolean;
   uploadBelowFiles?: boolean;
+  scope?: AttachmentScope;
+  commentId?: number;
+  hideWhenEmpty?: boolean;
+  onCountChange?: (count: number) => void;
 }
 
 function truncateName(name: string, max = 14): string {
@@ -185,7 +190,11 @@ export default function TicketAttachments({
   showUpload = true,
   compact = false,
   showTitleWhenHasFiles = false,
-  uploadBelowFiles = false
+  uploadBelowFiles = false,
+  scope = 'ticket',
+  commentId,
+  hideWhenEmpty = false,
+  onCountChange
 }: TicketAttachmentsProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [attachments, setAttachments] = useState<TicketAttachment[]>([]);
@@ -198,16 +207,16 @@ export default function TicketAttachments({
   const loadAttachments = async () => {
     if (!ticketId) return;
     setLoading(true);
-    const data = await fetchTicketAttachments(ticketId);
+    const data = await fetchTicketAttachments(ticketId, { scope, commentId });
     setAttachments(data);
     setLoading(false);
   };
 
   useEffect(() => {
-    if (ticketId) {
+    if (ticketId && !(scope === 'comment' && !commentId)) {
       loadAttachments();
     }
-  }, [ticketId]);
+  }, [ticketId, scope, commentId]);
 
   const handleFilePick = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(event.target.files || []);
@@ -234,7 +243,7 @@ export default function TicketAttachments({
 
     setUploading(true);
     try {
-      const result = await uploadTicketAttachments(ticketId, picked);
+      const result = await uploadTicketAttachments(ticketId, picked, { context: scope, commentId });
       if (!result.ok) {
         toast.error(result.message || 'No se pudieron subir los archivos');
         return;
@@ -283,6 +292,12 @@ export default function TicketAttachments({
 
   const filesToShow = isPendingMode ? pendingFiles : attachments;
   const hasFiles = filesToShow.length > 0;
+
+  useEffect(() => {
+    onCountChange?.(isPendingMode ? pendingFiles.length : attachments.length);
+  }, [attachments.length, pendingFiles.length, isPendingMode]);
+
+  if (hideWhenEmpty && !loading && !hasFiles && !allowUpload) return null;
 
   const uploadButton = allowUpload ? (
     <>

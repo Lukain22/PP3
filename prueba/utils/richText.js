@@ -6,6 +6,14 @@ const COLOR = [
   /^rgba\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*(0|1|0?\.\d+)\s*\)$/i
 ];
 
+const LINE_HEIGHTS = new Set(['1', '1.15', '1.5', '1.75', '2']);
+
+const withLineHeight = (tagName, attribs) => {
+  const next = { ...attribs };
+  if (!LINE_HEIGHTS.has(next['data-line-height'] || '')) delete next['data-line-height'];
+  return { tagName, attribs: next };
+};
+
 const sanitizeOptions = {
   allowedTags: [
     'p', 'br', 'strong', 'em', 'u', 's', 'h1', 'h2', 'h3',
@@ -18,10 +26,10 @@ const sanitizeOptions = {
     img: ['alt', 'data-attachment-id'],
     span: ['style'],
     mark: ['style', 'data-color'],
-    p: ['style'],
-    h1: ['style'],
-    h2: ['style'],
-    h3: ['style'],
+    p: ['style', 'data-line-height'],
+    h1: ['style', 'data-line-height'],
+    h2: ['style', 'data-line-height'],
+    h3: ['style', 'data-line-height'],
     li: ['style', 'data-type', 'data-checked'],
     ul: ['data-type'],
     ol: ['start'],
@@ -56,7 +64,11 @@ const sanitizeOptions = {
         type: attribs.type === 'checkbox' ? 'checkbox' : 'text',
         ...(attribs.checked !== undefined ? { checked: 'checked' } : {})
       }
-    })
+    }),
+    p: withLineHeight,
+    h1: withLineHeight,
+    h2: withLineHeight,
+    h3: withLineHeight
   },
   exclusiveFilter: (frame) => {
     if (frame.tag !== 'img') return false;

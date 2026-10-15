@@ -438,6 +438,15 @@ const seedSystemRoles = async () => {
       await replaceRolePermissions(roleId, role.codes);
     }
 
+    if (role.code === 'solicitante') {
+      await query(
+        `DELETE rp FROM role_permissions rp
+         INNER JOIN permissions p ON p.id = rp.permission_id
+         WHERE rp.role_id = ? AND p.code IN ('views.create', 'views.edit')`,
+        [roleId]
+      );
+    }
+
     if (role.codes.includes('assignments.transfer')) {
       const transfer = await query(
         `SELECT s.id

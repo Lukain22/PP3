@@ -210,6 +210,9 @@ exports.saveViewLayout = (req, res) => {
 };
 
 exports.createView = (req, res) => {
+  if (req.user.role === 'user') {
+    return res.status(403).json({ message: 'No podés crear vistas' });
+  }
   validateViewPayload(req.body, req.user, (err, payload) => {
     if (err) return res.status(400).json({ message: err.message });
 
@@ -247,6 +250,9 @@ exports.createView = (req, res) => {
 };
 
 exports.updateView = (req, res) => {
+  if (req.user.role === 'user') {
+    return res.status(403).json({ message: 'No podés editar vistas' });
+  }
   const { id } = req.params;
 
   db.query('SELECT * FROM ticket_views WHERE id = ?', [id], (err, rows) => {
@@ -298,6 +304,9 @@ exports.updateView = (req, res) => {
 };
 
 exports.deleteView = (req, res) => {
+  if (req.user.role === 'user') {
+    return res.status(403).json({ message: 'No podés eliminar vistas' });
+  }
   const { id } = req.params;
 
   db.query('SELECT user_id FROM ticket_views WHERE id = ?', [id], (err, rows) => {

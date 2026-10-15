@@ -72,6 +72,17 @@
   min-height: 0;
 }
 
+.ProseMirror [data-line-height='1'],
+.rich-text-content [data-line-height='1'] { line-height: 1; }
+.ProseMirror [data-line-height='1.15'],
+.rich-text-content [data-line-height='1.15'] { line-height: 1.15; }
+.ProseMirror [data-line-height='1.5'],
+.rich-text-content [data-line-height='1.5'] { line-height: 1.5; }
+.ProseMirror [data-line-height='1.75'],
+.rich-text-content [data-line-height='1.75'] { line-height: 1.75; }
+.ProseMirror [data-line-height='2'],
+.rich-text-content [data-line-height='2'] { line-height: 2; }
+
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;

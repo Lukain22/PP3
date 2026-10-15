@@ -29,6 +29,7 @@ export type SystemViewKey =
   | 'all_requests'
   | 'all_my_groups'
   | 'all_my_requests'
+  | 'resolved_my_requests'
   | 'pending_my_requests';
 
 export interface SystemViewDefinition {
@@ -89,6 +90,14 @@ export const SYSTEM_VIEWS: SystemViewDefinition[] = [
     roles: ['admin', 'technician', 'user'],
     listMode: 'user',
     filters: emptyTicketListFilters(),
+    sortBy: 'date-desc'
+  },
+  {
+    key: 'resolved_my_requests',
+    name: 'Mis solicitudes resueltas',
+    roles: ['user'],
+    listMode: 'user',
+    filters: { ...emptyTicketListFilters(), status: 'resolved' },
     sortBy: 'date-desc'
   },
   {
@@ -339,7 +348,7 @@ export function resolveTicketViewItemKey(search: string, role: UserRole): string
       const allowed = getSystemViewsForRole(role).some((view) => view.key === parsed.key);
       if (allowed) return param;
     }
-    if (parsed?.kind === 'custom' && parsed.viewId) {
+    if (role !== 'user' && parsed?.kind === 'custom' && parsed.viewId) {
       return param;
     }
   }
@@ -351,7 +360,7 @@ export function resolveTicketViewItemKey(search: string, role: UserRole): string
       const allowed = getSystemViewsForRole(role).some((view) => view.key === parsed.key);
       if (allowed) return last;
     }
-    if (parsed?.kind === 'custom' && parsed.viewId) {
+    if (role !== 'user' && parsed?.kind === 'custom' && parsed.viewId) {
       return last;
     }
   }

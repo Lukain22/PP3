@@ -81,6 +81,30 @@ export function isDescriptionEmpty(html: string) {
   return !/data-attachment-id="\d+"/.test(html || '') && !/data-pending="[^"]+"/.test(html || '');
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+export function plainTextToEditorHtml(value: string) {
+  if (!value) return '';
+  if (isRichHtml(value)) return value;
+  return value
+    .split(/\n{2,}/)
+    .map((block) => `<p>${escapeHtml(block).replace(/\n/g, '<br>')}</p>`)
+    .join('');
+}
+
+export function appendPlainTextToHtml(html: string, text: string) {
+  const addition = plainTextToEditorHtml(text);
+  if (!addition) return html;
+  if (isDescriptionEmpty(html)) return addition;
+  const base = isRichHtml(html) ? html : plainTextToEditorHtml(html);
+  return `${base}${addition}`;
+}
+
 export function plainTextFromDescription(value: string) {
   if (!value) return '';
   if (!isRichHtml(value)) return value;

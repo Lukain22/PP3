@@ -59,9 +59,7 @@ const ALL_CODES = PERMISSIONS.map((item) => item.code);
 const SOLICITANTE_CODES = [
   'tickets.create',
   'tickets.comment',
-  'tickets.attach',
-  'views.create',
-  'views.edit'
+  'tickets.attach'
 ];
 
 const OPERADOR_CODES = [

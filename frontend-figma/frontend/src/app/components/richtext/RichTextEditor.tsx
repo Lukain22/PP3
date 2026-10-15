@@ -33,11 +33,12 @@ import TableCell from '@tiptap/extension-table-cell';
 import TableHeader from '@tiptap/extension-table-header';
 import { Extension } from '@tiptap/core';
 import { toast } from 'sonner';
-import { MAX_ATTACHMENT_BYTES, uploadTicketAttachments } from '../../../lib/attachments';
+import { MAX_ATTACHMENT_BYTES, uploadTicketAttachments, type AttachmentScope } from '../../../lib/attachments';
 import { fetchAttachmentObjectUrl, htmlForStorage } from '../../../lib/richText';
 import './richText.css';
 
 const FONT_SIZES = ['12px', '14px', '16px', '18px', '20px', '24px', '28px'];
+const LINE_HEIGHTS = ['1', '1.15', '1.5', '1.75', '2'];
 
 const FontSize = Extension.create({
   name: 'fontSize',
@@ -52,6 +53,27 @@ const FontSize = Extension.create({
             if (!attributes.fontSize) return {};
             return { style: `font-size: ${attributes.fontSize}` };
           }
+        }
+      }
+    }];
+  }
+});
+
+const LineHeight = Extension.create({
+  name: 'lineHeight',
+  addGlobalAttributes() {
+    return [{
+      types: ['paragraph', 'heading'],
+      attributes: {
+        lineHeight: {
+          default: null,
+          parseHTML: (element) => {
+            const value = element.getAttribute('data-line-height');
+            return value && LINE_HEIGHTS.includes(value) ? value : null;
+          },
+          renderHTML: (attributes) => (
+            attributes.lineHeight ? { 'data-line-height': attributes.lineHeight } : {}
+          )
         }
       }
     }];
@@ -82,7 +104,10 @@ const InlineImage = Image.extend({
 
 export interface RichTextEditorHandle {
   hasPendingImages: () => boolean;
-  flushPendingImages: (ticketId: number | string) => Promise<{ ok: boolean; html: string }>;
+  flushPendingImages: (
+    ticketId: number | string,
+    options?: { context?: AttachmentScope; commentId?: number }
+  ) => Promise<{ ok: boolean; html: string }>;
 }
 
 interface RichTextEditorProps {
@@ -91,6 +116,8 @@ interface RichTextEditorProps {
   ticketId?: number | string;
   placeholder?: string;
   bounded?: boolean;
+  attachmentContext?: AttachmentScope;
+  commentId?: number;
 }
 
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp']);
@@ -127,7 +154,9 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
   onChange,
   ticketId,
   placeholder = 'Describí el problema. Podés pegar capturas con Ctrl + V.',
-  bounded = false
+  bounded = false,
+  attachmentContext = 'ticket',
+  commentId
 }, ref) {
   const filesRef = useRef(new Map<string, File>());
   const lastHtml = useRef(value);
@@ -141,6 +170,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
       Underline,
       TextStyle,
       FontSize,
+      LineHeight,
       Color,
       Highlight.configure({ multicolor: true }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
@@ -200,7 +230,11 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
   insertImageRef.current = async (file: File) => {
     if (!editor) return;
     if (ticketId) {
-      const uploaded = await uploadTicketAttachments(ticketId, [file], { inline: true });
+      const uploaded = await uploadTicketAttachments(ticketId, [file], {
+        inline: true,
+        context: attachmentContext,
+        commentId
+      });
       const attachment = uploaded.data?.[0];
       if (!uploaded.ok || !attachment) {
         toast.error(uploaded.message || 'No se pudo guardar la imagen');
@@ -258,7 +292,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
 
   useImperativeHandle(ref, () => ({
     hasPendingImages: () => filesRef.current.size > 0,
-    flushPendingImages: async (nextTicketId) => {
+    flushPendingImages: async (nextTicketId, options) => {
       if (!editor) return { ok: false, html: value };
       const pending: { pos: number; pendingId: string; file: File }[] = [];
       editor.state.doc.descendants((node, pos) => {
@@ -268,7 +302,11 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
       });
 
       for (const item of [...pending].reverse()) {
-        const uploaded = await uploadTicketAttachments(nextTicketId, [item.file], { inline: true });
+        const uploaded = await uploadTicketAttachments(nextTicketId, [item.file], {
+          inline: true,
+          context: options?.context || attachmentContext,
+          commentId: options?.commentId || commentId
+        });
         const attachment = uploaded.data?.[0];
         if (!uploaded.ok || !attachment) return { ok: false, html: htmlForStorage(editor.getHTML()) };
         const node = editor.state.doc.nodeAt(item.pos);
@@ -288,7 +326,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
       onChange(html);
       return { ok: true, html };
     }
-  }), [editor, value]);
+  }), [editor, value, attachmentContext, commentId]);
 
   if (!editor) return null;
 
@@ -318,6 +356,22 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
         >
           <MenuItem value="">Tamaño</MenuItem>
           {FONT_SIZES.map((size) => <MenuItem key={size} value={size}>{size.replace('px', '')}</MenuItem>)}
+        </Select>
+        <Select
+          size="small"
+          value={(editor.isActive('heading') ? editor.getAttributes('heading').lineHeight : editor.getAttributes('paragraph').lineHeight) || ''}
+          displayEmpty
+          onChange={(e) => {
+            const next = e.target.value || null;
+            const chain = editor.chain().focus();
+            if (editor.isActive('heading')) chain.updateAttributes('heading', { lineHeight: next });
+            else chain.updateAttributes('paragraph', { lineHeight: next });
+            chain.run();
+          }}
+          sx={{ minWidth: 108, mx: 0.5, '& .MuiSelect-select': { py: 0.4, fontSize: '0.8rem' } }}
+        >
+          <MenuItem value="">Interlineado</MenuItem>
+          {LINE_HEIGHTS.map((height) => <MenuItem key={height} value={height}>{height}</MenuItem>)}
         </Select>
         <Tooltip title="Color de texto">
           <Box component="label" sx={{ display: 'inline-flex', alignItems: 'center', px: 0.5, cursor: 'pointer' }}>

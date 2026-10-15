@@ -159,13 +159,14 @@ export default function TicketViewSelect({
       kind: 'system',
       system
     }));
+    if (role === 'user') return systemItems;
     const customItems: ViewMenuItem[] = customViews.map((view) => ({
       itemKey: viewIdToItemKey(view.id),
       kind: 'custom',
       view
     }));
     return sortViewItems([...systemItems, ...customItems], layoutOrder);
-  }, [systemViews, customViews, layoutOrder]);
+  }, [role, systemViews, customViews, layoutOrder]);
 
   const visibleMenuItems = useMemo(() => {
     const query = viewQuery.trim().toLocaleLowerCase();
@@ -452,7 +453,7 @@ export default function TicketViewSelect({
             return (
               <ListItemButton
                 key={item.itemKey}
-                draggable={!reordering}
+                draggable={role !== 'user' && !reordering}
                 selected={isActive}
                 onClick={() => handleViewClick(item)}
                 onDragStart={(e) => {
@@ -487,7 +488,7 @@ export default function TicketViewSelect({
                   py: 1,
                   pr: 1,
                   opacity: isDragging ? 0.45 : 1,
-                  cursor: reordering ? 'wait' : 'grab',
+                  cursor: role === 'user' ? 'pointer' : reordering ? 'wait' : 'grab',
                   bgcolor: isDragOver ? 'action.hover' : undefined,
                   borderTop: isDragOver ? '2px solid' : '2px solid transparent',
                   borderColor: isDragOver ? 'primary.main' : 'transparent',
@@ -507,7 +508,9 @@ export default function TicketViewSelect({
                   }
                 }}
               >
-                <DragIndicatorIcon sx={{ fontSize: 18, color: 'text.disabled', mr: 0.5, flexShrink: 0 }} />
+                {role !== 'user' && (
+                  <DragIndicatorIcon sx={{ fontSize: 18, color: 'text.disabled', mr: 0.5, flexShrink: 0 }} />
+                )}
                 {item.kind === 'custom' && (
                   <Box sx={{ mr: 1, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
                     {item.view.visibility === 'group' ? (
@@ -599,12 +602,15 @@ export default function TicketViewSelect({
             </Typography>
           )}
 
-          <Divider sx={{ my: 0.5 }} />
-
-          <ListItemButton onClick={openCreateDialog}>
-            <AddIcon sx={{ fontSize: 18, mr: 1.5 }} />
-            <ListItemText primary="Crear vista con filtros actuales" />
-          </ListItemButton>
+          {role !== 'user' && (
+            <>
+              <Divider sx={{ my: 0.5 }} />
+              <ListItemButton onClick={openCreateDialog}>
+                <AddIcon sx={{ fontSize: 18, mr: 1.5 }} />
+                <ListItemText primary="Crear vista con filtros actuales" />
+              </ListItemButton>
+            </>
+          )}
         </Box>
       </Popover>
 

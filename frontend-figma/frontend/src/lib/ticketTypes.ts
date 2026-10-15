@@ -66,8 +66,9 @@ export function formatHistoryValue(field: string | null, value: string | null): 
     const text = value.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
     return text.length > 80 ? `${text.slice(0, 80)}…` : text || '—';
   }
-  if (field === 'resolution' && value.length > 120) {
-    return `${value.slice(0, 120)}…`;
+  if (field === 'resolution') {
+    const text = value.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
+    return text.length > 120 ? `${text.slice(0, 120)}…` : text || '—';
   }
   return value;
 }

@@ -6,9 +6,10 @@ import './richText.css';
 interface RichTextViewProps {
   value: string;
   ticketId?: number | string;
+  emptyLabel?: string;
 }
 
-export default function RichTextView({ value, ticketId }: RichTextViewProps) {
+export default function RichTextView({ value, ticketId, emptyLabel = 'Sin descripción' }: RichTextViewProps) {
   const ref = useRef<HTMLDivElement>(null);
   const urls = useRef<string[]>([]);
 
@@ -34,7 +35,7 @@ export default function RichTextView({ value, ticketId }: RichTextViewProps) {
   }, [value, ticketId]);
 
   if (!value) {
-    return <Typography variant="body2" color="text.secondary">Sin descripción</Typography>;
+    return <Typography variant="body2" color="text.secondary">{emptyLabel}</Typography>;
   }
 
   if (!isRichHtml(value)) {

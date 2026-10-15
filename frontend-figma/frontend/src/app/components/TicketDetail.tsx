@@ -49,7 +49,8 @@ import InlineEditSelect from './InlineEditSelect';
 import RichTextEditor, { type RichTextEditorHandle } from './richtext/RichTextEditor';
 import RichTextView from './richtext/RichTextView';
 import TicketSolutions from './TicketSolutions';
-import { isDescriptionEmpty } from '../../lib/richText';
+import { appendPlainTextToHtml, isDescriptionEmpty } from '../../lib/richText';
+import { uploadTicketAttachments } from '../../lib/attachments';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -210,6 +211,7 @@ function HistoryGroupCard({
 
 function CommentCard({
   comment,
+  ticketId,
   formatDateTime,
   admin,
   isEditing,
@@ -222,6 +224,7 @@ function CommentCard({
   onCancelEdit
 }: {
   comment: Comment;
+  ticketId: string;
   formatDateTime: (date: string) => string;
   admin: boolean;
   isEditing: boolean;
@@ -280,16 +283,17 @@ function CommentCard({
       {showContent && (
         isEditing ? (
           <Stack spacing={1}>
-            <TextField
-              fullWidth
-              multiline
-              size="small"
+            <RichTextEditor
               value={editingText}
-              onChange={(e) => onEditTextChange(e.target.value)}
-              autoFocus
+              onChange={onEditTextChange}
+              ticketId={ticketId}
+              attachmentContext="comment"
+              commentId={comment.id}
+              placeholder="Editá la nota. Podés pegar capturas con Ctrl + V."
             />
+            <TicketAttachments ticketId={ticketId} scope="comment" commentId={comment.id} />
             <Stack direction="row" spacing={1}>
-              <Button size="small" variant="contained" disabled={busy} onClick={onSaveEdit}>
+              <Button size="small" variant="contained" disabled={busy || isDescriptionEmpty(editingText)} onClick={onSaveEdit}>
                 Guardar
               </Button>
               <Button size="small" variant="text" onClick={onCancelEdit}>
@@ -298,9 +302,15 @@ function CommentCard({
             </Stack>
           </Stack>
         ) : (
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-            {comment.content}
-          </Typography>
+          <Stack spacing={1}>
+            <RichTextView value={comment.content} ticketId={ticketId} emptyLabel="Sin nota" />
+            <TicketAttachments
+              ticketId={ticketId}
+              scope="comment"
+              commentId={comment.id}
+              hideWhenEmpty={!can('tickets.attach')}
+            />
+          </Stack>
         )
       )}
     </Box>
@@ -327,6 +337,7 @@ export default function TicketDetail() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [resolution, setResolution] = useState<Resolution | null>(null);
   const [resolutionText, setResolutionText] = useState('');
+  const [resolutionFileCount, setResolutionFileCount] = useState(0);
   const [resolutionSection, setResolutionSection] = useState<'resolution' | 'solutions'>('resolution');
   const [savingResolution, setSavingResolution] = useState(false);
   const [reopening, setReopening] = useState(false);
@@ -335,7 +346,9 @@ export default function TicketDetail() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const editorRef = useRef<RichTextEditorHandle>(null);
+  const commentEditorRef = useRef<RichTextEditorHandle>(null);
   const [commentText, setCommentText] = useState('');
+  const [commentFiles, setCommentFiles] = useState<File[]>([]);
   const [commentDialogOpen, setCommentDialogOpen] = useState(false);
   const [postingComment, setPostingComment] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
@@ -563,12 +576,12 @@ export default function TicketDetail() {
   };
 
   const handleEditComment = async (commentId: number) => {
-    if (!editingCommentText.trim()) return;
+    if (isDescriptionEmpty(editingCommentText)) return;
     setBusyCommentId(commentId);
     try {
       const result = await apiCall(`/admin/comments/${commentId}`, {
         method: 'PATCH',
-        body: JSON.stringify({ content: editingCommentText.trim() })
+        body: JSON.stringify({ content: editingCommentText })
       });
       if (!result) return;
       if (!result.response.ok) { toast.error(result.data.message || 'No se pudo editar'); return; }
@@ -599,7 +612,10 @@ export default function TicketDetail() {
   };
 
   const handleSaveResolution = async () => {
-    if (!resolutionText.trim()) {
+    const content = isDescriptionEmpty(resolutionText)
+      ? (resolutionFileCount > 0 ? '<p>Archivo adjunto</p>' : '')
+      : resolutionText;
+    if (!content) {
       toast.error('La resolución no puede estar vacía');
       return;
     }
@@ -608,7 +624,7 @@ export default function TicketDetail() {
     try {
       const result = await apiCall(`/tickets/${id}/resolution`, {
         method: 'POST',
-        body: JSON.stringify({ content: resolutionText.trim() })
+        body: JSON.stringify({ content })
       });
       if (!result) return;
       if (!result.response.ok) {
@@ -651,16 +667,39 @@ export default function TicketDetail() {
 
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!commentText.trim()) return;
+    if (!id) return;
+    if (isDescriptionEmpty(commentText) && commentFiles.length === 0) return;
     setPostingComment(true);
     try {
+      let content = commentText;
+      if (commentEditorRef.current?.hasPendingImages()) {
+        const flushed = await commentEditorRef.current.flushPendingImages(id, { context: 'comment' });
+        if (!flushed.ok) {
+          toast.error('No se pudieron guardar las imágenes pegadas');
+          return;
+        }
+        content = flushed.html;
+      } else if (isDescriptionEmpty(content)) {
+        content = '<p>Archivo adjunto</p>';
+      }
+
       const result = await apiCall(`/tickets/${id}/comments`, {
         method: 'POST',
-        body: JSON.stringify({ content: commentText.trim() })
+        body: JSON.stringify({ content })
       });
       if (!result) return;
       if (!result.response.ok) { toast.error(result.data.message || 'No se pudo agregar el comentario'); return; }
+
+      const commentId = Number(result.data.id);
+      if (commentFiles.length > 0 && commentId) {
+        const uploaded = await uploadTicketAttachments(id, commentFiles, { context: 'comment', commentId });
+        if (!uploaded.ok) {
+          toast.error(uploaded.message || 'La nota se guardó, pero falló la subida de archivos');
+        }
+      }
+
       setCommentText('');
+      setCommentFiles([]);
       setCommentDialogOpen(false);
       toast.success('Comentario agregado');
       await loadComments();
@@ -675,6 +714,7 @@ export default function TicketDetail() {
     if (postingComment) return;
     setCommentDialogOpen(false);
     setCommentText('');
+    setCommentFiles([]);
   };
 
   if (loading) {
@@ -1279,6 +1319,7 @@ export default function TicketDetail() {
               <CommentCard
                 key={comment.id}
                 comment={comment}
+                ticketId={String(id)}
                 formatDateTime={formatDateTime}
                 admin={canModerateComments}
                 isEditing={editingCommentId === comment.id}
@@ -1298,20 +1339,22 @@ export default function TicketDetail() {
         </Stack>
       </Paper>
 
-      <Dialog open={commentDialogOpen} onClose={closeCommentDialog} maxWidth="sm" fullWidth>
+      <Dialog open={commentDialogOpen} onClose={closeCommentDialog} maxWidth="md" fullWidth>
         <Box component="form" onSubmit={handleAddComment}>
           <DialogTitle>Nuevo comentario</DialogTitle>
           <DialogContent>
-            <TextField
-              fullWidth
-              multiline
-              minRows={4}
-              autoFocus
-              placeholder="Escribí un comentario o actualización..."
+            <RichTextEditor
+              ref={commentEditorRef}
               value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              sx={{ mt: 0.5 }}
+              onChange={setCommentText}
+              placeholder="Escribí una nota. Podés pegar capturas con Ctrl + V."
             />
+            <Box sx={{ mt: 1.5 }}>
+              <TicketAttachments
+                pendingFiles={commentFiles}
+                onPendingFilesChange={setCommentFiles}
+              />
+            </Box>
           </DialogContent>
           <DialogActions>
             <Button onClick={closeCommentDialog} disabled={postingComment}>
@@ -1321,7 +1364,7 @@ export default function TicketDetail() {
               type="submit"
               variant="contained"
               startIcon={<SendIcon />}
-              disabled={postingComment || !commentText.trim()}
+              disabled={postingComment || (isDescriptionEmpty(commentText) && commentFiles.length === 0)}
             >
               {postingComment ? 'Enviando...' : 'Agregar comentario'}
             </Button>
@@ -1363,9 +1406,17 @@ export default function TicketDetail() {
               <Box component="span" sx={{ fontWeight: 700 }}>Resuelto por</Box>{' '}
               {resolution.resolved_by_email} · {formatDateTime(resolution.updated_at || resolution.created_at)}
             </Typography>
-            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word', maxHeight: 'clamp(140px, calc(100vh - 460px), 240px)', overflowY: 'auto', overflowX: 'hidden' }}>
-              {resolution.content}
-            </Typography>
+            <Box sx={{ maxHeight: 'clamp(160px, calc(100vh - 460px), 320px)', overflowY: 'auto', overflowX: 'hidden' }}>
+              <RichTextView value={resolution.content} ticketId={ticket.id} emptyLabel="Sin resolución" />
+            </Box>
+            <Box sx={{ mt: 1.5 }}>
+              <TicketAttachments
+                ticketId={ticket.id}
+                scope="resolution"
+                showUpload={can('tickets.attach')}
+                hideWhenEmpty={!can('tickets.attach')}
+              />
+            </Box>
           </Box>
           <Box>
             {canReopen && (
@@ -1376,35 +1427,24 @@ export default function TicketDetail() {
           </Box>
         </>
       ) : canResolve ? (
-        <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 0, maxHeight: 'calc(100vh - 320px)' }}>
-          <TextField
-            fullWidth
-            multiline
-            minRows={6}
-            maxRows={8}
-            label="Registrar resolución"
-            value={resolutionText}
-            onChange={(e) => setResolutionText(e.target.value)}
-            placeholder="Describí cómo se resolvió el ticket..."
-            sx={{
-              flex: '1 1 auto',
-              minHeight: 0,
-              '& .MuiInputBase-root': { alignItems: 'flex-start' },
-              '& textarea': {
-                maxHeight: 'clamp(140px, calc(100vh - 460px), 240px) !important',
-                overflowY: 'auto !important',
-                overflowX: 'hidden',
-                overflowWrap: 'anywhere',
-                wordBreak: 'break-word',
-                whiteSpace: 'pre-wrap',
-                resize: 'none'
-              }
-            }}
-          />
+        <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <Box sx={{ height: 'clamp(220px, calc(100vh - 460px), 340px)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <RichTextEditor
+              bounded
+              value={resolutionText}
+              onChange={setResolutionText}
+              ticketId={id}
+              attachmentContext="resolution"
+              placeholder="Describí cómo se resolvió. Podés pegar capturas con Ctrl + V."
+            />
+          </Box>
+          <Box sx={{ flexShrink: 0, pt: 1.5 }}>
+            <TicketAttachments ticketId={id} scope="resolution" onCountChange={setResolutionFileCount} />
+          </Box>
           <Box sx={{ flexShrink: 0, pt: 1.5 }}>
             <Button
               variant="contained"
-              disabled={savingResolution || !resolutionText.trim()}
+              disabled={savingResolution || (isDescriptionEmpty(resolutionText) && resolutionFileCount === 0)}
               onClick={handleSaveResolution}
             >
               {savingResolution ? 'Guardando...' : 'Registrar resolución'}
@@ -1426,9 +1466,12 @@ export default function TicketDetail() {
         <Box component="span" sx={{ fontWeight: 700 }}>Resuelto por</Box>{' '}
         {resolution.resolved_by_email} · {formatDateTime(resolution.updated_at || resolution.created_at)}
       </Typography>
-      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word', maxHeight: 'clamp(140px, calc(100vh - 460px), 240px)', overflowY: 'auto', overflowX: 'hidden' }}>
-        {resolution.content}
-      </Typography>
+      <Box sx={{ maxHeight: 'clamp(160px, calc(100vh - 460px), 320px)', overflowY: 'auto', overflowX: 'hidden' }}>
+        <RichTextView value={resolution.content} ticketId={ticket.id} emptyLabel="Sin resolución" />
+      </Box>
+      <Box sx={{ mt: 1.5 }}>
+        <TicketAttachments ticketId={ticket.id} scope="resolution" showUpload={false} hideWhenEmpty />
+      </Box>
     </Box>
   ) : (
     <Typography variant="body2" color="text.secondary">
@@ -1470,7 +1513,7 @@ export default function TicketDetail() {
                   ticketId={String(id)}
                   canApply={!isResolved}
                   onApply={(text) => {
-                    setResolutionText((prev) => prev.trim() ? `${prev.trim()}\n\n${text}` : text);
+                    setResolutionText((prev) => appendPlainTextToHtml(prev, text));
                     setResolutionSection('resolution');
                     toast.success('Solución aplicada correctamente.');
                   }}

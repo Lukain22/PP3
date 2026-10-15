@@ -11,6 +11,7 @@ const { appendExtendedListFilters, resolveTicketOrderBy } = require('../utils/ti
 const { notifyTicketCreatorOnChanges, notifyOnComment } = require('../utils/notifications');
 const { assertTicketMutation } = require('../rbac/guard');
 const { sanitizeDescription, isEmptyDescription } = require('../utils/richText');
+const { removeScopedAttachments } = require('../utils/attachments');
 const { syncSystemRoleForAccount } = require('../rbac/service');
 
 const SLA_SELECT = 't.sla_response_due, t.sla_resolution_due, t.sla_status';
@@ -225,7 +226,10 @@ exports.updateAnyTicket = (req, res) => {
           const nextStatus = updates.status !== undefined ? updates.status : oldTicket.status;
           const clearResolution = (done) => {
             if (oldTicket.status === 'resolved' && nextStatus !== 'resolved') {
-              return db.query('DELETE FROM ticket_resolutions WHERE ticket_id = ?', [id], (clearErr) => done(clearErr));
+              return db.query('DELETE FROM ticket_resolutions WHERE ticket_id = ?', [id], (clearErr) => {
+                if (clearErr) return done(clearErr);
+                removeScopedAttachments('ticket_id = ? AND context = ?', [id, 'resolution'], done);
+              });
             }
             done(null);
           };
@@ -377,9 +381,12 @@ exports.getAnyTicketComments = (req, res) => {
 
 exports.addAnyTicketComment = (req, res) => {
   const { id } = req.params;
-  const { content } = req.body;
+  const content = (() => {
+    const clean = sanitizeDescription(req.body.content);
+    return isEmptyDescription(clean) ? '' : clean;
+  })();
 
-  if (!content || !String(content).trim()) {
+  if (!content) {
     return res.status(400).json({ message: 'El comentario no puede estar vacío' });
   }
 
@@ -399,7 +406,7 @@ exports.addAnyTicketComment = (req, res) => {
 
       db.query(
         'INSERT INTO ticket_comments (ticket_id, user_id, content) VALUES (?, ?, ?)',
-        [id, req.user.id, String(content).trim()],
+        [id, req.user.id, content],
         (insertErr, result) => {
           if (insertErr) {
             console.error('Error en addAnyTicketComment:', insertErr.code);
@@ -481,15 +488,18 @@ exports.getUsers = (req, res) => {
 
 exports.updateAnyComment = (req, res) => {
   const { commentId } = req.params;
-  const { content } = req.body;
+  const content = (() => {
+    const clean = sanitizeDescription(req.body.content);
+    return isEmptyDescription(clean) ? '' : clean;
+  })();
 
-  if (!content || !String(content).trim()) {
+  if (!content) {
     return res.status(400).json({ message: 'El comentario no puede estar vacío' });
   }
 
   db.query(
     'UPDATE ticket_comments SET content = ? WHERE id = ?',
-    [String(content).trim(), commentId],
+    [content, commentId],
     (err, result) => {
       if (err) {
         console.error('Error en updateAnyComment:', err.code);
@@ -506,6 +516,12 @@ exports.updateAnyComment = (req, res) => {
 exports.deleteAnyComment = (req, res) => {
   const { commentId } = req.params;
 
+  removeScopedAttachments('comment_id = ?', [commentId], (fileErr) => {
+    if (fileErr) {
+      console.error('Error eliminando adjuntos del comentario:', fileErr.code);
+      return res.status(500).json({ message: 'Error al eliminar adjuntos de la nota' });
+    }
+
   db.query(
     'DELETE FROM ticket_comments WHERE id = ?',
     [commentId],
@@ -520,6 +536,7 @@ exports.deleteAnyComment = (req, res) => {
       res.json({ message: 'Comentario eliminado' });
     }
   );
+  });
 };
 
 exports.updateUserRole = (req, res) => {

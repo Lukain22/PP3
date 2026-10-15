@@ -27,11 +27,21 @@ export function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export async function fetchTicketAttachments(ticketId: number | string): Promise<TicketAttachment[]> {
+export type AttachmentScope = 'ticket' | 'resolution' | 'comment';
+
+export async function fetchTicketAttachments(
+  ticketId: number | string,
+  options?: { scope?: AttachmentScope; commentId?: number }
+): Promise<TicketAttachment[]> {
   const token = getToken();
   if (!token) return [];
 
-  const response = await fetch(`${API_URL}/tickets/${ticketId}/attachments`, {
+  const params = new URLSearchParams();
+  if (options?.scope && options.scope !== 'ticket') params.set('context', options.scope);
+  if (options?.commentId) params.set('comment_id', String(options.commentId));
+  const query = params.toString();
+
+  const response = await fetch(`${API_URL}/tickets/${ticketId}/attachments${query ? `?${query}` : ''}`, {
     headers: { Authorization: `Bearer ${token}` }
   });
 
@@ -43,7 +53,7 @@ export async function fetchTicketAttachments(ticketId: number | string): Promise
 export async function uploadTicketAttachments(
   ticketId: number | string,
   files: File[],
-  options?: { inline?: boolean }
+  options?: { inline?: boolean; context?: AttachmentScope; commentId?: number }
 ): Promise<{ ok: boolean; message?: string; data?: TicketAttachment[] }> {
   const token = getToken();
   if (!token) return { ok: false, message: 'Sesión expirada' };
@@ -52,6 +62,8 @@ export async function uploadTicketAttachments(
   const formData = new FormData();
   files.forEach((file) => formData.append('files', file));
   if (options?.inline) formData.append('inline', '1');
+  if (options?.context) formData.append('context', options.context);
+  if (options?.commentId) formData.append('comment_id', String(options.commentId));
 
   const response = await fetch(`${API_URL}/tickets/${ticketId}/attachments`, {
     method: 'POST',

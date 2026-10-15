@@ -20,6 +20,7 @@ const {
 } = require('../utils/notifications');
 const { assertPermission, assertTicketMutation } = require('../rbac/guard');
 const { sanitizeDescription, isEmptyDescription } = require('../utils/richText');
+const { removeScopedAttachments } = require('../utils/attachments');
 
 const SLA_SELECT = 'sla_response_due, sla_resolution_due, sla_status, sla_paused_at';
 
@@ -27,9 +28,17 @@ const VALID_STATUSES = ['open', 'in-progress', 'on-hold', 'resolved'];
 const VALID_PRIORITIES = ['low', 'medium', 'high'];
 const VALID_TYPES = ['incident', 'requirement'];
 
+const prepareRichContent = (value) => {
+  const clean = sanitizeDescription(value);
+  return isEmptyDescription(clean) ? '' : clean;
+};
+
 const clearResolutionOnReopen = (ticketId, oldStatus, newStatus, done) => {
   if (oldStatus === 'resolved' && newStatus && newStatus !== 'resolved') {
-    return db.query('DELETE FROM ticket_resolutions WHERE ticket_id = ?', [ticketId], (err) => done(err));
+    return db.query('DELETE FROM ticket_resolutions WHERE ticket_id = ?', [ticketId], (err) => {
+      if (err) return done(err);
+      removeScopedAttachments('ticket_id = ? AND context = ?', [ticketId, 'resolution'], done);
+    });
   }
   done(null);
 };
@@ -583,9 +592,9 @@ exports.addTicketComment = (req, res) => {
 
 const runAddTicketComment = (req, res) => {
   const { id } = req.params;
-  const { content } = req.body;
+  const content = prepareRichContent(req.body.content);
 
-  if (!content || !String(content).trim()) {
+  if (!content) {
     return res.status(400).json({ message: 'El comentario no puede estar vacío' });
   }
 
@@ -595,7 +604,7 @@ const runAddTicketComment = (req, res) => {
 
     db.query(
       'INSERT INTO ticket_comments (ticket_id, user_id, content) VALUES (?, ?, ?)',
-      [id, req.user.id, String(content).trim()],
+      [id, req.user.id, content],
       (insertErr, result) => {
         if (insertErr) return res.status(500).json({ message: 'Error al agregar comentario' });
         notifyOnComment(ticket, req.user.id, req.user.role);
@@ -635,9 +644,9 @@ exports.saveTicketResolution = (req, res) => {
 
 const runSaveTicketResolution = (req, res) => {
   const { id } = req.params;
-  const { content } = req.body;
+  const content = prepareRichContent(req.body.content);
 
-  if (!content || !String(content).trim()) {
+  if (!content) {
     return res.status(400).json({ message: 'La resolución no puede estar vacía' });
   }
 
@@ -645,7 +654,7 @@ const runSaveTicketResolution = (req, res) => {
     if (err) return res.status(500).json({ message: 'Error al verificar ticket' });
     if (!ticket) return res.status(404).json({ message: 'Ticket no encontrado' });
 
-    const trimmed = String(content).trim();
+    const trimmed = content;
 
     db.query('SELECT id, content FROM ticket_resolutions WHERE ticket_id = ?', [id], (selErr, existing) => {
       if (selErr) return res.status(500).json({ message: 'Error al verificar resolución' });

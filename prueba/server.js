@@ -115,6 +115,12 @@ const runTicketMigrations = () => {
   db.query('ALTER TABLE tickets MODIFY COLUMN description MEDIUMTEXT NOT NULL', (err) => {
     if (err) console.error('Error migrando description a MEDIUMTEXT:', err.code);
   });
+  db.query('ALTER TABLE ticket_resolutions MODIFY COLUMN content MEDIUMTEXT NOT NULL', (err) => {
+    if (err) console.error('Error migrando resolución a MEDIUMTEXT:', err.code);
+  });
+  db.query('ALTER TABLE ticket_comments MODIFY COLUMN content MEDIUMTEXT NOT NULL', (err) => {
+    if (err) console.error('Error migrando comentarios a MEDIUMTEXT:', err.code);
+  });
   db.query('ALTER TABLE tickets MODIFY COLUMN priority VARCHAR(50) DEFAULT NULL', (err) => {
     if (err && err.errno !== 1060) console.error('Error migrando priority nullable:', err.code);
     backfillSlaData();
