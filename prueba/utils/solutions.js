@@ -1,4 +1,8 @@
+const fs = require('fs');
+const path = require('path');
 const db = require('../db/db');
+
+const SOLUTION_UPLOAD_ROOT = path.join(__dirname, '..', 'uploads', 'solutions');
 
 const initSolutionsTables = () => {
   db.query(
@@ -58,8 +62,45 @@ const initSolutionsTables = () => {
           else console.log('Tabla solution_uses lista');
         }
       );
+      db.query(
+        `CREATE TABLE IF NOT EXISTS solution_attachments (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          solution_id INT NOT NULL,
+          user_id INT NOT NULL,
+          original_name VARCHAR(255) NOT NULL,
+          stored_name VARCHAR(255) NOT NULL,
+          mime_type VARCHAR(100) NOT NULL,
+          size_bytes INT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (solution_id) REFERENCES solutions(id) ON DELETE CASCADE,
+          FOREIGN KEY (user_id) REFERENCES users(id)
+        )`,
+        (fileErr) => {
+          if (fileErr) console.error('Error creando tabla solution_attachments:', fileErr.code);
+          else console.log('Tabla solution_attachments lista');
+        }
+      );
     }
   );
 };
 
-module.exports = { initSolutionsTables };
+const ensureSolutionDir = (solutionId) => {
+  const dir = path.join(SOLUTION_UPLOAD_ROOT, String(solutionId));
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+};
+
+const getSolutionFilePath = (solutionId, storedName) =>
+  path.join(SOLUTION_UPLOAD_ROOT, String(solutionId), storedName);
+
+const removeSolutionFiles = (solutionId) => {
+  fs.rmSync(path.join(SOLUTION_UPLOAD_ROOT, String(solutionId)), { recursive: true, force: true });
+};
+
+module.exports = {
+  initSolutionsTables,
+  SOLUTION_UPLOAD_ROOT,
+  ensureSolutionDir,
+  getSolutionFilePath,
+  removeSolutionFiles
+};

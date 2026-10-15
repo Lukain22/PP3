@@ -81,6 +81,13 @@ const LineHeight = Extension.create({
 });
 
 const InlineImage = Image.extend({
+  parseHTML() {
+    return [
+      { tag: 'img[data-attachment-id]' },
+      { tag: 'img[data-pending]' },
+      { tag: 'img[src]:not([src^="data:"])' }
+    ];
+  },
   addAttributes() {
     return {
       ...(this.parent?.() || {}),
@@ -106,7 +113,11 @@ export interface RichTextEditorHandle {
   hasPendingImages: () => boolean;
   flushPendingImages: (
     ticketId: number | string,
-    options?: { context?: AttachmentScope; commentId?: number }
+    options?: {
+      context?: AttachmentScope;
+      commentId?: number;
+      upload?: (file: File) => Promise<{ id: string } | null>;
+    }
   ) => Promise<{ ok: boolean; html: string }>;
 }
 
@@ -118,6 +129,8 @@ interface RichTextEditorProps {
   bounded?: boolean;
   attachmentContext?: AttachmentScope;
   commentId?: number;
+  uploadInlineFile?: (file: File) => Promise<{ id: string } | null>;
+  resolveInlineUrl?: (attachmentId: string) => Promise<string | null>;
 }
 
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp']);
@@ -156,7 +169,9 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
   placeholder = 'Describí el problema. Podés pegar capturas con Ctrl + V.',
   bounded = false,
   attachmentContext = 'ticket',
-  commentId
+  commentId,
+  uploadInlineFile,
+  resolveInlineUrl
 }, ref) {
   const filesRef = useRef(new Map<string, File>());
   const lastHtml = useRef(value);
@@ -229,6 +244,20 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
 
   insertImageRef.current = async (file: File) => {
     if (!editor) return;
+    if (uploadInlineFile) {
+      const uploaded = await uploadInlineFile(file);
+      if (!uploaded) {
+        toast.error('No se pudo guardar la imagen');
+        return;
+      }
+      const url = resolveInlineUrl ? await resolveInlineUrl(uploaded.id) : null;
+      if (url) urls.current.push(url);
+      editor.chain().focus().insertContent({
+        type: 'image',
+        attrs: { src: url || '', attachmentId: uploaded.id }
+      }).run();
+      return;
+    }
     if (ticketId) {
       const uploaded = await uploadTicketAttachments(ticketId, [file], {
         inline: true,
@@ -259,23 +288,33 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
   };
 
   hydrateRef.current = (current: Editor) => {
-    if (!ticketId) return;
-    current.view.dom.querySelectorAll('img[data-attachment-id]').forEach((node) => {
-      const img = node as HTMLImageElement;
-      const attachmentId = img.getAttribute('data-attachment-id');
-      if (!attachmentId || img.getAttribute('data-hydrated') === attachmentId) return;
-      img.setAttribute('data-hydrated', attachmentId);
-      fetchAttachmentObjectUrl(ticketId, attachmentId).then((url) => {
+    const loadUrl = resolveInlineUrl
+      ? resolveInlineUrl
+      : ticketId
+        ? (attachmentId: string) => fetchAttachmentObjectUrl(ticketId, attachmentId)
+        : null;
+    if (!loadUrl) return;
+    const pending: { pos: number; id: string }[] = [];
+    current.state.doc.descendants((node, pos) => {
+      if (node.type.name !== 'image' || !node.attrs.attachmentId || node.attrs.src) return;
+      pending.push({ pos, id: String(node.attrs.attachmentId) });
+    });
+    pending.reverse().forEach(({ pos, id }) => {
+      loadUrl(id).then((url) => {
         if (!url) return;
+        const node = current.state.doc.nodeAt(pos);
+        if (!node || String(node.attrs.attachmentId) !== id || node.attrs.src) return;
         urls.current.push(url);
-        img.src = url;
+        const tr = current.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, src: url });
+        tr.setMeta('addToHistory', false);
+        current.view.dispatch(tr);
       });
     });
   };
 
   useEffect(() => {
     if (editor) hydrateRef.current(editor);
-  }, [editor, ticketId]);
+  }, [editor, ticketId, resolveInlineUrl]);
 
   useEffect(() => {
     if (!editor) return;
@@ -302,20 +341,28 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
       });
 
       for (const item of [...pending].reverse()) {
-        const uploaded = await uploadTicketAttachments(nextTicketId, [item.file], {
-          inline: true,
-          context: options?.context || attachmentContext,
-          commentId: options?.commentId || commentId
-        });
-        const attachment = uploaded.data?.[0];
-        if (!uploaded.ok || !attachment) return { ok: false, html: htmlForStorage(editor.getHTML()) };
+        let attachmentId = '';
+        if (options?.upload) {
+          const uploaded = await options.upload(item.file);
+          if (!uploaded) return { ok: false, html: htmlForStorage(editor.getHTML()) };
+          attachmentId = uploaded.id;
+        } else {
+          const uploaded = await uploadTicketAttachments(nextTicketId, [item.file], {
+            inline: true,
+            context: options?.context || attachmentContext,
+            commentId: options?.commentId || commentId
+          });
+          const attachment = uploaded.data?.[0];
+          if (!uploaded.ok || !attachment) return { ok: false, html: htmlForStorage(editor.getHTML()) };
+          attachmentId = String(attachment.id);
+        }
         const node = editor.state.doc.nodeAt(item.pos);
         if (!node) continue;
         const tr = editor.state.tr.setNodeMarkup(item.pos, undefined, {
           ...node.attrs,
           src: '',
           pendingId: null,
-          attachmentId: String(attachment.id)
+          attachmentId
         });
         editor.view.dispatch(tr);
         filesRef.current.delete(item.pendingId);

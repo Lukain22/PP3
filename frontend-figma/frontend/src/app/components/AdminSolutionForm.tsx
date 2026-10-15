@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import {
   Box,
@@ -12,11 +12,11 @@ import {
 } from '@mui/material';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
-import RichTextEditor from './richtext/RichTextEditor';
+import RichTextEditor, { type RichTextEditorHandle } from './richtext/RichTextEditor';
 import { clearAuth, getToken } from '../../lib/auth';
 import { CATEGORIES, SUBCATEGORIES, type Category } from '../../lib/categories';
-import { isDescriptionEmpty } from '../../lib/richText';
-import type { SolutionGroup } from '../../lib/solutions';
+import { descriptionWithoutPending, isDescriptionEmpty } from '../../lib/richText';
+import { fetchSolutionImageUrl, uploadSolutionImage, type SolutionGroup } from '../../lib/solutions';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -34,6 +34,20 @@ export default function AdminSolutionForm() {
   const [tags, setTags] = useState('');
   const [shareAll, setShareAll] = useState(false);
   const [groupIds, setGroupIds] = useState<number[]>([]);
+  const editorRef = useRef<RichTextEditorHandle>(null);
+  const uploadInlineFile = useCallback(async (file: File) => {
+    if (!id || isNew) return null;
+    const uploaded = await uploadSolutionImage(id, file);
+    if (!uploaded.ok) {
+      toast.error(uploaded.message || 'No se pudo guardar la imagen');
+      return null;
+    }
+    return { id: uploaded.id };
+  }, [id, isNew]);
+  const resolveInlineUrl = useCallback(
+    (attachmentId: string) => (id && !isNew ? fetchSolutionImageUrl(id, attachmentId) : Promise.resolve(null)),
+    [id, isNew]
+  );
 
   const apiCall = async (path: string, options: RequestInit = {}) => {
     const token = getToken();
@@ -84,11 +98,18 @@ export default function AdminSolutionForm() {
       return;
     }
     setSaving(true);
+    const hasPendingImages = editorRef.current?.hasPendingImages() ?? false;
+    const contentToSave = hasPendingImages && isNew
+      ? (() => {
+          const withoutImages = descriptionWithoutPending(content);
+          return isDescriptionEmpty(withoutImages) ? '<p>Imagen adjunta</p>' : withoutImages;
+        })()
+      : content;
     const result = await apiCall(isNew ? '/admin/solutions' : `/admin/solutions/${id}`, {
       method: isNew ? 'POST' : 'PATCH',
       body: JSON.stringify({
         title: title.trim(),
-        content,
+        content: contentToSave,
         category: category || null,
         subcategory: subcategory || null,
         tags,
@@ -96,12 +117,48 @@ export default function AdminSolutionForm() {
         group_ids: shareAll ? [] : groupIds
       })
     });
-    setSaving(false);
-    if (!result) return;
+    if (!result) {
+      setSaving(false);
+      return;
+    }
     if (!result.response.ok) {
+      setSaving(false);
       toast.error(result.data.message || 'No se pudo guardar');
       return;
     }
+    const solutionId = isNew ? result.data.id : id;
+    if (hasPendingImages && solutionId && editorRef.current) {
+      const flushed = await editorRef.current.flushPendingImages(solutionId, {
+        upload: async (file) => {
+          const uploaded = await uploadSolutionImage(solutionId, file);
+          return uploaded.ok ? { id: uploaded.id } : null;
+        }
+      });
+      if (!flushed.ok) {
+        setSaving(false);
+        toast.error('La solución se creó, pero no se pudieron guardar las imágenes');
+        navigate('/admin/solutions');
+        return;
+      }
+      const patched = await apiCall(`/admin/solutions/${solutionId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          title: title.trim(),
+          content: flushed.html,
+          category: category || null,
+          subcategory: subcategory || null,
+          tags,
+          share_all: shareAll,
+          group_ids: shareAll ? [] : groupIds
+        })
+      });
+      if (!patched?.response.ok) {
+        setSaving(false);
+        toast.error(patched?.data.message || 'No se pudieron guardar las imágenes de la solución');
+        return;
+      }
+    }
+    setSaving(false);
     toast.success(result.data.message || 'Solución guardada');
     navigate('/admin/solutions');
   };
@@ -114,7 +171,14 @@ export default function AdminSolutionForm() {
         <Paper elevation={0} sx={{ p: { xs: 2, md: 3 }, border: '1px solid', borderColor: 'divider', borderRadius: 2, maxWidth: 980 }}>
           <TextField fullWidth size="small" label="Título" value={title} onChange={(event) => setTitle(event.target.value)} sx={{ mb: 2 }} />
           <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 600 }}>Contenido</Typography>
-          <RichTextEditor value={content} onChange={setContent} placeholder="Describí el procedimiento o la solución." />
+          <RichTextEditor
+            ref={editorRef}
+            value={content}
+            onChange={setContent}
+            placeholder="Describí el procedimiento o la solución. Podés pegar capturas con Ctrl + V."
+            uploadInlineFile={isNew ? undefined : uploadInlineFile}
+            resolveInlineUrl={isNew ? undefined : resolveInlineUrl}
+          />
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' }, gap: 1.5, mt: 2 }}>
             <TextField select size="small" label="Categoría" value={category} onChange={(event) => { setCategory(event.target.value); setSubcategory(''); }}>
               <MenuItem value="">Sin categoría</MenuItem>

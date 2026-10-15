@@ -97,6 +97,14 @@ export function plainTextToEditorHtml(value: string) {
     .join('');
 }
 
+export function appendRichHtml(html: string, addition: string) {
+  const next = (addition || '').trim();
+  if (!next) return html;
+  if (isDescriptionEmpty(html)) return next;
+  const base = isRichHtml(html) ? html : plainTextToEditorHtml(html);
+  return `${base}${next}`;
+}
+
 export function appendPlainTextToHtml(html: string, text: string) {
   const addition = plainTextToEditorHtml(text);
   if (!addition) return html;

@@ -49,7 +49,7 @@ import InlineEditSelect from './InlineEditSelect';
 import RichTextEditor, { type RichTextEditorHandle } from './richtext/RichTextEditor';
 import RichTextView from './richtext/RichTextView';
 import TicketSolutions from './TicketSolutions';
-import { appendPlainTextToHtml, isDescriptionEmpty } from '../../lib/richText';
+import { appendPlainTextToHtml, appendRichHtml, isDescriptionEmpty, isRichHtml } from '../../lib/richText';
 import { uploadTicketAttachments } from '../../lib/attachments';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
@@ -1512,8 +1512,10 @@ export default function TicketDetail() {
                 <TicketSolutions
                   ticketId={String(id)}
                   canApply={!isResolved}
-                  onApply={(text) => {
-                    setResolutionText((prev) => appendPlainTextToHtml(prev, text));
+                  onApply={(value) => {
+                    setResolutionText((prev) => (
+                      isRichHtml(value) ? appendRichHtml(prev, value) : appendPlainTextToHtml(prev, value)
+                    ));
                     setResolutionSection('resolution');
                     toast.success('Solución aplicada correctamente.');
                   }}

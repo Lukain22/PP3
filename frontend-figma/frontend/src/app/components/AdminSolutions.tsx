@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Box,
@@ -35,7 +35,7 @@ import { toast } from 'sonner';
 import SupportShell from './SupportShell';
 import RichTextView from './richtext/RichTextView';
 import { can, clearAuth, getToken } from '../../lib/auth';
-import { type SolutionRecord } from '../../lib/solutions';
+import { fetchSolutionImageUrl, type SolutionRecord } from '../../lib/solutions';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 const PAGE_SIZE = 15;
@@ -63,6 +63,10 @@ export default function AdminSolutions() {
   const [page, setPage] = useState(0);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [preview, setPreview] = useState<SolutionRecord | null>(null);
+  const resolvePreviewImage = useCallback(
+    (attachmentId: string) => preview ? fetchSolutionImageUrl(preview.id, attachmentId) : Promise.resolve(null),
+    [preview]
+  );
 
   const apiCall = async (path: string, options: RequestInit = {}) => {
     const token = getToken();
@@ -276,7 +280,7 @@ export default function AdminSolutions() {
       <Dialog open={Boolean(preview)} onClose={() => setPreview(null)} maxWidth="md" fullWidth>
         <DialogTitle>{preview?.title}</DialogTitle>
         <DialogContent>
-          {preview && <RichTextView value={preview.content} />}
+          {preview && <RichTextView value={preview.content} resolveImageUrl={resolvePreviewImage} />}
         </DialogContent>
       </Dialog>
     </SupportShell>

@@ -6,7 +6,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import InputAdornment from '@mui/material/InputAdornment';
 import { toast } from 'sonner';
 import { getToken } from '../../lib/auth';
-import { solutionSummary, solutionToPlainText, type SolutionSearchHit } from '../../lib/solutions';
+import { solutionSummary, type SolutionSearchHit } from '../../lib/solutions';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -60,7 +60,7 @@ export default function TicketSolutions({ ticketId, canApply, onApply }: TicketS
         toast.error(data.message || 'No se pudo usar la solución');
         return;
       }
-      onApply(solutionToPlainText(data.content || item.content));
+      onApply(data.content || item.content);
     } catch {
       toast.error('Error conectando con el backend');
     } finally {

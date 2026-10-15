@@ -1,3 +1,7 @@
+import { getToken } from './auth';
+
+const API_URL = import.meta.env.VITE_API_URL as string;
+
 export interface SolutionGroup {
   id: number;
   name: string;
@@ -58,4 +62,33 @@ export function solutionToPlainText(value: string) {
     .replace(/<\/tr>/gi, '\n');
   const doc = new DOMParser().parseFromString(withBreaks, 'text/html');
   return (doc.body.textContent || '').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+export async function uploadSolutionImage(solutionId: number | string, file: File) {
+  const token = getToken();
+  if (!token) return { ok: false as const, message: 'Sesión expirada' };
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await fetch(`${API_URL}/admin/solutions/${solutionId}/attachments`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData
+  });
+  const data = await response.json().catch(() => ({}));
+  const id = data.data?.[0]?.id;
+  if (!response.ok || !id) {
+    return { ok: false as const, message: data.message || 'No se pudo guardar la imagen' };
+  }
+  return { ok: true as const, id: String(id) };
+}
+
+export async function fetchSolutionImageUrl(solutionId: number | string, attachmentId: string) {
+  const token = getToken();
+  if (!token) return null;
+  const response = await fetch(`${API_URL}/admin/solutions/${solutionId}/attachments/${attachmentId}/download`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!response.ok) return null;
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
 }

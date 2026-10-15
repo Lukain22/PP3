@@ -1,9 +1,15 @@
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const db = require('../db/db');
 const { getUserGroupIds } = require('../utils/groups');
 const { sanitizeDescription, isEmptyDescription } = require('../utils/richText');
 const { VALID_CATEGORIES, VALID_SUBCATEGORIES } = require('../utils/ticketFilters');
 const { assertPermission } = require('../rbac/guard');
 const { getRequestAccess } = require('../rbac/service');
+const { ensureTicketDir, getMimeType } = require('../utils/attachments');
+const { getSolutionFilePath, removeSolutionFiles } = require('../utils/solutions');
+const { loadTicketWithAccess } = require('./ticketsController');
 
 const query = (sql, params = []) => new Promise((resolve, reject) => {
   db.query(sql, params, (err, rows) => {
@@ -250,10 +256,82 @@ exports.deleteSolution = async (req, res) => {
   try {
     const result = await query('DELETE FROM solutions WHERE id = ?', [req.params.id]);
     if (!result.affectedRows) return res.status(404).json({ message: 'Solución no encontrada' });
+    removeSolutionFiles(req.params.id);
     res.json({ message: 'Solución eliminada' });
   } catch (err) {
     res.status(500).json({ message: 'Error al eliminar la solución' });
   }
+};
+
+exports.uploadSolutionImage = async (req, res) => {
+  const file = req.file;
+  const solutionId = Number(req.params.id);
+  if (!file) return res.status(400).json({ message: 'No se recibió la imagen' });
+  try {
+    const rows = await query('SELECT id FROM solutions WHERE id = ?', [solutionId]);
+    if (!rows.length) {
+      fs.unlink(file.path, () => {});
+      return res.status(404).json({ message: 'Solución no encontrada' });
+    }
+    const result = await query(
+      `INSERT INTO solution_attachments
+        (solution_id, user_id, original_name, stored_name, mime_type, size_bytes)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [solutionId, req.user.id, file.originalname, file.filename, getMimeType(file.originalname), file.size]
+    );
+    res.status(201).json({
+      data: [{ id: result.insertId, original_name: file.originalname }]
+    });
+  } catch (err) {
+    fs.unlink(file.path, () => {});
+    console.error('Error guardando imagen de solución:', err.code || err.message);
+    res.status(500).json({ message: 'No se pudo guardar la imagen' });
+  }
+};
+
+exports.downloadSolutionImage = async (req, res) => {
+  try {
+    const rows = await query(
+      'SELECT * FROM solution_attachments WHERE id = ? AND solution_id = ?',
+      [req.params.attachmentId, req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ message: 'Imagen no encontrada' });
+    const filePath = getSolutionFilePath(req.params.id, rows[0].stored_name);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ message: 'Imagen no encontrada' });
+    res.download(filePath, rows[0].original_name);
+  } catch (err) {
+    res.status(500).json({ message: 'Error al obtener la imagen' });
+  }
+};
+
+const copySolutionImagesToTicket = async (html, solutionId, ticketId, userId) => {
+  const ids = [...new Set(
+    [...String(html).matchAll(/data-attachment-id="(\d+)"/g)].map((match) => Number(match[1]))
+  )];
+  if (!ids.length) return html;
+  const rows = await query(
+    'SELECT * FROM solution_attachments WHERE solution_id = ? AND id IN (?)',
+    [solutionId, ids]
+  );
+  const dir = ensureTicketDir(ticketId);
+  const replacements = new Map();
+  for (const row of rows) {
+    const source = getSolutionFilePath(solutionId, row.stored_name);
+    if (!fs.existsSync(source)) continue;
+    const storedName = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${path.extname(row.stored_name)}`;
+    fs.copyFileSync(source, path.join(dir, storedName));
+    const inserted = await query(
+      `INSERT INTO ticket_attachments
+        (ticket_id, user_id, original_name, stored_name, mime_type, size_bytes, is_inline, context, comment_id)
+       VALUES (?, ?, ?, ?, ?, ?, 1, 'resolution', NULL)`,
+      [ticketId, userId, row.original_name, storedName, row.mime_type, row.size_bytes]
+    );
+    replacements.set(String(row.id), String(inserted.insertId));
+  }
+  return String(html).replace(/data-attachment-id="(\d+)"/g, (full, id) => {
+    const next = replacements.get(id);
+    return next ? `data-attachment-id="${next}"` : full;
+  });
 };
 
 const loadVisibleSolution = async (req, id) => {
@@ -340,14 +418,17 @@ exports.applySolution = async (req, res) => {
     if (!Number.isInteger(ticketId) || ticketId <= 0) {
       return res.status(400).json({ message: 'Ticket inválido' });
     }
-    const tickets = await query('SELECT id FROM tickets WHERE id = ?', [ticketId]);
-    if (!tickets.length) return res.status(404).json({ message: 'Ticket no encontrado' });
+    const ticket = await new Promise((resolve, reject) => {
+      loadTicketWithAccess(req, ticketId, (err, row) => (err ? reject(err) : resolve(row)));
+    });
+    if (!ticket) return res.status(404).json({ message: 'Ticket no encontrado' });
+    const content = await copySolutionImagesToTicket(solution.content, solution.id, ticketId, req.user.id);
     await query(
       'INSERT INTO solution_uses (solution_id, ticket_id, user_id) VALUES (?, ?, ?)',
       [solution.id, ticketId, req.user.id]
     );
     await query('UPDATE solutions SET use_count = use_count + 1 WHERE id = ?', [solution.id]);
-    res.json({ content: solution.content, use_count: solution.use_count + 1 });
+    res.json({ content, use_count: solution.use_count + 1 });
   } catch (err) {
     console.error('Error aplicando solución:', err.code || err.message);
     res.status(500).json({ message: 'Error al aplicar la solución' });

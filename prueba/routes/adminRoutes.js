@@ -50,8 +50,11 @@ const {
   updateSolution,
   setSolutionStatus,
   setSolutionApproval,
-  deleteSolution
+  deleteSolution,
+  uploadSolutionImage,
+  downloadSolutionImage
 } = require('../controllers/solutionsController');
+const solutionUpload = require('../middleware/solutionUpload');
 
 router.use(authMiddleware, requirePermission('admin.access'));
 
@@ -95,6 +98,18 @@ const canManageSolutions = requirePermission('kb.create', 'kb.edit', 'kb.delete'
 router.get('/solutions/groups', canManageSolutions, listSolutionGroups);
 router.get('/solutions', canManageSolutions, listSolutions);
 router.post('/solutions', requirePermission('kb.create'), createSolution);
+router.post('/solutions/:id/attachments', requirePermission('kb.create', 'kb.edit'), (req, res, next) => {
+  solutionUpload.single('file')(req, res, (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ message: 'Archivo demasiado grande (máx. 4 MB)' });
+      }
+      return res.status(400).json({ message: err.message || 'Error al subir la imagen' });
+    }
+    next();
+  });
+}, uploadSolutionImage);
+router.get('/solutions/:id/attachments/:attachmentId/download', canManageSolutions, downloadSolutionImage);
 router.get('/solutions/:id', canManageSolutions, getSolution);
 router.patch('/solutions/:id', requirePermission('kb.edit'), updateSolution);
 router.patch('/solutions/:id/status', requirePermission('kb.publish'), setSolutionStatus);
