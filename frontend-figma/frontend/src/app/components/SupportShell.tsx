@@ -34,6 +34,7 @@ interface SupportShellProps {
   headerActionGrow?: boolean;
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | false;
   compact?: boolean;
+  compactTitle?: boolean;
 }
 
 export function toggleUiMode() {
@@ -56,7 +57,8 @@ export default function SupportShell({
   headerActionInline = false,
   headerActionGrow = false,
   maxWidth = false,
-  compact = false
+  compact = false,
+  compactTitle = false
 }: SupportShellProps) {
   const navigate = useNavigate();
   const canCreateTicket = can('tickets.create');
@@ -167,6 +169,7 @@ export default function SupportShell({
         disableGutters={maxWidth === false}
         sx={{
           py: compact ? 1.25 : 3,
+          ...(compactTitle && !compact ? { pt: 1.25 } : {}),
           px: maxWidth === false ? (compact ? { xs: 1.5, sm: 2 } : { xs: 2, sm: 3, md: 4, xl: 5 }) : undefined,
           width: '100%',
           ...(compact && {
@@ -200,7 +203,7 @@ export default function SupportShell({
           </Breadcrumbs>
         )}
 
-        <Box sx={{ mb: compact ? 1 : 2.5, display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
+        <Box sx={{ mb: compact || compactTitle ? 1 : 2.5, display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
           {backTo && (
             <Tooltip title="Volver">
               <IconButton
@@ -232,11 +235,11 @@ export default function SupportShell({
               }}
             >
               <Typography
-                variant={compact ? 'h6' : 'h4'}
+                variant={compact || compactTitle ? 'h6' : 'h4'}
                 sx={{
                   fontWeight: 600,
-                  fontSize: compact ? '1.125rem' : { xs: '1.35rem', md: '1.75rem' },
-                  lineHeight: compact ? 1.2 : undefined,
+                  fontSize: compact || compactTitle ? '1.125rem' : { xs: '1.35rem', md: '1.75rem' },
+                  lineHeight: compact || compactTitle ? 1.2 : undefined,
                   flexShrink: 0
                 }}
               >

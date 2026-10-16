@@ -6,7 +6,7 @@ const { sendMail, isMailConfigured } = require('../utils/mailer');
 const { assignDefaultRole } = require('../rbac/service');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const RESET_TOKEN_MINUTES = 60;
+const RESET_TOKEN_MINUTES = 30;
 const GENERIC_RESET_MESSAGE =
   'Si el correo está registrado, te enviamos un enlace para restablecer la contraseña. Revisá también spam.';
 
@@ -140,9 +140,9 @@ exports.forgotPassword = async (req, res) => {
   lastResetRequestByEmail.set(email, Date.now());
 
   if (!isMailConfigured()) {
-    console.error('forgotPassword: RESEND_API_KEY no está configurada');
+    console.error('forgotPassword: faltan GMAIL_USER o GMAIL_APP_PASSWORD');
     return res.status(500).json({
-      message: 'El envío de correo no está configurado. Pedile a un administrador que complete RESEND_API_KEY en el servidor.'
+      message: 'El envío de correo no está configurado. Pedile a un administrador que complete GMAIL_USER y GMAIL_APP_PASSWORD en el servidor.'
     });
   }
 

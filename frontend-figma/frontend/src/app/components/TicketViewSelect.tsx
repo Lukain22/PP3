@@ -7,7 +7,6 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Divider,
   FormControl,
   IconButton,
   InputAdornment,
@@ -407,12 +406,14 @@ export default function TicketViewSelect({
             sx: {
               width: Math.max(menuAnchor?.offsetWidth || 260, 280),
               maxHeight: 420,
-              overflow: 'auto'
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column'
             }
           }
         }}
       >
-        <Box sx={{ py: 0.5 }}>
+        <Box sx={{ py: 0.5, overflow: 'auto', flex: '1 1 auto', minHeight: 0 }}>
           <Box
             sx={{
               position: 'sticky',
@@ -602,16 +603,46 @@ export default function TicketViewSelect({
             </Typography>
           )}
 
-          {role !== 'user' && (
-            <>
-              <Divider sx={{ my: 0.5 }} />
-              <ListItemButton onClick={openCreateDialog}>
-                <AddIcon sx={{ fontSize: 18, mr: 1.5 }} />
-                <ListItemText primary="Crear vista con filtros actuales" />
-              </ListItemButton>
-            </>
-          )}
         </Box>
+        {role !== 'user' && (
+          <Box
+            sx={{
+              flexShrink: 0,
+              px: 0.75,
+              py: 0.5,
+              borderTop: '1px solid',
+              borderColor: 'divider',
+              bgcolor: '#f4f7fb'
+            }}
+          >
+            <Button
+              fullWidth
+              variant="contained"
+              disableElevation
+              onClick={openCreateDialog}
+              startIcon={<AddIcon />}
+              sx={{
+                minHeight: 22,
+                height: 22,
+                px: 1,
+                py: 0,
+                borderRadius: 1,
+                textTransform: 'none',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                lineHeight: 1,
+                letterSpacing: 0.15,
+                '& .MuiButton-startIcon': {
+                  mr: 0.4,
+                  ml: 0,
+                  '& svg': { fontSize: 14 }
+                }
+              }}
+            >
+              Nueva vista
+            </Button>
+          </Box>
+        )}
       </Popover>
 
       <Dialog open={dialogOpen} onClose={() => !saving && setDialogOpen(false)} maxWidth="sm" fullWidth>

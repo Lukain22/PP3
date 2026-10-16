@@ -61,14 +61,14 @@ export default function ForgotPasswordPage() {
             Recuperar contraseña
           </Typography>
           <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
-            Ingresá el correo con el que te registraste. Si existe una cuenta, te enviamos un enlace.
+            Ingresá el correo con el que te registraste. Si existe una cuenta, te enviamos un enlace que vale 30 minutos.
           </Typography>
 
           {sent ? (
             <>
               <Typography variant="body2" align="center" sx={{ mb: 3 }}>
                 Si el correo está registrado, vas a recibir un mail con el enlace. Revisá también la carpeta de spam.
-                El remitente será Sistema de Soporte (Resend).
+                El enlace vale 30 minutos.
               </Typography>
               <Button fullWidth variant="contained" onClick={() => navigate('/')}>
                 Volver al inicio de sesión

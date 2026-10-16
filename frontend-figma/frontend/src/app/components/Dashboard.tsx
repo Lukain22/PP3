@@ -16,8 +16,7 @@ import {
   Paper,
   Typography,
   TextField,
-  MenuItem,
-  Stack
+  MenuItem
 } from '@mui/material';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as RechartsTooltip } from 'recharts';
 import SupportShell from './SupportShell';
@@ -49,6 +48,24 @@ interface GroupOption {
 }
 
 type ChartSlice = { name: string; value: number; color: string };
+
+const scopeSelectSx = {
+  width: { xs: '100%', sm: 260 },
+  maxWidth: 280,
+  flex: { xs: '1 1 160px', sm: '0 1 260px' },
+  '& .MuiInputBase-root': {
+    height: 30,
+    bgcolor: '#fff',
+    borderRadius: 1.5,
+    fontSize: '0.8125rem'
+  },
+  '& .MuiSelect-select': {
+    py: '0 !important',
+    minHeight: 'unset !important',
+    display: 'flex',
+    alignItems: 'center'
+  }
+};
 
 const SCOPE_LABELS: Record<DashboardScope, string> = {
   all: 'Todas las solicitudes',
@@ -281,20 +298,30 @@ export default function Dashboard() {
   return (
     <SupportShell
       title="Tablero"
-      headerActionInline
+      compactTitle
+      headerActionGrow
       headerAction={
         staff ? (
-          <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" useFlexGap>
+          <Box sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            width: '100%',
+            minWidth: 0,
+            '& .MuiInputBase-root': { minHeight: 30 }
+          }}>
             <TextField
               select
               size="small"
-              label="Ver"
               value={scope}
               onChange={(e) => {
                 setScope(e.target.value as DashboardScope);
                 setGroupId('');
               }}
-              sx={{ minWidth: 220 }}
+              sx={scopeSelectSx}
+              slotProps={{
+                select: { inputProps: { 'aria-label': 'Ver' } }
+              }}
             >
               {scopeOptions.map((option) => (
                 <MenuItem key={option} value={option}>
@@ -306,10 +333,12 @@ export default function Dashboard() {
               <TextField
                 select
                 size="small"
-                label="Grupo"
                 value={groupId}
                 onChange={(e) => setGroupId(e.target.value)}
-                sx={{ minWidth: 220 }}
+                sx={scopeSelectSx}
+                slotProps={{
+                  select: { inputProps: { 'aria-label': 'Grupo' } }
+                }}
               >
                 <MenuItem value="">
                   {isTechnician() ? 'Todos mis grupos' : 'Todos los grupos'}
@@ -321,7 +350,7 @@ export default function Dashboard() {
                 ))}
               </TextField>
             )}
-          </Stack>
+          </Box>
         ) : undefined
       }
     >
