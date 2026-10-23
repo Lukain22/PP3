@@ -34,6 +34,7 @@ interface TicketAttachmentsProps {
   compact?: boolean;
   showTitleWhenHasFiles?: boolean;
   uploadBelowFiles?: boolean;
+  contentAlign?: 'left' | 'center';
   scope?: AttachmentScope;
   commentId?: number;
   hideWhenEmpty?: boolean;
@@ -191,6 +192,7 @@ export default function TicketAttachments({
   compact = false,
   showTitleWhenHasFiles = false,
   uploadBelowFiles = false,
+  contentAlign = 'center',
   scope = 'ticket',
   commentId,
   hideWhenEmpty = false,
@@ -316,9 +318,11 @@ export default function TicketAttachments({
         onClick={() => fileInputRef.current?.click()}
         disabled={uploading || (isPendingMode && pendingFiles.length >= 5)}
         sx={{
-          fontSize: '0.69rem',
+          fontSize: contentAlign === 'left' ? '0.875rem' : '0.69rem',
+          fontWeight: contentAlign === 'left' ? 500 : undefined,
+          textTransform: contentAlign === 'left' ? 'none' : undefined,
           py: 0.45,
-          px: 1.1,
+          px: contentAlign === 'left' ? 0 : 1.1,
           minHeight: 27,
           '& .MuiButton-startIcon': { mr: 0.5 }
         }}
@@ -369,7 +373,7 @@ export default function TicketAttachments({
             )}
             {fileList}
             {uploadButton && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', mt: hasFiles ? 2 : 0 }}>
+              <Box sx={{ display: 'flex', justifyContent: contentAlign === 'left' ? 'flex-start' : 'center', mt: hasFiles ? 2 : 0 }}>
                 {uploadButton}
               </Box>
             )}

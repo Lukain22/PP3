@@ -1,6 +1,16 @@
+import type { ReactElement } from 'react';
 import Chip from '@mui/material/Chip';
+import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import KeyboardDoubleArrowUpIcon from '@mui/icons-material/KeyboardDoubleArrowUp';
+import ViewInArOutlinedIcon from '@mui/icons-material/ViewInArOutlined';
+import AutorenewIcon from '@mui/icons-material/Autorenew';
+import PauseOutlinedIcon from '@mui/icons-material/PauseOutlined';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import AccessTimeOutlinedIcon from '@mui/icons-material/AccessTimeOutlined';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { getTicketStatusLabel } from '../../lib/ticketStatus';
 import { getTicketTypeLabel } from '../../lib/ticketTypes';
 import { getPriorityLabel, getSlaStatusLabel } from '../../lib/sla';
@@ -49,21 +59,37 @@ function labelFor(kind: BadgeKind, value: string) {
   return getSlaStatusLabel(value);
 }
 
+function iconFor(kind: BadgeKind, value: string): ReactElement | undefined {
+  if (kind === 'type' && value === 'incident') {
+    return <FiberManualRecordIcon sx={{ fontSize: '8px !important' }} />;
+  }
+  if (kind === 'type' && value === 'requirement') return <DescriptionOutlinedIcon />;
+  if (kind === 'priority' && value === 'high') return <KeyboardDoubleArrowUpIcon />;
+  if (kind === 'priority' && value === 'medium') return <ArrowUpwardIcon />;
+  if (kind === 'priority' && value === 'low') return <ArrowDownwardIcon />;
+  if (kind === 'status' && value === 'open') return <ViewInArOutlinedIcon />;
+  if (kind === 'status' && value === 'in-progress') return <AutorenewIcon />;
+  if (kind === 'status' && value === 'on-hold') return <PauseOutlinedIcon />;
+  if (kind === 'status' && (value === 'resolved' || value === 'closed')) return <CheckRoundedIcon />;
+  if (kind === 'sla' && (value === 'on_track' || value === 'met')) return <CheckRoundedIcon />;
+  if (kind === 'sla' && value === 'at_risk') return <AccessTimeOutlinedIcon />;
+  if (kind === 'sla' && value === 'breached') return <ErrorOutlineIcon />;
+  if (kind === 'sla' && value === 'paused') return <PauseOutlinedIcon />;
+  return undefined;
+}
+
 export default function StatusBadge({ kind, value }: { kind: BadgeKind; value?: string | null }) {
   const key = value || (kind === 'type' ? 'incident' : '');
   const tone = tones[kind][key] || fallback;
-  const showCheck = kind === 'status' && (key === 'resolved' || key === 'closed');
-  const showClock = kind === 'sla' && key === 'at_risk';
+  const icon = iconFor(kind, key);
 
   return (
     <Chip
       size="small"
       label={labelFor(kind, key)}
-      {...(showCheck || showClock
-        ? { icon: showCheck ? <CheckRoundedIcon /> : <AccessTimeOutlinedIcon /> }
-        : {})}
+      {...(icon ? { icon } : {})}
       sx={{
-        height: 22,
+        height: 24,
         borderRadius: '999px',
         bgcolor: tone.background,
         color: tone.color,
@@ -72,7 +98,7 @@ export default function StatusBadge({ kind, value }: { kind: BadgeKind; value?: 
         fontWeight: 600,
         fontSize: 12,
         '& .MuiChip-label': { px: 1, py: 0 },
-        '& .MuiChip-icon': { color: 'inherit', fontSize: 14, ml: '6px', mr: '-2px' }
+        '& .MuiChip-icon': { color: 'inherit', fontSize: 15, ml: '7px', mr: '-3px' }
       }}
     />
   );

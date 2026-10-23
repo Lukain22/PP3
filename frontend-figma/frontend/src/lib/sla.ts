@@ -1,7 +1,7 @@
 export type SlaStatus = 'on_track' | 'at_risk' | 'breached' | 'met' | 'paused';
 
 export const SLA_STATUS_LABELS: Record<SlaStatus, string> = {
-  on_track: 'En plazo',
+  on_track: 'A tiempo',
   at_risk: 'Por vencer',
   breached: 'Vencido',
   met: 'Cumplido',

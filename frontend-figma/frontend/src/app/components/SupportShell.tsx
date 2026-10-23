@@ -31,6 +31,7 @@ interface SupportShellProps {
   backTo?: string;
   headerAction?: ReactNode;
   headerActionInline?: boolean;
+  headerSingleRow?: boolean;
   headerActionGrow?: boolean;
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | false;
   compact?: boolean;
@@ -55,6 +56,7 @@ export default function SupportShell({
   backTo,
   headerAction,
   headerActionInline = false,
+  headerSingleRow = false,
   headerActionGrow = false,
   maxWidth = false,
   compact = false,
@@ -230,17 +232,21 @@ export default function SupportShell({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: headerActionInline ? 'flex-start' : 'space-between',
-                gap: headerActionInline ? 3 : 2,
-                flexWrap: 'wrap'
+                gap: headerActionInline ? (headerSingleRow ? 1.5 : 3) : 2,
+                flexWrap: headerSingleRow ? 'nowrap' : 'wrap'
               }}
             >
               <Typography
                 variant={compact || compactTitle ? 'h6' : 'h4'}
+                noWrap={headerSingleRow}
+                title={headerSingleRow ? title : undefined}
                 sx={{
                   fontWeight: 600,
                   fontSize: compact || compactTitle ? '1.125rem' : { xs: '1.35rem', md: '1.75rem' },
-                  lineHeight: compact || compactTitle ? 1.2 : undefined,
-                  flexShrink: 0
+                  lineHeight: compact || compactTitle ? 1.2 : 1.25,
+                  ...(headerSingleRow
+                    ? { flex: '0 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }
+                    : { flexShrink: 0 })
                 }}
               >
                 {title}

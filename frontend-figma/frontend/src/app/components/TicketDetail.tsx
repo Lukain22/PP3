@@ -25,6 +25,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import CalendarTodayOutlinedIcon from '@mui/icons-material/CalendarTodayOutlined';
 import AccessTimeOutlinedIcon from '@mui/icons-material/AccessTimeOutlined';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import { toast } from 'sonner';
 import StatusBadge from './StatusBadge';
 import SupportShell from './SupportShell';
@@ -783,10 +784,10 @@ export default function TicketDetail() {
       component="span"
       sx={{
         display: 'flex',
-        flexWrap: 'wrap',
         alignItems: 'center',
-        columnGap: 2.5,
-        rowGap: 0.75,
+        columnGap: 2,
+        rowGap: 0.5,
+        flexWrap: { xs: 'wrap', md: 'nowrap' },
         color: 'text.secondary',
         fontSize: 13,
         fontWeight: 400,
@@ -801,11 +802,62 @@ export default function TicketDetail() {
         <CalendarTodayOutlinedIcon sx={metaIconSx} />
         Creado: {formatDateTime(ticket.created_at)}
       </Box>
-      {isIncident(ticket.type) && ticket.sla_resolution_due && (
+      {isIncident(editing ? formData.type : ticket.type) && ticket.sla_resolution_due && (
         <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
           <AccessTimeOutlinedIcon sx={metaIconSx} />
           Vencimiento: {formatDateTime(ticket.sla_resolution_due)}
         </Box>
+      )}
+    </Box>
+  );
+
+  const headerType = editing ? formData.type : (ticket.type || 'incident');
+  const headerStatus = editing ? formData.status : ticket.status;
+  const headerPriority = editing ? formData.priority : ticket.priority;
+  const headerIsIncident = isIncident(headerType);
+  const headerSla = headerIsIncident ? ticket.sla_status : null;
+  const badgeButtonSx = {
+    display: 'inline-flex',
+    p: 0,
+    m: 0,
+    border: 0,
+    bgcolor: 'transparent',
+    lineHeight: 0,
+    borderRadius: '999px',
+    cursor: 'pointer',
+    '&:hover': { opacity: 0.8 }
+  };
+
+  const headerBadges = (
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.75, flexShrink: 0 }}>
+      <Box
+        component={!editing && admin ? 'button' : 'span'}
+        type={!editing && admin ? 'button' : undefined}
+        onClick={!editing && admin ? () => beginEdit('type') : undefined}
+        sx={!editing && admin ? badgeButtonSx : { display: 'inline-flex', lineHeight: 0 }}
+      >
+        <StatusBadge kind="type" value={headerType} />
+      </Box>
+      {headerIsIncident && headerPriority && (
+        <Box
+          component={!editing && canEditTickets ? 'button' : 'span'}
+          type={!editing && canEditTickets ? 'button' : undefined}
+          onClick={!editing && canEditTickets ? () => beginEdit('priority') : undefined}
+          sx={!editing && canEditTickets ? badgeButtonSx : { display: 'inline-flex', lineHeight: 0 }}
+        >
+          <StatusBadge kind="priority" value={headerPriority} />
+        </Box>
+      )}
+      <Box
+        component={!editing && canChangeStatus ? 'button' : 'span'}
+        type={!editing && canChangeStatus ? 'button' : undefined}
+        onClick={!editing && canChangeStatus ? () => beginEdit('status') : undefined}
+        sx={!editing && canChangeStatus ? badgeButtonSx : { display: 'inline-flex', lineHeight: 0 }}
+      >
+        <StatusBadge kind="status" value={headerStatus} />
+      </Box>
+      {headerSla && (
+        <StatusBadge kind="sla" value={headerSla} />
       )}
     </Box>
   );
@@ -831,10 +883,19 @@ export default function TicketDetail() {
 
   const detailPanel = (
     <>
-      <Paper elevation={0} sx={sectionPaperSx}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-          Descripción
-        </Typography>
+      <Paper
+        elevation={0}
+        sx={{
+          ...sectionPaperSx,
+          borderLeft: '3px solid #2563EB'
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+          <DescriptionOutlinedIcon sx={{ fontSize: 20, color: '#2563EB' }} />
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+            Descripción
+          </Typography>
+        </Box>
 
         {editing ? (
           <Stack spacing={2.5}>
@@ -884,7 +945,7 @@ export default function TicketDetail() {
             )}
           </Stack>
         ) : (
-          <Stack spacing={2}>
+          <Stack spacing={1.5} sx={{ alignItems: 'stretch', textAlign: 'left' }}>
             <Box
               onClick={(event) => {
                 if (staff && !admin) return;
@@ -893,19 +954,28 @@ export default function TicketDetail() {
                 if (target.closest('a, button')) return;
                 beginEdit('description');
               }}
-              sx={(staff && !admin) ? undefined : {
-                cursor: inlineDisabled ? 'default' : 'pointer',
-                borderRadius: 1,
-                mx: -1,
-                px: 1,
-                py: 0.5,
-                ...(!inlineDisabled && { '&:hover': { bgcolor: 'action.hover' } })
+              sx={{
+                textAlign: 'left',
+                '& .rich-text-content, & .rich-text-content p, & .rich-text-content h1, & .rich-text-content h2, & .rich-text-content h3, & .rich-text-content li': {
+                  textAlign: 'left !important'
+                },
+                ...((staff && !admin) ? {} : {
+                  cursor: inlineDisabled ? 'default' : 'pointer',
+                  borderRadius: 1,
+                  ...(!inlineDisabled && { '&:hover': { bgcolor: 'action.hover' } })
+                })
               }}
             >
               <RichTextView value={ticket.description} ticketId={ticket.id} />
             </Box>
 
-            {attachmentsSection}
+            <TicketAttachments
+              ticketId={id}
+              compact
+              showTitleWhenHasFiles
+              uploadBelowFiles
+              contentAlign="left"
+            />
           </Stack>
         )}
       </Paper>
@@ -1110,15 +1180,8 @@ export default function TicketDetail() {
                       value={ticket.type || 'incident'}
                       disabled={inlineDisabled}
                       requestEdit={() => beginEdit('type')}
-                      display={
-                        <StatusBadge kind="type" value={ticket.type} />
-                      }
-                      onChange={(val) => {
-                        const payload: Record<string, unknown> = { type: val };
-                        if (!isIncident(val)) payload.priority = null;
-                        else if (!ticket.priority) payload.priority = 'medium';
-                        handleInlineFieldUpdate(payload, 'type');
-                      }}
+                      display={<StatusBadge kind="type" value={ticket.type} />}
+                      onChange={() => undefined}
                     >
                       {TICKET_TYPE_OPTIONS.map((t) => (
                         <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>
@@ -1137,10 +1200,8 @@ export default function TicketDetail() {
                       value={ticket.status}
                       disabled={inlineDisabled}
                       requestEdit={() => beginEdit('status')}
-                      display={
-                        <StatusBadge kind="status" value={ticket.status} />
-                      }
-                      onChange={(val) => handleInlineFieldUpdate({ status: val }, 'status')}
+                      display={<StatusBadge kind="status" value={ticket.status} />}
+                      onChange={() => undefined}
                     >
                       {statusOptions.map((s) => (
                         <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
@@ -1163,7 +1224,7 @@ export default function TicketDetail() {
                         disabled={inlineDisabled}
                         requestEdit={() => beginEdit('priority')}
                         display={<StatusBadge kind="priority" value={ticket.priority} />}
-                        onChange={(val) => handleInlineFieldUpdate({ priority: val }, 'priority')}
+                        onChange={() => undefined}
                       >
                         <MenuItem value="low">Baja</MenuItem>
                         <MenuItem value="medium">Media</MenuItem>
@@ -1173,13 +1234,15 @@ export default function TicketDetail() {
                       <StatusBadge kind="priority" value={ticket.priority} />
                     )}
                   </Box>
-                  {ticket.sla_status && (
+                  {ticket.sla_status ? (
                     <Box sx={{ flex: 1 }}>
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                         Vencimiento
                       </Typography>
                       <StatusBadge kind="sla" value={ticket.sla_status} />
                     </Box>
+                  ) : (
+                    <Box sx={{ flex: 1 }} />
                   )}
                 </Stack>
               )}
@@ -1524,30 +1587,43 @@ export default function TicketDetail() {
     <SupportShell
       title={`#${ticket.id} — ${editing ? formData.title : ticket.title}`}
       subtitle={metaSubtitle}
+      headerAction={headerBadges}
+      headerActionInline
+      headerSingleRow
     >
-      <Paper
-        elevation={0}
-        sx={{
-          border: '1px solid',
-          borderColor: 'divider',
-          borderRadius: 2,
-          bgcolor: '#fff',
-          boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)'
-        }}
-      >
+      <Box>
         <Box
           sx={{
+            position: 'relative',
             display: 'flex',
             alignItems: 'center',
-            borderBottom: 1,
-            borderColor: 'divider',
-            pr: 1
+            pr: 1,
+            bgcolor: 'transparent',
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              bottom: 0,
+              left: { xs: -16, sm: -24, md: -32, xl: -40 },
+              right: { xs: -16, sm: -24, md: -32, xl: -40 },
+              height: '1px',
+              bgcolor: '#E2E8F0',
+              zIndex: 0
+            }
           }}
         >
           <Tabs
             value={activeTab}
             onChange={(_, value) => setActiveTab(value)}
-            sx={{ px: 2, flex: 1, minWidth: 0 }}
+            sx={{
+              position: 'relative',
+              zIndex: 1,
+              flex: 1,
+              minWidth: 0,
+              minHeight: 43,
+              bgcolor: 'transparent',
+              '& .MuiTab-root': { minHeight: 43, py: 0 },
+              '& .MuiTabs-indicator': { height: 2, zIndex: 1 }
+            }}
           >
             <Tab label="Detalle" />
             <Tab label={`Historial (${history.length})`} />
@@ -1566,7 +1642,7 @@ export default function TicketDetail() {
           )}
         </Box>
 
-        <Box sx={{ p: { xs: 2, md: 3 }, ...(editing ? { pb: 8 } : {}) }}>
+        <Box sx={{ pt: 1.5, bgcolor: 'transparent', ...(editing ? { pb: 8 } : {}) }}>
           {activeTab === 0 && detailPanel}
           {activeTab === 1 && historyPanel}
           {activeTab === 2 && (staff ? (
@@ -1599,7 +1675,7 @@ export default function TicketDetail() {
             </Stack>
           ) : resolutionPanel)}
         </Box>
-      </Paper>
+      </Box>
       {editing && (
         <Box
           sx={{
