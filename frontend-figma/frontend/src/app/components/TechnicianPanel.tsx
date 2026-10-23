@@ -20,17 +20,10 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import SupportShell from './SupportShell';
+import StatusBadge from './StatusBadge';
 import { getToken, clearAuth } from '../../lib/auth';
 import { toast } from 'sonner';
-import { getTicketTypeLabel, getTicketTypeColor } from '../../lib/ticketTypes';
-import {
-  getPriorityLabel,
-  getPriorityColor,
-  getSlaStatusLabel,
-  getSlaStatusColor,
-  isIncident
-} from '../../lib/sla';
-import { getTicketStatusLabel, getTicketStatusColor } from '../../lib/ticketStatus';
+import { isIncident } from '../../lib/sla';
 import InlineEditSelect from './InlineEditSelect';
 import TicketViewsBar from './TicketViewsBar';
 import {
@@ -216,7 +209,7 @@ export default function TechnicianPanel() {
           : `${total} ticket${total === 1 ? '' : 's'} en tus grupos${groups.length ? ` · ${groups.map((g) => g.name).join(', ')}` : ''}`
       }
     >
-      <Paper elevation={0} sx={{ p: 2, mb: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+      <Paper elevation={0} sx={{ p: 2, mb: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: '#fff', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)' }}>
         <TicketViewsBar
           scope="technician"
           groups={groups}
@@ -288,9 +281,11 @@ export default function TechnicianPanel() {
             <Chip
               key={f.value || 'all'}
               label={f.label}
+              size="small"
               onClick={() => updateFilters({ status: f.value })}
               color={!listFilters.status.includes(',') && listFilters.status === f.value ? 'primary' : 'default'}
               variant={!listFilters.status.includes(',') && listFilters.status === f.value ? 'filled' : 'outlined'}
+              sx={{ height: 24, borderRadius: '999px', '& .MuiChip-label': { px: 1.25, fontSize: 12, fontWeight: 600 } }}
             />
           ))}
         </Stack>
@@ -314,7 +309,7 @@ export default function TechnicianPanel() {
         <TableContainer
           component={Paper}
           elevation={0}
-          sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflowX: 'auto' }}
+          sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: '#fff', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)', overflowX: 'auto' }}
         >
           <Table sx={{ minWidth: 1280 }}>
             <TableHead>
@@ -344,12 +339,7 @@ export default function TechnicianPanel() {
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>{ticket.title}</Typography>
                   </TableCell>
                   <TableCell>
-                    <Chip
-                      label={getTicketTypeLabel(ticket.type || 'incident')}
-                      color={getTicketTypeColor(ticket.type || 'incident')}
-                      size="small"
-                      variant="outlined"
-                    />
+                    <StatusBadge kind="type" value={ticket.type} />
                   </TableCell>
                   <TableCell>
                     <Typography variant="caption">{ticket.group_name || '—'}</Typography>
@@ -385,31 +375,18 @@ export default function TechnicianPanel() {
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Chip
-                      label={getTicketStatusLabel(ticket.status)}
-                      color={getTicketStatusColor(ticket.status)}
-                      size="small"
-                    />
+                    <StatusBadge kind="status" value={ticket.status} />
                   </TableCell>
                   <TableCell>
                     {isIncident(ticket.type) ? (
-                      <Chip
-                        label={getPriorityLabel(ticket.priority)}
-                        color={getPriorityColor(ticket.priority || 'medium')}
-                        size="small"
-                        variant="outlined"
-                      />
+                      <StatusBadge kind="priority" value={ticket.priority} />
                     ) : (
                       <Typography variant="caption" color="text.disabled">—</Typography>
                     )}
                   </TableCell>
                   <TableCell>
                     {isIncident(ticket.type) && ticket.sla_status ? (
-                      <Chip
-                        label={getSlaStatusLabel(ticket.sla_status)}
-                        color={getSlaStatusColor(ticket.sla_status)}
-                        size="small"
-                      />
+                      <StatusBadge kind="sla" value={ticket.sla_status} />
                     ) : (
                       <Typography variant="caption" color="text.disabled">—</Typography>
                     )}

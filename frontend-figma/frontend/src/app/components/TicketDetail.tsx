@@ -5,7 +5,6 @@ import {
   Paper,
   Typography,
   Button,
-  Chip,
   CircularProgress,
   TextField,
   MenuItem,
@@ -27,24 +26,20 @@ import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import CalendarTodayOutlinedIcon from '@mui/icons-material/CalendarTodayOutlined';
 import AccessTimeOutlinedIcon from '@mui/icons-material/AccessTimeOutlined';
 import { toast } from 'sonner';
+import StatusBadge from './StatusBadge';
 import SupportShell from './SupportShell';
 import { getToken, clearAuth, isAdmin, isTechnician, getEmail, getHomePath, can } from '../../lib/auth';
 import { CATEGORIES, SUBCATEGORIES, type Category } from '../../lib/categories';
 import {
-  getTicketTypeLabel,
-  getTicketTypeColor,
   TICKET_TYPE_OPTIONS,
   HISTORY_FIELD_LABELS,
   formatHistoryValue
 } from '../../lib/ticketTypes';
 import {
-  getPriorityLabel,
-  getSlaStatusLabel,
-  getSlaStatusColor,
   formatSlaDeadline,
   isIncident
 } from '../../lib/sla';
-import { TICKET_STATUS_OPTIONS, getTicketStatusLabel, getTicketStatusColor } from '../../lib/ticketStatus';
+import { TICKET_STATUS_OPTIONS } from '../../lib/ticketStatus';
 import TicketAttachments from './TicketAttachments';
 import InlineEditSelect from './InlineEditSelect';
 import SearchableSelect from './SearchableSelect';
@@ -479,9 +474,6 @@ export default function TicketDetail() {
     return () => { cancelled = true; };
   }, [canAssign, editing, formData.group_id, ticket?.group_id]);
 
-  const getStatusLabel = getTicketStatusLabel;
-  const getStatusColor = getTicketStatusColor;
-
   const formatDateTime = (date: string) =>
     new Date(date).toLocaleString('es-ES', {
       year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
@@ -831,9 +823,10 @@ export default function TicketDetail() {
     p: { xs: 2, md: 2.5 },
     mb: 2,
     border: '1px solid',
-    borderColor: 'divider',
+    borderColor: '#E2E8F0',
     borderRadius: 2,
-    bgcolor: '#fff'
+    bgcolor: '#fff',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)'
   };
 
   const detailPanel = (
@@ -1118,11 +1111,7 @@ export default function TicketDetail() {
                       disabled={inlineDisabled}
                       requestEdit={() => beginEdit('type')}
                       display={
-                        <Chip
-                          label={getTicketTypeLabel(ticket.type || 'incident')}
-                          color={getTicketTypeColor(ticket.type || 'incident')}
-                          size="small"
-                        />
+                        <StatusBadge kind="type" value={ticket.type} />
                       }
                       onChange={(val) => {
                         const payload: Record<string, unknown> = { type: val };
@@ -1136,11 +1125,7 @@ export default function TicketDetail() {
                       ))}
                     </InlineEditSelect>
                   ) : (
-                    <Chip
-                      label={getTicketTypeLabel(ticket.type || 'incident')}
-                      color={getTicketTypeColor(ticket.type || 'incident')}
-                      size="small"
-                    />
+                    <StatusBadge kind="type" value={ticket.type} />
                   )}
                 </Box>
                 <Box sx={{ flex: 1 }}>
@@ -1153,7 +1138,7 @@ export default function TicketDetail() {
                       disabled={inlineDisabled}
                       requestEdit={() => beginEdit('status')}
                       display={
-                        <Chip label={getStatusLabel(ticket.status)} color={getStatusColor(ticket.status)} size="small" />
+                        <StatusBadge kind="status" value={ticket.status} />
                       }
                       onChange={(val) => handleInlineFieldUpdate({ status: val }, 'status')}
                     >
@@ -1162,7 +1147,7 @@ export default function TicketDetail() {
                       ))}
                     </InlineEditSelect>
                   ) : (
-                    <Chip label={getStatusLabel(ticket.status)} color={getStatusColor(ticket.status)} size="small" />
+                    <StatusBadge kind="status" value={ticket.status} />
                   )}
                 </Box>
               </Stack>
@@ -1177,7 +1162,7 @@ export default function TicketDetail() {
                         value={ticket.priority || 'medium'}
                         disabled={inlineDisabled}
                         requestEdit={() => beginEdit('priority')}
-                        display={<Chip label={getPriorityLabel(ticket.priority)} variant="outlined" size="small" />}
+                        display={<StatusBadge kind="priority" value={ticket.priority} />}
                         onChange={(val) => handleInlineFieldUpdate({ priority: val }, 'priority')}
                       >
                         <MenuItem value="low">Baja</MenuItem>
@@ -1185,7 +1170,7 @@ export default function TicketDetail() {
                         <MenuItem value="high">Alta</MenuItem>
                       </InlineEditSelect>
                     ) : (
-                      <Chip label={getPriorityLabel(ticket.priority)} variant="outlined" size="small" />
+                      <StatusBadge kind="priority" value={ticket.priority} />
                     )}
                   </Box>
                   {ticket.sla_status && (
@@ -1193,11 +1178,7 @@ export default function TicketDetail() {
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                         Vencimiento
                       </Typography>
-                      <Chip
-                        label={getSlaStatusLabel(ticket.sla_status)}
-                        color={getSlaStatusColor(ticket.sla_status)}
-                        size="small"
-                      />
+                      <StatusBadge kind="sla" value={ticket.sla_status} />
                     </Box>
                   )}
                 </Stack>
@@ -1544,7 +1525,16 @@ export default function TicketDetail() {
       title={`#${ticket.id} — ${editing ? formData.title : ticket.title}`}
       subtitle={metaSubtitle}
     >
-      <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+      <Paper
+        elevation={0}
+        sx={{
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 2,
+          bgcolor: '#fff',
+          boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)'
+        }}
+      >
         <Box
           sx={{
             display: 'flex',

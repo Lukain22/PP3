@@ -13,7 +13,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Chip,
   Checkbox,
   CircularProgress,
   TextField,
@@ -28,14 +27,10 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
+import StatusBadge from './StatusBadge';
 import { getToken, clearAuth, getRole, getEmail, can } from '../../lib/auth';
-import { getTicketTypeLabel, getTicketTypeColor } from '../../lib/ticketTypes';
-import {
-  getPriorityLabel,
-  getPriorityColor,
-  isIncident
-} from '../../lib/sla';
-import { TICKET_STATUS_OPTIONS, getTicketStatusLabel, getTicketStatusColor } from '../../lib/ticketStatus';
+import { isIncident } from '../../lib/sla';
+import { TICKET_STATUS_OPTIONS, getTicketStatusLabel } from '../../lib/ticketStatus';
 import InlineEditSelect from './InlineEditSelect';
 import TicketViewSelect from './TicketViewSelect';
 import StaffTableHeadRow, { SortableHeaderCell } from './StaffTableColumnFilters';
@@ -817,6 +812,8 @@ export default function TicketsList() {
             border: '1px solid',
             borderColor: 'divider',
             borderRadius: 2,
+            bgcolor: '#fff',
+            boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)',
             overflow: 'hidden'
           }}
         >
@@ -931,13 +928,7 @@ export default function TicketsList() {
                     <InlineEditSelect
                       value={ticket.status}
                       disabled={busyId === ticket.id}
-                      display={
-                        <Chip
-                          label={getTicketStatusLabel(ticket.status)}
-                          color={getTicketStatusColor(ticket.status)}
-                          size="small"
-                        />
-                      }
+                      display={<StatusBadge kind="status" value={ticket.status} />}
                       onChange={(val) => handleStatusChange(ticket.id, val)}
                     >
                       {TICKET_STATUS_OPTIONS.map((s) => (
@@ -1000,6 +991,8 @@ export default function TicketsList() {
             border: '1px solid',
             borderColor: 'divider',
             borderRadius: 2,
+            bgcolor: '#fff',
+            boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)',
             overflow: 'hidden'
           }}
         >
@@ -1036,28 +1029,14 @@ export default function TicketsList() {
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Chip
-                      label={getTicketTypeLabel(ticket.type || 'incident')}
-                      color={getTicketTypeColor(ticket.type || 'incident')}
-                      size="small"
-                      variant="outlined"
-                    />
+                    <StatusBadge kind="type" value={ticket.type} />
                   </TableCell>
                   <TableCell>
-                    <Chip
-                      label={getTicketStatusLabel(ticket.status)}
-                      color={getTicketStatusColor(ticket.status)}
-                      size="small"
-                    />
+                    <StatusBadge kind="status" value={ticket.status} />
                   </TableCell>
                   <TableCell>
                     {isIncident(ticket.type) ? (
-                      <Chip
-                        label={getPriorityLabel(ticket.priority)}
-                        color={getPriorityColor(ticket.priority || 'medium')}
-                        size="small"
-                        variant="outlined"
-                      />
+                      <StatusBadge kind="priority" value={ticket.priority} />
                     ) : (
                       <Typography variant="caption" color="text.disabled">—</Typography>
                     )}

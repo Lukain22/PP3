@@ -66,7 +66,7 @@ export default function SupportShell({
   return (
     <Box sx={{
       minHeight: '100vh',
-      bgcolor: '#f0f2f5',
+      bgcolor: '#F8FAFC',
       ...(compact && {
         height: '100vh',
         display: 'flex',

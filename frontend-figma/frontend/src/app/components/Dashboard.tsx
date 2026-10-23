@@ -11,7 +11,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Chip,
   CircularProgress,
   Paper,
   Typography,
@@ -20,6 +19,7 @@ import {
 } from '@mui/material';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as RechartsTooltip } from 'recharts';
 import SupportShell from './SupportShell';
+import StatusBadge from './StatusBadge';
 import { getTicketTypeLabel } from '../../lib/ticketTypes';
 import { getPriorityLabel, getSlaStatusLabel, isIncident } from '../../lib/sla';
 import { isAdmin, isStaff, isTechnician } from '../../lib/auth';
@@ -119,7 +119,7 @@ function DistributionChart({ title, data }: { title: string; data: ChartSlice[] 
   if (data.length === 0) return null;
 
   return (
-    <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 2.5, height: '100%' }}>
+    <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: '#fff', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)', p: 2.5, height: '100%' }}>
       <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
         {title}
       </Typography>
@@ -227,27 +227,13 @@ export default function Dashboard() {
 
   const stats = useMemo(() => [
     { label: 'Total', value: tickets.length, color: '#1e3a5f' },
-    { label: 'Abiertos', value: tickets.filter((t) => t.status === 'open').length, color: '#b45309' },
-    { label: 'En proceso', value: tickets.filter((t) => t.status === 'in-progress').length, color: '#1d4ed8' },
+    { label: 'Abiertos', value: tickets.filter((t) => t.status === 'open').length, color: '#1E40AF' },
+    { label: 'En proceso', value: tickets.filter((t) => t.status === 'in-progress').length, color: '#3730A3' },
     { label: 'Resueltos', value: tickets.filter((t) => t.status === 'resolved').length, color: '#047857' }
   ], [tickets]);
 
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
-
-  const getStatusLabel = (status: string) => {
-    if (status === 'open') return 'Abierto';
-    if (status === 'in-progress') return 'En proceso';
-    if (status === 'resolved') return 'Resuelto';
-    return status;
-  };
-
-  const getStatusColor = (status: string): 'warning' | 'info' | 'success' | 'default' => {
-    if (status === 'open') return 'warning';
-    if (status === 'in-progress') return 'info';
-    if (status === 'resolved') return 'success';
-    return 'default';
-  };
 
   const recentTickets = tickets.slice(0, 5);
 
@@ -255,7 +241,7 @@ export default function Dashboard() {
     tickets,
     (t) => t.status,
     { open: 'Abiertos', 'in-progress': 'En proceso', 'on-hold': 'En espera', resolved: 'Resueltos' },
-    { open: '#f59e0b', 'in-progress': '#3b82f6', 'on-hold': '#64748b', resolved: '#10b981' }
+    { open: '#60A5FA', 'in-progress': '#4F46E5', 'on-hold': '#94A3B8', resolved: '#34D399' }
   );
 
   const typeChartData = countSlices(
@@ -269,7 +255,7 @@ export default function Dashboard() {
     tickets.filter((t) => isIncident(t.type)),
     (t) => t.priority || 'medium',
     { high: getPriorityLabel('high'), medium: getPriorityLabel('medium'), low: getPriorityLabel('low') },
-    { high: '#ef4444', medium: '#f59e0b', low: '#10b981' }
+    { high: '#F87171', medium: '#FBBF24', low: '#38BDF8' }
   );
 
   const slaChartData = countSlices(
@@ -282,7 +268,7 @@ export default function Dashboard() {
       met: getSlaStatusLabel('met'),
       paused: getSlaStatusLabel('paused')
     },
-    { on_track: '#10b981', at_risk: '#f59e0b', breached: '#ef4444', met: '#3b82f6', paused: '#64748b' }
+    { on_track: '#34D399', at_risk: '#FB923C', breached: '#F87171', met: '#60A5FA', paused: '#94A3B8' }
   );
 
   const groupChartData = scope === 'all' ? countByGroup(tickets) : [];
@@ -359,7 +345,7 @@ export default function Dashboard() {
           <Grid size={{ xs: 6, md: 3 }} key={stat.label}>
             <Card
               elevation={0}
-              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
+              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: '#fff', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)' }}
             >
               <CardContent sx={{ py: 2, px: 2.5 }}>
                 <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
@@ -384,7 +370,7 @@ export default function Dashboard() {
         </Grid>
       )}
 
-      <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
+      <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: '#fff', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)', overflow: 'hidden' }}>
         <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid', borderColor: 'divider', bgcolor: '#fafbfc' }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
             Actividad reciente
@@ -420,7 +406,7 @@ export default function Dashboard() {
                     <TableCell>{ticket.id}</TableCell>
                     <TableCell sx={{ wordBreak: 'break-word' }}>{ticket.title}</TableCell>
                     <TableCell>
-                      <Chip label={getStatusLabel(ticket.status)} color={getStatusColor(ticket.status)} size="small" />
+                      <StatusBadge kind="status" value={ticket.status} />
                     </TableCell>
                     <TableCell>{formatDate(ticket.created_at)}</TableCell>
                   </TableRow>
