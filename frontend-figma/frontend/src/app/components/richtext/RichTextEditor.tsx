@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Box, IconButton, MenuItem, Select, Tooltip } from '@mui/material';
 import FormatBoldIcon from '@mui/icons-material/FormatBold';
 import FormatItalicIcon from '@mui/icons-material/FormatItalic';
@@ -127,6 +127,7 @@ interface RichTextEditorProps {
   onChange: (html: string) => void;
   ticketId?: number | string;
   placeholder?: string;
+  plain?: boolean;
   bounded?: boolean;
   attachmentContext?: AttachmentScope;
   commentId?: number;
@@ -168,6 +169,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
   onChange,
   ticketId,
   placeholder = 'Describí el problema. Podés pegar capturas con Ctrl + V.',
+  plain = false,
   bounded = false,
   attachmentContext = 'ticket',
   commentId,
@@ -180,6 +182,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
   const toolbarRef = useRef<HTMLDivElement>(null);
   const insertImageRef = useRef<(file: File) => void>(() => {});
   const hydrateRef = useRef<(current: Editor) => void>(() => {});
+  const [showTools, setShowTools] = useState(false);
 
   const editor = useEditor({
     extensions: [
@@ -327,6 +330,13 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
     }
   }, [value, editor]);
 
+  useEffect(() => {
+    if (!editor || !plain) return;
+    const open = () => setShowTools(true);
+    editor.on('focus', open);
+    return () => { editor.off('focus', open); };
+  }, [editor, plain]);
+
   useEffect(() => () => {
     urls.current.forEach((url) => URL.revokeObjectURL(url));
   }, []);
@@ -397,7 +407,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
 
   return (
     <Box
-      className={bounded ? 'rich-text-shell is-bounded' : 'rich-text-shell'}
+      className={['rich-text-shell', bounded ? 'is-bounded' : '', plain ? 'is-plain' : '', plain && showTools ? 'is-tools' : ''].filter(Boolean).join(' ')}
       sx={bounded ? { flex: 1, minHeight: 0 } : undefined}
     >
       <Box className="rich-text-toolbar" ref={toolbarRef}>

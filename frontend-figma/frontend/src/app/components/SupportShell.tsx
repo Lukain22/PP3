@@ -25,7 +25,7 @@ type Crumb = { label: string; to?: string };
 
 interface SupportShellProps {
   children: ReactNode;
-  title: string;
+  title: ReactNode;
   subtitle?: ReactNode;
   breadcrumbs?: Crumb[];
   backTo?: string;
@@ -238,15 +238,17 @@ export default function SupportShell({
             >
               <Typography
                 variant={compact || compactTitle ? 'h6' : 'h4'}
-                noWrap={headerSingleRow}
-                title={headerSingleRow ? title : undefined}
+                noWrap={headerSingleRow && typeof title === 'string'}
+                title={headerSingleRow && typeof title === 'string' ? title : undefined}
                 sx={{
                   fontWeight: 600,
                   fontSize: compact || compactTitle ? '1.125rem' : { xs: '1.35rem', md: '1.75rem' },
                   lineHeight: compact || compactTitle ? 1.2 : 1.25,
-                  ...(headerSingleRow
-                    ? { flex: '0 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }
-                    : { flexShrink: 0 })
+                  ...(headerSingleRow && typeof title !== 'string'
+                    ? { flex: '1 1 auto', minWidth: 0 }
+                    : headerSingleRow
+                      ? { flex: '0 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }
+                      : { flexShrink: 0 })
                 }}
               >
                 {title}

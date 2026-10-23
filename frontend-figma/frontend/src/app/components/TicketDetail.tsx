@@ -868,6 +868,7 @@ export default function TicketDetail() {
       compact
       showTitleWhenHasFiles
       uploadBelowFiles
+      contentAlign="left"
     />
   );
 
@@ -947,23 +948,14 @@ export default function TicketDetail() {
         ) : (
           <Stack spacing={1.5} sx={{ alignItems: 'stretch', textAlign: 'left' }}>
             <Box
-              onClick={(event) => {
-                if (staff && !admin) return;
-                if (inlineDisabled) return;
-                const target = event.target as HTMLElement;
-                if (target.closest('a, button')) return;
-                beginEdit('description');
-              }}
               sx={{
                 textAlign: 'left',
+                '& .rich-text-content': { padding: 0, minHeight: 0 },
+                '& .rich-text-content p:first-of-type': { marginTop: 0 },
+                '& .rich-text-content p:last-of-type': { marginBottom: 0 },
                 '& .rich-text-content, & .rich-text-content p, & .rich-text-content h1, & .rich-text-content h2, & .rich-text-content h3, & .rich-text-content li': {
                   textAlign: 'left !important'
-                },
-                ...((staff && !admin) ? {} : {
-                  cursor: inlineDisabled ? 'default' : 'pointer',
-                  borderRadius: 1,
-                  ...(!inlineDisabled && { '&:hover': { bgcolor: 'action.hover' } })
-                })
+                }
               }}
             >
               <RichTextView value={ticket.description} ticketId={ticket.id} />
@@ -985,12 +977,15 @@ export default function TicketDetail() {
           Información
         </Typography>
 
-        {editing && staff ? (
-            <Stack spacing={2.5}>
-              {admin && (
-                <>
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+        <>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                    Tipo
+                  </Typography>
+                  {editing && admin ? (
                     <SearchableSelect
+                      compact
                       label="Tipo"
                       autoFocus={editFocus === 'type'}
                       value={formData.type}
@@ -1003,179 +998,7 @@ export default function TicketDetail() {
                         });
                       }}
                     />
-                    <SearchableSelect
-                      label="Estado"
-                      autoFocus={editFocus === 'status'}
-                      value={formData.status}
-                      options={TICKET_STATUS_OPTIONS.map((s) => ({ value: s.value, label: s.label }))}
-                      onChange={(status) => setFormData({ ...formData, status })}
-                    />
-                  </Stack>
-                  {isIncident(formData.type) && (
-                    <SearchableSelect
-                      label="Prioridad"
-                      autoFocus={editFocus === 'priority'}
-                      value={formData.priority}
-                      options={[
-                        { value: 'low', label: 'Baja' },
-                        { value: 'medium', label: 'Media' },
-                        { value: 'high', label: 'Alta' }
-                      ]}
-                      onChange={(priority) => setFormData({ ...formData, priority })}
-                    />
-                  )}
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                    <SearchableSelect
-                      label="Categoría"
-                      autoFocus={editFocus === 'category'}
-                      value={formData.category}
-                      options={[
-                        { value: '', label: 'Sin categoría' },
-                        ...CATEGORIES.map((c) => ({ value: c, label: c }))
-                      ]}
-                      onChange={(category) => setFormData({ ...formData, category, subcategory: '' })}
-                    />
-                    <SearchableSelect
-                      label="Subcategoría"
-                      autoFocus={editFocus === 'subcategory'}
-                      value={formData.subcategory}
-                      disabled={!formData.category}
-                      options={[
-                        { value: '', label: 'Sin subcategoría' },
-                        ...availableSubcategories.map((s) => ({ value: s, label: s }))
-                      ]}
-                      onChange={(subcategory) => setFormData({ ...formData, subcategory })}
-                    />
-                  </Stack>
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                    <SearchableSelect
-                      label="Grupo"
-                      autoFocus={editFocus === 'group'}
-                      value={formData.group_id}
-                      options={[
-                        { value: '', label: 'Sin grupo' },
-                        ...groups.map((g) => ({ value: g.id, label: g.name }))
-                      ]}
-                      onChange={(nextGroup) => {
-                        setFormData({
-                          ...formData,
-                          group_id: nextGroup ? Number(nextGroup) : '',
-                          technician_id: ''
-                        });
-                      }}
-                    />
-                    <SearchableSelect
-                      label="Técnico"
-                      autoFocus={editFocus === 'technician'}
-                      value={formData.technician_id}
-                      disabled={!formData.group_id}
-                      options={[
-                        { value: '', label: 'Sin asignar' },
-                        ...groupTechnicians.map((tech) => ({ value: tech.id, label: tech.email }))
-                      ]}
-                      onChange={(nextTechnician) => setFormData({
-                        ...formData,
-                        technician_id: nextTechnician ? Number(nextTechnician) : ''
-                      })}
-                    />
-                  </Stack>
-                </>
-              )}
-
-              {technician && !admin && (
-                <>
-                  <SearchableSelect
-                    label="Estado"
-                    autoFocus={editFocus === 'status'}
-                    value={formData.status}
-                    options={statusOptions.map((s) => ({ value: s.value, label: s.label }))}
-                    onChange={(status) => setFormData({ ...formData, status })}
-                  />
-                  {isIncident(formData.type) && (
-                    <SearchableSelect
-                      label="Prioridad"
-                      autoFocus={editFocus === 'priority'}
-                      value={formData.priority}
-                      options={[
-                        { value: 'low', label: 'Baja' },
-                        { value: 'medium', label: 'Media' },
-                        { value: 'high', label: 'Alta' }
-                      ]}
-                      onChange={(priority) => setFormData({ ...formData, priority })}
-                    />
-                  )}
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                    <SearchableSelect
-                      label="Categoría"
-                      autoFocus={editFocus === 'category'}
-                      value={formData.category}
-                      options={[
-                        { value: '', label: 'Sin categoría' },
-                        ...CATEGORIES.map((c) => ({ value: c, label: c }))
-                      ]}
-                      onChange={(category) => setFormData({ ...formData, category, subcategory: '' })}
-                    />
-                    <SearchableSelect
-                      label="Subcategoría"
-                      autoFocus={editFocus === 'subcategory'}
-                      value={formData.subcategory}
-                      disabled={!formData.category}
-                      options={[
-                        { value: '', label: 'Sin subcategoría' },
-                        ...availableSubcategories.map((s) => ({ value: s, label: s }))
-                      ]}
-                      onChange={(subcategory) => setFormData({ ...formData, subcategory })}
-                    />
-                  </Stack>
-                  {(canTransfer || canAssign) && (
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                      {canTransfer && (
-                        <SearchableSelect
-                          label="Grupo"
-                          autoFocus={editFocus === 'group'}
-                          value={formData.group_id}
-                          options={[
-                            { value: '', label: 'Sin grupo' },
-                            ...groups.map((g) => ({ value: g.id, label: g.name }))
-                          ]}
-                          onChange={(nextGroup) => {
-                            setFormData({
-                              ...formData,
-                              group_id: nextGroup ? Number(nextGroup) : '',
-                              technician_id: ''
-                            });
-                          }}
-                        />
-                      )}
-                      {canAssign && (
-                        <SearchableSelect
-                          label="Técnico"
-                          autoFocus={editFocus === 'technician'}
-                          value={formData.technician_id}
-                          disabled={!formData.group_id}
-                          options={[
-                            { value: '', label: 'Sin asignar' },
-                            ...groupTechnicians.map((tech) => ({ value: tech.id, label: tech.email }))
-                          ]}
-                          onChange={(nextTechnician) => setFormData({
-                            ...formData,
-                            technician_id: nextTechnician ? Number(nextTechnician) : ''
-                          })}
-                        />
-                      )}
-                    </Stack>
-                  )}
-                </>
-              )}
-            </Stack>
-          ) : (
-            <>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                    Tipo
-                  </Typography>
-                  {admin ? (
+                  ) : admin ? (
                     <InlineEditSelect
                       value={ticket.type || 'incident'}
                       disabled={inlineDisabled}
@@ -1195,7 +1018,16 @@ export default function TicketDetail() {
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                     Estado
                   </Typography>
-                  {canChangeStatus ? (
+                  {editing && canChangeStatus ? (
+                    <SearchableSelect
+                      compact
+                      label="Estado"
+                      autoFocus={editFocus === 'status'}
+                      value={formData.status}
+                      options={statusOptions.map((s) => ({ value: s.value, label: s.label }))}
+                      onChange={(status) => setFormData({ ...formData, status })}
+                    />
+                  ) : canChangeStatus ? (
                     <InlineEditSelect
                       value={ticket.status}
                       disabled={inlineDisabled}
@@ -1212,13 +1044,26 @@ export default function TicketDetail() {
                   )}
                 </Box>
               </Stack>
-              {isIncident(ticket.type) && (
+              {isIncident(editing ? formData.type : ticket.type) && (
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 1.5 }}>
                   <Box sx={{ flex: 1 }}>
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                       Prioridad
                     </Typography>
-                    {canEditTickets ? (
+                    {editing && staff ? (
+                      <SearchableSelect
+                        compact
+                        label="Prioridad"
+                        autoFocus={editFocus === 'priority'}
+                        value={formData.priority}
+                        options={[
+                          { value: 'low', label: 'Baja' },
+                          { value: 'medium', label: 'Media' },
+                          { value: 'high', label: 'Alta' }
+                        ]}
+                        onChange={(priority) => setFormData({ ...formData, priority })}
+                      />
+                    ) : canEditTickets ? (
                       <InlineEditSelect
                         value={ticket.priority || 'medium'}
                         disabled={inlineDisabled}
@@ -1251,7 +1096,19 @@ export default function TicketDetail() {
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                     Categoría
                   </Typography>
-                  {canEditTickets ? (
+                  {editing && staff ? (
+                    <SearchableSelect
+                      compact
+                      label="Categoría"
+                      autoFocus={editFocus === 'category'}
+                      value={formData.category}
+                      options={[
+                        { value: '', label: 'Sin categoría' },
+                        ...CATEGORIES.map((c) => ({ value: c, label: c }))
+                      ]}
+                      onChange={(category) => setFormData({ ...formData, category, subcategory: '' })}
+                    />
+                  ) : canEditTickets ? (
                     <InlineEditSelect
                       value={ticket.category || ''}
                       disabled={inlineDisabled}
@@ -1279,7 +1136,20 @@ export default function TicketDetail() {
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                     Subcategoría
                   </Typography>
-                  {canEditTickets ? (
+                  {editing && staff ? (
+                    <SearchableSelect
+                      compact
+                      label="Subcategoría"
+                      autoFocus={editFocus === 'subcategory'}
+                      value={formData.subcategory}
+                      disabled={!formData.category}
+                      options={[
+                        { value: '', label: 'Sin subcategoría' },
+                        ...availableSubcategories.map((s) => ({ value: s, label: s }))
+                      ]}
+                      onChange={(subcategory) => setFormData({ ...formData, subcategory })}
+                    />
+                  ) : canEditTickets ? (
                     <InlineEditSelect
                       value={ticket.subcategory || ''}
                       disabled={inlineDisabled || !ticket.category}
@@ -1306,7 +1176,25 @@ export default function TicketDetail() {
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                     Grupo
                   </Typography>
-                  {canTransfer ? (
+                  {editing && (admin || canTransfer) ? (
+                    <SearchableSelect
+                      compact
+                      label="Grupo"
+                      autoFocus={editFocus === 'group'}
+                      value={formData.group_id}
+                      options={[
+                        { value: '', label: 'Sin grupo' },
+                        ...groups.map((g) => ({ value: g.id, label: g.name }))
+                      ]}
+                      onChange={(nextGroup) => {
+                        setFormData({
+                          ...formData,
+                          group_id: nextGroup ? Number(nextGroup) : '',
+                          technician_id: ''
+                        });
+                      }}
+                    />
+                  ) : canTransfer ? (
                     <InlineEditSelect
                       value={ticket.group_id ?? ''}
                       disabled={inlineDisabled}
@@ -1337,7 +1225,23 @@ export default function TicketDetail() {
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                     Técnico
                   </Typography>
-                  {canAssign ? (
+                  {editing && (admin || canAssign) ? (
+                    <SearchableSelect
+                      compact
+                      label="Técnico"
+                      autoFocus={editFocus === 'technician'}
+                      value={formData.technician_id}
+                      disabled={!formData.group_id}
+                      options={[
+                        { value: '', label: 'Sin asignar' },
+                        ...groupTechnicians.map((tech) => ({ value: tech.id, label: tech.email }))
+                      ]}
+                      onChange={(nextTechnician) => setFormData({
+                        ...formData,
+                        technician_id: nextTechnician ? Number(nextTechnician) : ''
+                      })}
+                    />
+                  ) : canAssign ? (
                     <InlineEditSelect
                       value={ticket.technician_id ?? ''}
                       disabled={inlineDisabled || !ticket.group_id}
@@ -1393,7 +1297,6 @@ export default function TicketDetail() {
                 )}
               </Stack>
             </>
-          )}
       </Paper>
 
       <Paper elevation={0} sx={{ ...sectionPaperSx, mb: 0 }}>

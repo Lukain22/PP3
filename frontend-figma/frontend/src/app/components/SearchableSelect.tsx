@@ -13,6 +13,7 @@ interface SearchableSelectProps {
   onChange: (value: string) => void;
   disabled?: boolean;
   autoFocus?: boolean;
+  compact?: boolean;
 }
 
 function normalize(text: string) {
@@ -25,7 +26,8 @@ export default function SearchableSelect({
   options,
   onChange,
   disabled = false,
-  autoFocus = false
+  autoFocus = false,
+  compact = false
 }: SearchableSelectProps) {
   const optionsKey = options.map((option) => `${String(option.value)}\u0000${option.label}`).join('\u0001');
   const stableOptions = useMemo(
@@ -91,8 +93,17 @@ export default function SearchableSelect({
       renderInput={(params) => (
         <TextField
           {...params}
-          label={label}
+          label={compact ? undefined : label}
+          size={compact ? 'small' : undefined}
           autoFocus={autoFocus}
+          sx={compact ? {
+            '& .MuiOutlinedInput-root': {
+              height: 32,
+              fontSize: '0.875rem',
+              bgcolor: '#fff'
+            },
+            '& .MuiOutlinedInput-input': { py: '0 !important' }
+          } : undefined}
         />
       )}
       slotProps={{

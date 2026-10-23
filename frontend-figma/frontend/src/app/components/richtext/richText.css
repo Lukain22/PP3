@@ -25,6 +25,47 @@
   height: 28px;
 }
 
+.rich-text-shell.is-plain {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+  box-shadow: none;
+}
+
+.rich-text-shell.is-plain:focus-within {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.rich-text-shell.is-plain .rich-text-toolbar {
+  display: none;
+  margin-bottom: 2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.rich-text-shell.is-plain.is-tools .rich-text-toolbar {
+  display: flex;
+}
+
+.rich-text-shell.is-plain .ProseMirror {
+  min-height: 0;
+  padding: 0;
+}
+
+.rich-text-shell.is-plain .ProseMirror p:first-of-type { margin-top: 0; }
+.rich-text-shell.is-plain .ProseMirror p:last-of-type { margin-bottom: 0; }
+.rich-text-shell.is-plain .ProseMirror,
+.rich-text-shell.is-plain .ProseMirror p,
+.rich-text-shell.is-plain .ProseMirror h1,
+.rich-text-shell.is-plain .ProseMirror h2,
+.rich-text-shell.is-plain .ProseMirror h3,
+.rich-text-shell.is-plain .ProseMirror li {
+  text-align: left !important;
+}
+
 .rich-text-content,
 .ProseMirror {
   min-height: 180px;
