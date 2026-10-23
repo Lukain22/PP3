@@ -262,9 +262,18 @@ export default function TicketsList() {
     const result = await apiCall(`${getTicketsApiPath(mode)}?${params}`);
     if (!result) return;
     if (result.response.ok) {
-      setTickets(Array.isArray(result.data.data) ? result.data.data : []);
-      setTotal(result.data.total ?? 0);
-      setTotalPages(result.data.totalPages ?? 1);
+      const data = Array.isArray(result.data.data) ? result.data.data : [];
+      const nextTotal = result.data.total ?? 0;
+      const nextPages = result.data.totalPages ?? 1;
+      setTickets(data);
+      setTotal(nextTotal);
+      setTotalPages(Math.max(nextPages, 1));
+      if (data.length === 0 && currentPage > 1 && currentPage > nextPages) {
+        setPage(Math.max(nextPages, 1));
+      }
+      setListReady(true);
+      setLoading(false);
+      return data;
     }
     setListReady(true);
     setLoading(false);
@@ -502,6 +511,23 @@ export default function TicketsList() {
   const patchPath = (ticketId: number) =>
     canEditAll ? `/admin/tickets/${ticketId}` : `/tickets/${ticketId}`;
 
+  const reloadCurrentView = async (ticketId: number) => {
+    const visible = await loadTickets(
+      page,
+      listFilters,
+      listMode,
+      columnSort,
+      isStaffTable ? columnFilters : undefined
+    );
+    if (!visible || visible.some((ticket) => ticket.id === ticketId)) return;
+    setSelectedIds((prev) => {
+      if (!prev.has(ticketId)) return prev;
+      const next = new Set(prev);
+      next.delete(ticketId);
+      return next;
+    });
+  };
+
   const handleStatusChange = async (ticketId: number, newStatus: string) => {
     setBusyId(ticketId);
     try {
@@ -511,8 +537,8 @@ export default function TicketsList() {
       });
       if (!result) return;
       if (!result.response.ok) { toast.error(result.data.message || 'No se pudo actualizar'); return; }
-      setTickets((prev) => prev.map((t) => t.id === ticketId ? { ...t, status: newStatus } : t));
       toast.success('Estado actualizado');
+      await reloadCurrentView(ticketId);
     } catch {
       toast.error('Error conectando con el backend');
     } finally {
@@ -538,26 +564,8 @@ export default function TicketsList() {
       });
       if (!result) return;
       if (!result.response.ok) { toast.error(result.data.message || 'No se pudo actualizar'); return; }
-      const groupName = groupChoices.find((g) => g.id === newGroupId)?.name
-        || groups.find((g) => g.id === newGroupId)?.name
-        || '';
-      const staysInQueue = listMode !== 'technician' || groups.some((g) => g.id === newGroupId);
-      setTickets((prev) => (
-        staysInQueue
-          ? prev.map((t) => (
-            t.id === ticketId
-              ? {
-                ...t,
-                group_id: newGroupId,
-                group_name: groupName,
-                ...(keepAssignee ? {} : { technician_id: null, technician_email: null })
-              }
-              : t
-          ))
-          : prev.filter((t) => t.id !== ticketId)
-      ));
-      if (!staysInQueue) setTotal((current) => Math.max(0, current - 1));
       toast.success('Grupo actualizado');
+      await reloadCurrentView(ticketId);
     } catch {
       toast.error('Error conectando con el backend');
     } finally {
@@ -565,7 +573,7 @@ export default function TicketsList() {
     }
   };
 
-  const handleTechnicianChange = async (ticketId: number, newTechnicianId: number | null, groupId: number | null) => {
+  const handleTechnicianChange = async (ticketId: number, newTechnicianId: number | null) => {
     setBusyId(ticketId);
     try {
       const result = await apiCall(patchPath(ticketId), {
@@ -574,17 +582,8 @@ export default function TicketsList() {
       });
       if (!result) return;
       if (!result.response.ok) { toast.error(result.data.message || 'No se pudo actualizar'); return; }
-      const technicianEmail = newTechnicianId
-        ? (groupTechnicians[Number(groupId) || 0] || []).find((tech) => tech.id === newTechnicianId)?.email || ''
-        : '';
-      setTickets((prev) =>
-        prev.map((t) =>
-          t.id === ticketId
-            ? { ...t, technician_id: newTechnicianId, technician_email: technicianEmail || null }
-            : t
-        )
-      );
       toast.success('Técnico actualizado');
+      await reloadCurrentView(ticketId);
     } catch {
       toast.error('Error conectando con el backend');
     } finally {
@@ -915,7 +914,7 @@ export default function TicketsList() {
                         )
                       }
                       onChange={(val) =>
-                        handleTechnicianChange(ticket.id, val ? Number(val) : null, ticket.group_id)
+                        handleTechnicianChange(ticket.id, val ? Number(val) : null)
                       }
                     >
                       <MenuItem value=""><em>Sin asignar</em></MenuItem>
