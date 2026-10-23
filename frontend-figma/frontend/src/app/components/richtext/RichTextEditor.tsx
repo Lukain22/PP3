@@ -110,6 +110,7 @@ const InlineImage = Image.extend({
 });
 
 export interface RichTextEditorHandle {
+  focus: () => boolean;
   hasPendingImages: () => boolean;
   flushPendingImages: (
     ticketId: number | string,
@@ -176,6 +177,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
   const filesRef = useRef(new Map<string, File>());
   const lastHtml = useRef(value);
   const urls = useRef<string[]>([]);
+  const toolbarRef = useRef<HTMLDivElement>(null);
   const insertImageRef = useRef<(file: File) => void>(() => {});
   const hydrateRef = useRef<(current: Editor) => void>(() => {});
 
@@ -329,7 +331,20 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
     urls.current.forEach((url) => URL.revokeObjectURL(url));
   }, []);
 
+  useEffect(() => {
+    const root = toolbarRef.current;
+    if (!root) return;
+    root.querySelectorAll<HTMLElement>('button, input, select, [role="button"]').forEach((el) => {
+      el.tabIndex = -1;
+    });
+  });
+
   useImperativeHandle(ref, () => ({
+    focus: () => {
+      if (!editor) return false;
+      editor.commands.focus('end');
+      return true;
+    },
     hasPendingImages: () => filesRef.current.size > 0,
     flushPendingImages: async (nextTicketId, options) => {
       if (!editor) return { ok: false, html: value };
@@ -385,7 +400,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
       className={bounded ? 'rich-text-shell is-bounded' : 'rich-text-shell'}
       sx={bounded ? { flex: 1, minHeight: 0 } : undefined}
     >
-      <Box className="rich-text-toolbar">
+      <Box className="rich-text-toolbar" ref={toolbarRef}>
         <Tooltip title="Negrita"><IconButton size="small" onClick={run(() => editor.chain().focus().toggleBold().run())} sx={{ color: mark(editor.isActive('bold')) }}><FormatBoldIcon fontSize="small" /></IconButton></Tooltip>
         <Tooltip title="Cursiva"><IconButton size="small" onClick={run(() => editor.chain().focus().toggleItalic().run())} sx={{ color: mark(editor.isActive('italic')) }}><FormatItalicIcon fontSize="small" /></IconButton></Tooltip>
         <Tooltip title="Subrayado"><IconButton size="small" onClick={run(() => editor.chain().focus().toggleUnderline().run())} sx={{ color: mark(editor.isActive('underline')) }}><FormatUnderlinedIcon fontSize="small" /></IconButton></Tooltip>

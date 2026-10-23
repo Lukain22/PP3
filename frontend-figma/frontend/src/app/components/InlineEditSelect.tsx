@@ -6,6 +6,7 @@ interface InlineEditSelectProps {
   display: ReactNode;
   disabled?: boolean;
   onChange: (value: string) => void;
+  requestEdit?: () => void;
   children: ReactNode;
 }
 
@@ -14,6 +15,7 @@ export default function InlineEditSelect({
   display,
   disabled = false,
   onChange,
+  requestEdit,
   children
 }: InlineEditSelectProps) {
   const [editing, setEditing] = useState(false);
@@ -23,7 +25,12 @@ export default function InlineEditSelect({
       <Box
         onClick={(e) => {
           e.stopPropagation();
-          if (!disabled) setEditing(true);
+          if (disabled) return;
+          if (requestEdit) {
+            requestEdit();
+            return;
+          }
+          setEditing(true);
         }}
         sx={{
           cursor: disabled ? 'default' : 'pointer',
