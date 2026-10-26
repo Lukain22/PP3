@@ -39,6 +39,7 @@ interface Ticket {
   priority: string;
   created_at: string;
   user_id: number;
+  seen?: number | boolean;
 }
 
 export default function TicketsList() {
@@ -281,7 +282,9 @@ export default function TicketsList() {
                     onClick={() => navigate(`/tickets/${ticket.id}`)}
                   >
                     <TableCell>#{ticket.id}</TableCell>
-                    <TableCell>{ticket.title}</TableCell>
+                    <TableCell sx={{ fontWeight: ticket.seen === 0 || ticket.seen === false ? 700 : 400 }}>
+                      {ticket.title}
+                    </TableCell>
                     <TableCell>{ticket.description.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()}</TableCell>
                     <TableCell sx={{ minWidth: 160 }} onClick={(e) => e.stopPropagation()}>
                       <TextField

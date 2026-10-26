@@ -13,6 +13,7 @@ const { assertTicketMutation } = require('../rbac/guard');
 const { sanitizeDescription, isEmptyDescription } = require('../utils/richText');
 const { removeScopedAttachments } = require('../utils/attachments');
 const { rejectDirectResolve } = require('../utils/resolveRules');
+const { SEEN_SELECT, markTicketRead } = require('../utils/ticketReads');
 const { syncSystemRoleForAccount } = require('../rbac/service');
 
 const SLA_SELECT = 't.sla_response_due, t.sla_resolution_due, t.sla_status';
@@ -87,13 +88,14 @@ exports.getAllTickets = (req, res) => {
         `SELECT t.id, t.title, t.description, t.status, t.priority, t.type,
                 t.category, t.subcategory, t.group_id, g.name AS group_name,
                 t.technician_id, tech.email AS technician_email, ${SLA_SELECT},
-                t.created_at, t.updated_at, t.user_id, u.email AS user_email
+                t.created_at, t.updated_at, t.user_id, u.email AS user_email,
+                ${SEEN_SELECT}
          FROM tickets t
          ${joinClause}
          ${whereClause}
          ORDER BY ${orderBy}
          LIMIT ? OFFSET ?`,
-        [...baseParams, limit, offset],
+        [req.user.id, ...baseParams, limit, offset],
         (err2, results) => {
           if (err2) {
             console.error('Error en getAllTickets data:', err2.code);
@@ -133,7 +135,9 @@ exports.getAnyTicket = (req, res) => {
       if (results.length === 0) {
         return res.status(404).json({ message: 'Ticket no encontrado' });
       }
-      res.json(enrichTicket(results[0]));
+      markTicketRead(req.user.id, results[0].id, () => {
+        res.json(enrichTicket(results[0]));
+      });
     }
   );
 };

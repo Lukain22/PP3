@@ -22,6 +22,7 @@ const { assertPermission, assertTicketMutation } = require('../rbac/guard');
 const { sanitizeDescription, isEmptyDescription } = require('../utils/richText');
 const { removeScopedAttachments } = require('../utils/attachments');
 const { rejectDirectResolve, missingResolveFields } = require('../utils/resolveRules');
+const { SEEN_SELECT, markTicketRead, initTicketReadsTable } = require('../utils/ticketReads');
 
 const SLA_SELECT = 'sla_response_due, sla_resolution_due, sla_status, sla_paused_at';
 
@@ -92,6 +93,7 @@ const initTicketsTable = () => {
         'ALTER TABLE tickets ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP',
         () => {}
       );
+      initTicketReadsTable();
     }
   });
 };
@@ -141,12 +143,13 @@ exports.getTickets = (req, res) => {
       const total = countResult[0].total;
 
       db.query(
-        `SELECT id, title, description, status, priority, type, group_id, ${SLA_SELECT}, created_at, user_id
+        `SELECT id, title, description, status, priority, type, group_id, ${SLA_SELECT}, created_at, user_id,
+                ${SEEN_SELECT}
          FROM tickets t
          ${whereClause}
          ORDER BY ${orderBy}
          LIMIT ? OFFSET ?`,
-        [...baseParams, limit, offset],
+        [req.user.id, ...baseParams, limit, offset],
         (err2, results) => {
           if (err2) return res.status(500).json({ message: 'Error al obtener tickets' });
           res.json({
@@ -180,8 +183,14 @@ exports.getTicketById = (req, res) => {
       const ticket = results[0];
       const role = req.user.role;
 
+      const sendTicket = () => {
+        markTicketRead(req.user.id, ticket.id, () => {
+          res.json(enrichTicket(ticket));
+        });
+      };
+
       if (role === 'admin') {
-        return res.json(enrichTicket(ticket));
+        return sendTicket();
       }
 
       if (role === 'technician') {
@@ -190,14 +199,14 @@ exports.getTicketById = (req, res) => {
           if (!userCanAccessTicket(req.user, ticket, groupIds)) {
             return res.status(403).json({ message: 'No tenés acceso a este ticket' });
           }
-          res.json(enrichTicket(ticket));
+          sendTicket();
         });
       }
 
       if (ticket.user_id !== req.user.id) {
         return res.status(404).json({ message: 'Ticket no encontrado' });
       }
-      res.json(enrichTicket(ticket));
+      sendTicket();
     }
   );
 };
@@ -282,10 +291,11 @@ const runCreateTicket = (req, res) => {
           createdLog.priority = ticketPriority;
         }
         logTicketCreated(ticketId, req.user.id, createdLog);
-
-        res.status(201).json({
-          message: 'Ticket creado',
-          id: ticketId
+        markTicketRead(req.user.id, ticketId, () => {
+          res.status(201).json({
+            message: 'Ticket creado',
+            id: ticketId
+          });
         });
       }
     );

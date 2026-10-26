@@ -69,6 +69,10 @@ import { downloadTableExport, type ExportFormat } from '../../lib/tableExport';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
+function isTicketUnseen(seen: number | boolean | undefined) {
+  return seen === 0 || seen === false;
+}
+
 function TicketTypeMark({ type }: { type?: string | null }) {
   const incident = isIncident(type);
   const label = incident ? 'Incidente' : 'Requerimiento';
@@ -114,6 +118,7 @@ interface Ticket {
   updated_at?: string;
   user_id: number;
   user_email?: string;
+  seen?: number | boolean;
 }
 
 interface GroupOption {
@@ -908,7 +913,12 @@ export default function TicketsList() {
                   <TableCell sx={{ minWidth: 200, maxWidth: 320 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
                       <TicketTypeMark type={ticket.type} />
-                      <Typography variant="body2" noWrap title={ticket.title} sx={{ fontWeight: 600, minWidth: 0 }}>
+                      <Typography
+                        variant="body2"
+                        noWrap
+                        title={ticket.title}
+                        sx={{ fontWeight: isTicketUnseen(ticket.seen) ? 700 : 400, minWidth: 0 }}
+                      >
                         {ticket.title}
                       </Typography>
                     </Box>
@@ -1065,7 +1075,12 @@ export default function TicketsList() {
                   <TableCell sx={{ maxWidth: 280 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
                       <TicketTypeMark type={ticket.type} />
-                      <Typography variant="body2" noWrap title={ticket.title} sx={{ fontWeight: 600, minWidth: 0 }}>
+                      <Typography
+                        variant="body2"
+                        noWrap
+                        title={ticket.title}
+                        sx={{ fontWeight: isTicketUnseen(ticket.seen) ? 700 : 400, minWidth: 0 }}
+                      >
                         {ticket.title}
                       </Typography>
                     </Box>

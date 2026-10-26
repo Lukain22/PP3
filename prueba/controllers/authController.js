@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const db = require('../db/db');
+const { markExistingTicketsRead } = require('../utils/ticketReads');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { sendMail, isMailConfigured } = require('../utils/mailer');
@@ -75,6 +76,7 @@ exports.register = async (req, res) => {
         assignDefaultRole(result.insertId, 'user').catch((assignErr) => {
           console.error('Error asignando rol inicial:', assignErr.code || assignErr.message);
         });
+        markExistingTicketsRead(result.insertId);
 
         res.status(201).json({ message: 'Usuario registrado' });
       }

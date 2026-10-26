@@ -2,6 +2,7 @@ const db = require('../db/db');
 const { getUserGroupIds, userCanAccessTicket } = require('../utils/groups');
 const { enrichTickets } = require('../utils/sla');
 const { appendExtendedListFilters, resolveTicketOrderBy } = require('../utils/ticketFilters');
+const { SEEN_SELECT } = require('../utils/ticketReads');
 
 const VALID_STATUSES = ['open', 'in-progress', 'on-hold', 'resolved'];
 
@@ -93,13 +94,14 @@ exports.getTechnicianTickets = (req, res) => {
                   t.group_id, g.name AS group_name,
                   t.technician_id, tech.email AS technician_email,
                   t.sla_response_due, t.sla_resolution_due, t.sla_status,
-                  t.created_at, t.updated_at, t.user_id, u.email AS user_email
+                  t.created_at, t.updated_at, t.user_id, u.email AS user_email,
+                  ${SEEN_SELECT}
            FROM tickets t
            ${joinClause}
            ${whereClause}
            ORDER BY ${orderBy}
            LIMIT ? OFFSET ?`,
-          [...params, limit, offset],
+          [req.user.id, ...params, limit, offset],
           (err2, results) => {
             if (err2) return res.status(500).json({ message: 'Error al obtener tickets' });
             res.json({
