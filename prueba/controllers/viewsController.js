@@ -167,16 +167,6 @@ const replaceViewGroups = (viewId, groupIds, callback) => {
   });
 };
 
-const normalizeAudience = (value) => {
-  const list = Array.isArray(value) ? value : (value ? [value] : []);
-  const hasUser = list.includes('user');
-  const hasTech = list.includes('technician');
-  if (list.includes('both') || (hasUser && hasTech)) return 'both';
-  if (hasUser) return 'user';
-  if (hasTech) return 'technician';
-  return null;
-};
-
 const fetchSerializedView = (id, userId, callback) => {
   db.query(
     `SELECT v.*, u.email AS creator_email, g.name AS share_group_name,
@@ -476,11 +466,6 @@ exports.deleteView = (req, res) => {
 const saveAdminView = (req, res, existingId) => {
   validateViewPayload(req.body, { ...req.user, role: 'admin' }, (err, payload) => {
     if (err) return res.status(400).json({ message: err.message });
-    const audience = normalizeAudience(req.body.audience);
-    if (!audience) {
-      return res.status(400).json({ message: 'Elegí usuarios comunes, técnicos o ambos' });
-    }
-
     const finish = (viewId, statusCode) => {
       replaceViewGroups(viewId, payload.share_group_ids || [], (groupErr) => {
         if (groupErr) {
@@ -514,7 +499,7 @@ const saveAdminView = (req, res, existingId) => {
           JSON.stringify(payload.filters),
           payload.sort_by,
           payload.sort_order,
-          audience
+          null
         ],
         (insertErr, result) => {
           if (insertErr) return res.status(500).json({ message: 'Error al crear vista' });
@@ -534,7 +519,7 @@ const saveAdminView = (req, res, existingId) => {
         payload.share_group_id,
         JSON.stringify(payload.filters),
         payload.sort_by,
-        audience,
+        null,
         existingId
       ],
       (updErr) => {

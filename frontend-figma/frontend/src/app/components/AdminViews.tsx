@@ -28,7 +28,8 @@ import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import { toast } from 'sonner';
 import { clearAuth, getToken } from '../../lib/auth';
 import { rowsFromStored, rowsToListFilters } from '../../lib/viewFilters';
-import { viewFiltersToPayload, type TicketView } from '../../lib/ticketViews';
+import { normalizeTicketColumns, STAFF_DEFAULT_COLUMNS } from '../../lib/ticketColumns';
+import { attachViewColumns, viewFiltersToPayload, type TicketView } from '../../lib/ticketViews';
 import SupportShell from './SupportShell';
 import ViewEditorDialog, { type ViewEditorValues } from './ViewEditorDialog';
 
@@ -58,23 +59,10 @@ const emptyDraft = (): ViewEditorValues => ({
   visibility: 'personal',
   share_group_id: '',
   share_group_ids: [],
-  audience: [],
   rows: [],
+  columns: [...STAFF_DEFAULT_COLUMNS],
   sort_by: 'date-desc'
 });
-
-const audienceList = (value: TicketView['audience']): Array<'user' | 'technician'> => {
-  if (value === 'both') return ['user', 'technician'];
-  if (value === 'user' || value === 'technician') return [value];
-  return [];
-};
-
-const audienceLabel = (value: TicketView['audience']) => {
-  if (value === 'both') return 'Usuarios y técnicos';
-  if (value === 'user') return 'Usuarios';
-  if (value === 'technician') return 'Técnicos';
-  return '—';
-};
 
 export default function AdminViews() {
   const navigate = useNavigate();
@@ -151,7 +139,7 @@ export default function AdminViews() {
     if (!needle) return views;
     return views.filter((view) => {
       const groupsText = (view.share_groups || []).map((group) => group.name || '').join(' ');
-      return [view.name, view.creator_email || '', groupsText, audienceLabel(view.audience)]
+      return [view.name, view.creator_email || '', groupsText]
         .join(' ')
         .toLocaleLowerCase()
         .includes(needle);
@@ -176,8 +164,8 @@ export default function AdminViews() {
       visibility: view.visibility === 'public' ? 'public' : 'personal',
       share_group_id: groupIds[0] ?? '',
       share_group_ids: view.visibility === 'public' ? [] : groupIds,
-      audience: audienceList(view.audience),
       rows: rowsFromStored(view.filters),
+      columns: normalizeTicketColumns(view.filters?.columns) || [...STAFF_DEFAULT_COLUMNS],
       sort_by: view.sort_by || 'date-desc'
     });
     setEditorKey((key) => key + 1);
@@ -186,7 +174,10 @@ export default function AdminViews() {
 
   const handleSave = async (values: ViewEditorValues) => {
     const listFilters = rowsToListFilters(values.rows);
-    const filters = viewFiltersToPayload(listFilters, values.rows.map((row) => row.field));
+    const filters = attachViewColumns(
+      viewFiltersToPayload(listFilters, values.rows.map((row) => row.field)),
+      values.columns
+    );
     setSaving(true);
     try {
       const result = await apiCall(editing ? `/admin/views/${editing.id}` : '/admin/views', {
@@ -197,7 +188,6 @@ export default function AdminViews() {
           visibility: values.visibility,
           share_group_id: values.share_group_ids?.[0] ?? null,
           share_group_ids: values.share_group_ids || [],
-          audience: values.audience || [],
           filters,
           sort_by: values.sort_by
         })
@@ -263,7 +253,7 @@ export default function AdminViews() {
   return (
     <SupportShell
       title="Vistas"
-      subtitle="Vistas de tickets para usuarios comunes y técnicos"
+      
       backTo="/admin"
       breadcrumbs={[{ label: 'Administración', to: '/admin' }, { label: 'Vistas' }]}
       headerAction={(
@@ -318,7 +308,6 @@ export default function AdminViews() {
                     <TableCell sx={{ width: 140 }}>Fecha</TableCell>
                     <TableCell sx={{ width: 110 }}>Visibilidad</TableCell>
                     <TableCell>Grupos</TableCell>
-                    <TableCell sx={{ width: 170 }}>Destinatarios</TableCell>
                     <TableCell sx={{ width: 100 }}>Estado</TableCell>
                     <TableCell sx={{ width: 120 }} align="right">Acciones</TableCell>
                   </TableRow>
@@ -326,7 +315,7 @@ export default function AdminViews() {
                 <TableBody>
                   {visibleViews.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} sx={{ py: 4, textAlign: 'center' }}>
+                      <TableCell colSpan={7} sx={{ py: 4, textAlign: 'center' }}>
                         <Typography color="text.secondary">
                           {search.trim() ? 'Sin resultados para esa búsqueda.' : 'No hay vistas.'}
                         </Typography>
@@ -363,7 +352,6 @@ export default function AdminViews() {
                             {groupNames || '—'}
                           </Typography>
                         </TableCell>
-                        <TableCell>{audienceLabel(view.audience)}</TableCell>
                         <TableCell>
                           <Chip
                             size="small"

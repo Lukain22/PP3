@@ -57,12 +57,25 @@ const initUsersTable = () => {
     console.log('Tabla users lista');
 
     // Migración: agrega columna role si la tabla ya existía sin ella
-    db.query(
-      "ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'user'",
-      (alterErr) => {
+    const migrateUserColumn = (statement, label, next) => {
+      db.query(statement, (alterErr) => {
         if (alterErr && alterErr.errno !== 1060) {
-          console.error('Error migrando columna role:', alterErr.code);
+          console.error(`Error migrando ${label}:`, alterErr.code);
         }
+        next();
+      });
+    };
+
+    migrateUserColumn(
+      "ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'user'",
+      'role',
+      () => migrateUserColumn(
+        "ALTER TABLE users ADD COLUMN ui_theme VARCHAR(10) NOT NULL DEFAULT 'light'",
+        'ui_theme',
+        () => migrateUserColumn(
+          "ALTER TABLE users ADD COLUMN ui_language VARCHAR(5) NOT NULL DEFAULT 'es'",
+          'ui_language',
+          () => {
         initTicketsTable();
         initCommentsTable();
         initTicketHistoryTable();
@@ -77,7 +90,9 @@ const initUsersTable = () => {
         initRbac();
         initSolutionsTables();
         runTicketMigrations();
-      }
+          }
+        )
+      )
     );
   });
 };

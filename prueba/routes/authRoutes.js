@@ -8,11 +8,12 @@ const {
   forgotPassword,
   resetPassword
 } = require('../controllers/authController');
-const { getMe } = require('../controllers/rolesController');
+const { getMe, updatePreferences } = require('../controllers/rolesController');
 
 router.post('/register', register);
 router.post('/login', login);
 router.get('/me', authMiddleware, getMe);
+router.patch('/preferences', authMiddleware, updatePreferences);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 

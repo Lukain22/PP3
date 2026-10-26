@@ -20,6 +20,7 @@ const VALID_SUBCATEGORIES = {
 
 const VALID_SUBCATEGORY_VALUES = [...new Set(Object.values(VALID_SUBCATEGORIES).flat())];
 const VIEW_FILTER_FIELDS = ['type', 'status', 'priority', 'group', 'technician', 'category', 'subcategory', 'created', 'due', 'resolved'];
+const VIEW_COLUMNS = ['id', 'title', 'description', 'user', 'group', 'assignee', 'type', 'status', 'priority', 'category', 'subcategory', 'created', 'due', 'sla_status'];
 
 const parseStatusFilter = (statusQuery) => {
   if (!statusQuery) return [];
@@ -321,6 +322,11 @@ const normalizeViewFilters = (raw) => {
     if (order.length) result.filter_order = order;
   }
 
+  if (Array.isArray(filters.columns)) {
+    const columns = [...new Set(filters.columns.filter((column) => VIEW_COLUMNS.includes(column)))];
+    if (columns.length) result.columns = columns;
+  }
+
   return result;
 };
 
@@ -348,7 +354,11 @@ const TICKET_ORDER_BY = {
   'subcategory-asc': 't.subcategory ASC, t.id DESC',
   'subcategory-desc': 't.subcategory DESC, t.id DESC',
   'date-asc': 't.created_at ASC, t.id ASC',
-  'date-desc': 't.created_at DESC, t.id DESC'
+  'date-desc': 't.created_at DESC, t.id DESC',
+  'due-asc': 't.sla_resolution_due IS NULL, t.sla_resolution_due ASC, t.id DESC',
+  'due-desc': 't.sla_resolution_due IS NULL, t.sla_resolution_due DESC, t.id DESC',
+  'sla-asc': 't.sla_status IS NULL, t.sla_status ASC, t.id DESC',
+  'sla-desc': 't.sla_status IS NULL, t.sla_status DESC, t.id DESC'
 };
 
 const STAFF_ONLY_SORTS = new Set([

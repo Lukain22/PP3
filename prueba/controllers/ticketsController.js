@@ -153,7 +153,7 @@ exports.getTickets = (req, res) => {
       const total = countResult[0].total;
 
       db.query(
-        `SELECT id, title, description, status, priority, type, group_id, ${SLA_SELECT}, created_at, user_id,
+        `SELECT id, title, description, status, priority, type, category, subcategory, group_id, ${SLA_SELECT}, created_at, user_id,
                 ${SEEN_SELECT}
          FROM tickets t
          ${whereClause}

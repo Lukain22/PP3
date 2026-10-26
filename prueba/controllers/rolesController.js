@@ -485,13 +485,50 @@ exports.setUserRoles = async (req, res) => {
 exports.getMe = async (req, res) => {
   try {
     const access = await getRequestAccess(req);
+    const rows = await query('SELECT ui_theme, ui_language FROM users WHERE id = ?', [req.user.id]);
+    const prefs = rows[0] || {};
     res.json({
       id: req.user.id,
       email: req.user.email,
+      theme: prefs.ui_theme === 'dark' ? 'dark' : 'light',
+      language: prefs.ui_language === 'en' ? 'en' : 'es',
       ...toPublicAccess(access)
     });
   } catch (err) {
     console.error('Error en getMe:', err.code || err.message);
     res.status(500).json({ message: 'Error al obtener la sesión' });
+  }
+};
+
+exports.updatePreferences = async (req, res) => {
+  try {
+    const theme = req.body.theme === 'dark' || req.body.theme === 'light' ? req.body.theme : null;
+    const language = req.body.language === 'en' || req.body.language === 'es' ? req.body.language : null;
+    if (!theme && !language) {
+      return res.status(400).json({ message: 'Nada para actualizar' });
+    }
+
+    const sets = [];
+    const params = [];
+    if (theme) {
+      sets.push('ui_theme = ?');
+      params.push(theme);
+    }
+    if (language) {
+      sets.push('ui_language = ?');
+      params.push(language);
+    }
+    params.push(req.user.id);
+    await query(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`, params);
+
+    const rows = await query('SELECT ui_theme, ui_language FROM users WHERE id = ?', [req.user.id]);
+    const prefs = rows[0] || {};
+    res.json({
+      theme: prefs.ui_theme === 'dark' ? 'dark' : 'light',
+      language: prefs.ui_language === 'en' ? 'en' : 'es'
+    });
+  } catch (err) {
+    console.error('Error en updatePreferences:', err.code || err.message);
+    res.status(500).json({ message: 'Error al guardar preferencias' });
   }
 };

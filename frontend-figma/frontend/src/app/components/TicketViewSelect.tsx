@@ -28,6 +28,7 @@ import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import { toast } from 'sonner';
 import type { UserRole } from '../../lib/auth';
+import { normalizeTicketColumns, STAFF_DEFAULT_COLUMNS } from '../../lib/ticketColumns';
 import { rowsFromListFilters, rowsFromStored, rowsToListFilters } from '../../lib/viewFilters';
 import ViewEditorDialog, { type ViewEditorValues } from './ViewEditorDialog';
 import {
@@ -43,6 +44,7 @@ import {
   selectionFromSystemView,
   sortViewItems,
   systemViewKeyToItemKey,
+  attachViewColumns,
   viewFiltersToPayload,
   viewIdToItemKey
 } from '../../lib/ticketViews';
@@ -95,6 +97,7 @@ export default function TicketViewSelect({
     visibility: 'personal',
     share_group_id: '',
     rows: [],
+    columns: [...STAFF_DEFAULT_COLUMNS],
     sort_by: 'date-desc'
   });
 
@@ -237,6 +240,7 @@ export default function TicketViewSelect({
       visibility: 'personal',
       share_group_id: '',
       rows: rowsFromListFilters(currentFilters),
+      columns: [...STAFF_DEFAULT_COLUMNS],
       sort_by: currentSortBy
     });
     setDialogOpen(true);
@@ -251,6 +255,7 @@ export default function TicketViewSelect({
       visibility: view.visibility,
       share_group_id: view.share_group_id ?? '',
       rows: rowsFromStored(view.filters),
+      columns: normalizeTicketColumns(view.filters?.columns) || [...STAFF_DEFAULT_COLUMNS],
       sort_by: view.sort_by || 'date-desc'
     });
     setDialogOpen(true);
@@ -258,7 +263,10 @@ export default function TicketViewSelect({
 
   const handleSaveView = async (values: ViewEditorValues) => {
     const listFilters = rowsToListFilters(values.rows);
-    const filters = viewFiltersToPayload(listFilters, values.rows.map((row) => row.field));
+    const filters = attachViewColumns(
+      viewFiltersToPayload(listFilters, values.rows.map((row) => row.field)),
+      values.columns
+    );
 
     setSaving(true);
     try {
@@ -285,9 +293,7 @@ export default function TicketViewSelect({
       toast.success(editingView ? 'Vista actualizada' : 'Vista creada');
       setDialogOpen(false);
       await loadData();
-      if (!editingView) {
-        onApply(selectionFromCustomView(result.data as TicketView, role));
-      }
+      onApply(selectionFromCustomView(result.data as TicketView, role));
     } catch {
       toast.error('Error conectando con el backend');
     } finally {
@@ -508,7 +514,7 @@ export default function TicketViewSelect({
                       )}
                     </IconButton>
                   </Tooltip>
-                  {item.kind === 'custom' && item.view.is_owner && !item.view.audience && (
+                  {item.kind === 'custom' && item.view.is_owner && !item.view.audience && item.view.visibility !== 'public' && (
                     <>
                       <Tooltip title="Editar vista">
                         <IconButton

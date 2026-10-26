@@ -37,6 +37,7 @@ import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
 import { toast } from 'sonner';
 import { CATEGORIES } from '../../lib/categories';
+import { STAFF_DEFAULT_COLUMNS, TICKET_COLUMNS, type TicketColumnKey } from '../../lib/ticketColumns';
 import { TICKET_STATUS_OPTIONS } from '../../lib/ticketStatus';
 import { TICKET_TYPE_OPTIONS } from '../../lib/ticketTypes';
 import {
@@ -54,8 +55,8 @@ export interface ViewEditorValues {
   visibility: 'personal' | 'group' | 'public';
   share_group_id: number | '';
   share_group_ids?: number[];
-  audience?: Array<'user' | 'technician'>;
   rows: ViewFilterRow[];
+  columns: TicketColumnKey[];
   sort_by: string;
 }
 
@@ -425,12 +426,22 @@ export default function ViewEditorDialog({
       : (initial.share_group_id ? [initial.share_group_id] : [])
     ).map(String)
   );
-  const [audience, setAudience] = useState<Array<'user' | 'technician'>>(initial.audience || []);
   const [rows, setRows] = useState<ViewFilterRow[]>(initial.rows);
+  const [columns, setColumns] = useState<TicketColumnKey[]>(
+    initial.columns?.length ? initial.columns : [...STAFF_DEFAULT_COLUMNS]
+  );
+  const [columnAnchor, setColumnAnchor] = useState<HTMLElement | null>(null);
+  const [columnDragOver, setColumnDragOver] = useState<number | null>(null);
   const [assignees, setAssignees] = useState<{ id: number; email: string }[]>([]);
   const [addAnchor, setAddAnchor] = useState<HTMLElement | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
   const [showIssues, setShowIssues] = useState(false);
+  const [closePrompt, setClosePrompt] = useState(false);
+
+  const requestClose = () => {
+    if (saving) return;
+    setClosePrompt(true);
+  };
 
   const groupKey = rows.find((row) => row.field === 'group')?.values.join(',') || '';
   const apiCallRef = useRef(apiCall);
@@ -474,6 +485,7 @@ export default function ViewEditorDialog({
 
   const usedFields = new Set(rows.map((row) => row.field));
   const availableFields = VIEW_FILTER_FIELDS.filter((item) => !usedFields.has(item.field));
+  const availableColumns = TICKET_COLUMNS.filter((column) => !columns.includes(column.key));
   const categoryValues = rows.find((row) => row.field === 'category')?.values ?? [];
   const categoryKey = categoryValues.join(',');
 
@@ -505,6 +517,21 @@ export default function ViewEditorDialog({
     setAddAnchor(null);
   };
 
+  const moveColumn = (from: number, to: number) => {
+    setColumns((current) => {
+      if (to < 0 || to >= current.length || from === to) return current;
+      const next = [...current];
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
+      return next;
+    });
+  };
+
+  const addColumn = (key: TicketColumnKey) => {
+    setColumns((current) => (current.includes(key) ? current : [...current, key]));
+    setColumnAnchor(null);
+  };
+
   const choicesFor = (row: ViewFilterRow): Choice[] => {
     if (row.field === 'type') return TICKET_TYPE_OPTIONS.map((option) => ({ value: option.value, label: option.label }));
     if (row.field === 'status') return TICKET_STATUS_OPTIONS.map((option) => ({ value: option.value, label: option.label }));
@@ -521,13 +548,12 @@ export default function ViewEditorDialog({
       toast.error('El nombre es requerido');
       return;
     }
-    if (adminMode && audience.length === 0) {
-      setShowIssues(true);
-      toast.error('Elegí usuarios comunes, técnicos o ambos');
-      return;
-    }
     if (!adminMode && visibility === 'group' && !shareGroupId) {
       toast.error('Seleccioná un grupo para compartir');
+      return;
+    }
+    if (columns.length === 0) {
+      toast.error('Elegí al menos una columna');
       return;
     }
     const issue = rows.map((row) => viewFilterIssue(row, rows)).find(Boolean);
@@ -546,8 +572,8 @@ export default function ViewEditorDialog({
         ? (visibility === 'public' ? '' : (groupIds[0] ?? ''))
         : (visibility === 'group' ? shareGroupId : ''),
       share_group_ids: adminMode && visibility !== 'public' ? groupIds : undefined,
-      audience: adminMode ? audience : undefined,
       rows,
+      columns,
       sort_by: initial.sort_by || 'date-desc'
     });
   };
@@ -564,13 +590,13 @@ export default function ViewEditorDialog({
   const showShareGroups = adminMode ? visibility === 'personal' : visibility === 'group';
 
   return (
-    <Dialog open={open} onClose={() => !saving && onClose()} maxWidth="md" fullWidth>
+    <Dialog open={open} onClose={requestClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ pb: 1 }}>
         {title}
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, fontWeight: 400 }}>
           {adminMode
-            ? 'Pública la ven todos los destinatarios. Privada la ven quienes estén en los grupos elegidos.'
-            : 'Seleccioná filtros para definir qué tickets muestra esta vista.'}
+            ? ''
+            : 'Elegí las columnas de la tabla. Los filtros son opcionales: una columna sin filtro muestra todos los valores.'}
         </Typography>
       </DialogTitle>
       <DialogContent>
@@ -669,83 +695,112 @@ export default function ViewEditorDialog({
                 />
                 {adminMode && (
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                    Quien pertenezca a uno de estos grupos puede ver la vista.
+                    
                   </Typography>
                 )}
               </Box>
             )}
           </Box>
 
-          {adminMode && (
-            <Box sx={{ maxWidth: 460 }}>
-              <FieldLabel>Destinatarios</FieldLabel>
-              <Box
-                role="group"
-                aria-label="Destinatarios"
-                sx={{
-                  height: 40,
-                  display: 'flex',
-                  p: '3px',
-                  gap: '3px',
-                  border: '1px solid',
-                  borderColor: showIssues && audience.length === 0 ? 'error.main' : '#c5d0dc',
-                  borderRadius: 1,
-                  bgcolor: '#f4f7fb'
-                }}
-              >
-                {([
-                  { value: 'user' as const, label: 'Usuarios comunes', icon: PersonIcon },
-                  { value: 'technician' as const, label: 'Técnicos', icon: GroupsIcon }
-                ]).map((option) => {
-                  const selected = audience.includes(option.value);
-                  const Icon = option.icon;
-                  return (
-                    <Box
-                      key={option.value}
-                      component="button"
-                      type="button"
-                      aria-pressed={selected}
-                      onClick={() => {
-                        setAudience((current) => (
-                          current.includes(option.value)
-                            ? current.filter((item) => item !== option.value)
-                            : [...current, option.value]
-                        ));
-                      }}
-                      sx={{
-                        flex: 1,
-                        minWidth: 0,
-                        border: 0,
-                        borderRadius: 0.75,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 0.75,
-                        px: 1,
-                        cursor: 'pointer',
-                        font: 'inherit',
-                        fontSize: 13.5,
-                        fontWeight: selected ? 600 : 500,
-                        color: selected ? 'primary.main' : 'text.secondary',
-                        bgcolor: selected ? '#fff' : 'transparent',
-                        boxShadow: selected ? '0 1px 2px rgba(15, 23, 42, 0.08)' : 'none',
-                        '&:hover': { color: selected ? 'primary.main' : 'text.primary' }
-                      }}
-                    >
-                      <Icon sx={{ fontSize: 16 }} />
-                      {option.label}
-                    </Box>
-                  );
-                })}
-              </Box>
-            </Box>
-          )}
-
           <Divider />
 
           <Box>
-            <Typography sx={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.2, mb: 1.25 }}>
+            <Typography sx={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.2 }}>
+              Columnas
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1.25 }}>
+              
+            </Typography>
+            <Stack spacing={0.75}>
+              {columns.map((key, index) => {
+                const label = TICKET_COLUMNS.find((column) => column.key === key)?.label || key;
+                return (
+                  <Stack
+                    key={key}
+                    direction="row"
+                    spacing={0.75}
+                    alignItems="center"
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      setColumnDragOver(index);
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      const raw = event.dataTransfer.getData('text/plain');
+                      if (!raw.startsWith('col:')) return;
+                      const from = Number(raw.slice(4));
+                      if (Number.isInteger(from)) moveColumn(from, index);
+                      setColumnDragOver(null);
+                    }}
+                    sx={{
+                      px: 1,
+                      py: 0.5,
+                      borderRadius: 1.5,
+                      bgcolor: columnDragOver === index ? '#eef5fc' : '#f7f9fc',
+                      border: '1px solid #e6edf5'
+                    }}
+                  >
+                    <Tooltip title="Arrastrá para reordenar">
+                      <Box
+                        draggable
+                        aria-label="Arrastrar columna"
+                        onDragStart={(event) => {
+                          event.dataTransfer.setData('text/plain', `col:${index}`);
+                          event.dataTransfer.effectAllowed = 'move';
+                        }}
+                        onDragEnd={() => setColumnDragOver(null)}
+                        sx={{ display: 'flex', cursor: 'grab', color: 'text.disabled', '&:hover': { color: 'text.secondary' } }}
+                      >
+                        <DragIndicatorIcon fontSize="small" />
+                      </Box>
+                    </Tooltip>
+                    <IconButton size="small" aria-label="Subir columna" disabled={index === 0} onClick={() => moveColumn(index, index - 1)}>
+                      <ArrowUpwardIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                    <IconButton size="small" aria-label="Bajar columna" disabled={index === columns.length - 1} onClick={() => moveColumn(index, index + 1)}>
+                      <ArrowDownwardIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                    <Typography sx={{ flex: 1, fontSize: 14, fontWeight: 600 }}>{label}</Typography>
+                    <Tooltip title="Quitar columna">
+                      <IconButton size="small" aria-label={`Quitar ${label}`} onClick={() => setColumns((current) => current.filter((item) => item !== key))}>
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
+                );
+              })}
+            </Stack>
+            <Button
+              startIcon={<AddIcon />}
+              disabled={availableColumns.length === 0}
+              onClick={(event) => setColumnAnchor(event.currentTarget)}
+              sx={{
+                mt: 1.5,
+                px: 1.5,
+                minHeight: 40,
+                border: '1px dashed #b7c4d2',
+                borderRadius: 1.5,
+                textTransform: 'none',
+                fontWeight: 600,
+                justifyContent: 'flex-start'
+              }}
+            >
+              Agregar columna
+            </Button>
+            <Menu anchorEl={columnAnchor} open={Boolean(columnAnchor)} onClose={() => setColumnAnchor(null)}>
+              {availableColumns.map((column) => (
+                <MenuItem key={column.key} onClick={() => addColumn(column.key)} sx={{ minHeight: 40, fontSize: 14 }}>
+                  {column.label}
+                </MenuItem>
+              ))}
+            </Menu>
+          </Box>
+
+          <Box>
+            <Typography sx={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.2, mb: 0.5 }}>
               Filtros
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.25 }}>
             </Typography>
             {rows.length === 0 && (
               <Box sx={{ px: 1.5, py: 1.75, mb: 1.25, borderRadius: 1.5, bgcolor: '#f7f9fc', border: '1px dashed #d5dee8' }}>
@@ -901,11 +956,25 @@ export default function ViewEditorDialog({
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, py: 2 }}>
-        <Button onClick={onClose} disabled={saving}>Cancelar</Button>
+        <Button onClick={requestClose} disabled={saving}>Cancelar</Button>
         <Button variant="contained" onClick={handleSubmit} disabled={saving}>
           {saving ? 'Guardando...' : 'Guardar'}
         </Button>
       </DialogActions>
+      <Dialog open={closePrompt} onClose={() => setClosePrompt(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Cerrar sin guardar</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            Si cerrás ahora, se pierden los cambios de esta vista.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setClosePrompt(false)}>Volver</Button>
+          <Button variant="contained" onClick={() => { setClosePrompt(false); onClose(); }}>
+            Cerrar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   );
 }

@@ -1,3 +1,5 @@
+import { writeUiPreferences } from './uiPreferences';
+
 export type UserRole = 'user' | 'admin' | 'technician';
 
 export function getToken(): string | null {
@@ -158,6 +160,10 @@ export async function refreshAccess(): Promise<void> {
       scopes: data.scopes || {}
     });
     if (data.account_role) localStorage.setItem('role', data.account_role);
+    writeUiPreferences({
+      ...(data.theme === 'dark' || data.theme === 'light' ? { theme: data.theme } : {}),
+      ...(data.language === 'en' || data.language === 'es' ? { language: data.language } : {})
+    });
   } catch {
     // La sesión anterior sigue usable hasta el próximo intento.
   }

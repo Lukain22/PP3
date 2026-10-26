@@ -31,7 +31,8 @@ import { toast } from 'sonner';
 import SupportShell from './SupportShell';
 import StatusBadge from './StatusBadge';
 import { getToken, clearAuth, getRole, getEmail, can } from '../../lib/auth';
-import { isIncident } from '../../lib/sla';
+import { formatSlaDeadline, getPriorityLabel, getSlaStatusLabel, isIncident } from '../../lib/sla';
+import { columnsForList, ticketColumnMeta, type TicketColumnKey } from '../../lib/ticketColumns';
 import { TICKET_STATUS_OPTIONS, getTicketStatusLabel } from '../../lib/ticketStatus';
 import InlineEditSelect from './InlineEditSelect';
 import ResolveTicketDialog from './ResolveTicketDialog';
@@ -112,6 +113,7 @@ interface Ticket {
   technician_id?: number | null;
   technician_email?: string | null;
   sla_status?: string | null;
+  sla_resolution_due?: string | null;
   category?: string | null;
   subcategory?: string | null;
   created_at: string;
@@ -139,6 +141,46 @@ function resolveInitialSelection(search: string, role: ReturnType<typeof getRole
     if (system) return selectionFromSystemView(system);
   }
   return selectionFromSystemView(getDefaultSystemView(role));
+}
+
+function exportColumnValue(column: TicketColumnKey, ticket: Ticket) {
+  switch (column) {
+    case 'id':
+      return ticket.id;
+    case 'title':
+      return ticket.title;
+    case 'description':
+      return truncateDescription(ticket.description, 500);
+    case 'user':
+      return ticket.user_email || '';
+    case 'group':
+      return ticket.group_name || '';
+    case 'assignee':
+      return ticket.technician_email || 'Sin asignar';
+    case 'type':
+      return ticket.type || '';
+    case 'status':
+      return getTicketStatusLabel(ticket.status);
+    case 'priority':
+      return isIncident(ticket.type) ? getPriorityLabel(ticket.priority) : '';
+    case 'category':
+      return ticket.category || '';
+    case 'subcategory':
+      return ticket.subcategory || '';
+    case 'created': {
+      const date = new Date(ticket.created_at);
+      return Number.isNaN(date.getTime()) ? '' : date;
+    }
+    case 'due': {
+      if (!ticket.sla_resolution_due) return '';
+      const date = new Date(ticket.sla_resolution_due);
+      return Number.isNaN(date.getTime()) ? '' : date;
+    }
+    case 'sla_status':
+      return getSlaStatusLabel(ticket.sla_status);
+    default:
+      return '';
+  }
 }
 
 function truncateDescription(text: string, max = 80): string {
@@ -702,24 +744,11 @@ export default function TicketsList() {
         format,
         rows,
         meta: { generatedBy: getEmail() },
-        columns: [
-          { header: 'ID', value: (ticket) => ticket.id, width: 10 },
-          { header: 'Ticket', value: (ticket) => ticket.title, width: 36 },
-          { header: 'Usuario', value: (ticket) => ticket.user_email || '', width: 28 },
-          { header: 'Grupo', value: (ticket) => ticket.group_name || '', width: 22 },
-          { header: 'Asignado a', value: (ticket) => ticket.technician_email || 'Sin asignar', width: 28 },
-          { header: 'Estado', value: (ticket) => getTicketStatusLabel(ticket.status), width: 16 },
-          { header: 'Categoría', value: (ticket) => ticket.category || '', width: 18 },
-          { header: 'Subcategoría', value: (ticket) => ticket.subcategory || '', width: 20 },
-          {
-            header: 'Fecha',
-            value: (ticket) => {
-              const date = new Date(ticket.created_at);
-              return Number.isNaN(date.getTime()) ? '' : date;
-            },
-            width: 14
-          }
-        ]
+        columns: columnsForList(selection, isStaffTable).map((column) => ({
+          header: ticketColumnMeta(column).label,
+          width: Math.max(12, Math.round(ticketColumnMeta(column).minWidth / 8)),
+          value: (ticket: Ticket) => exportColumnValue(column, ticket)
+        }))
       });
       toast.success(`Archivo descargado: ${filename}`);
     } catch (error) {
@@ -731,6 +760,174 @@ export default function TicketsList() {
 
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' });
+
+  const visibleColumns = columnsForList(selection, isStaffTable);
+
+  const renderColumnCell = (column: TicketColumnKey, ticket: Ticket, interactive: boolean) => {
+    switch (column) {
+      case 'id':
+        return <TableCell key={column} sx={{ color: 'text.secondary', fontWeight: 500 }}>{ticket.id}</TableCell>;
+      case 'title':
+        return (
+          <TableCell key={column} sx={{ minWidth: 200, maxWidth: 320 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+              <TicketTypeMark type={ticket.type} />
+              <Typography
+                variant="body2"
+                noWrap
+                title={ticket.title}
+                sx={{ fontWeight: isTicketUnseen(ticket.seen) ? 700 : 400, minWidth: 0 }}
+              >
+                {ticket.title}
+              </Typography>
+            </Box>
+          </TableCell>
+        );
+      case 'description':
+        return (
+          <TableCell key={column} sx={{ maxWidth: 360 }}>
+            <Typography variant="caption" color="text.secondary" noWrap title={truncateDescription(ticket.description, 500)}>
+              {truncateDescription(ticket.description)}
+            </Typography>
+          </TableCell>
+        );
+      case 'user':
+        return (
+          <TableCell key={column} sx={{ maxWidth: 200 }}>
+            <Typography variant="caption" color="text.secondary" noWrap title={ticket.user_email || ''}>
+              {ticket.user_email || '—'}
+            </Typography>
+          </TableCell>
+        );
+      case 'group':
+        return (
+          <TableCell key={column} onClick={interactive ? (event) => event.stopPropagation() : undefined}>
+            {interactive && canChangeGroup ? (
+              <InlineEditSelect
+                value={ticket.group_id ?? ''}
+                disabled={busyId === ticket.id || groupChoices.length === 0}
+                display={
+                  <Typography variant="caption" sx={{ wordBreak: 'break-word' }}>
+                    {ticket.group_name || '—'}
+                  </Typography>
+                }
+                onChange={(val) => handleGroupChange(ticket.id, Number(val))}
+              >
+                {(ticket.group_id && !groupChoices.some((group) => group.id === ticket.group_id)
+                  ? [{ id: ticket.group_id, name: ticket.group_name || 'Grupo actual' }, ...groupChoices]
+                  : groupChoices
+                ).map((group) => (
+                  <MenuItem key={group.id} value={group.id}>{group.name}</MenuItem>
+                ))}
+              </InlineEditSelect>
+            ) : (
+              <Typography variant="caption" sx={{ wordBreak: 'break-word' }}>
+                {ticket.group_name || '—'}
+              </Typography>
+            )}
+          </TableCell>
+        );
+      case 'assignee':
+        return (
+          <TableCell key={column} onClick={interactive ? (event) => event.stopPropagation() : undefined}>
+            {interactive ? (
+              <InlineEditSelect
+                value={ticket.technician_id ?? ''}
+                disabled={busyId === ticket.id || !ticket.group_id}
+                display={
+                  ticket.technician_email ? (
+                    <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
+                      {ticket.technician_email}
+                    </Typography>
+                  ) : (
+                    <Typography variant="caption" fontWeight={700}>Sin asignar</Typography>
+                  )
+                }
+                onChange={(val) => handleTechnicianChange(ticket.id, val ? Number(val) : null)}
+              >
+                <MenuItem value=""><em>Sin asignar</em></MenuItem>
+                {(groupTechnicians[Number(ticket.group_id) || 0] || []).map((tech) => (
+                  <MenuItem key={tech.id} value={tech.id}>{tech.email}</MenuItem>
+                ))}
+              </InlineEditSelect>
+            ) : (
+              <Typography variant="caption" color="text.secondary">
+                {ticket.technician_email || 'Sin asignar'}
+              </Typography>
+            )}
+          </TableCell>
+        );
+      case 'type':
+        return (
+          <TableCell key={column}>
+            <StatusBadge kind="type" value={ticket.type} />
+          </TableCell>
+        );
+      case 'status':
+        return (
+          <TableCell key={column} onClick={interactive ? (event) => event.stopPropagation() : undefined}>
+            {interactive ? (
+              <InlineEditSelect
+                value={ticket.status}
+                disabled={busyId === ticket.id}
+                display={<StatusBadge kind="status" value={ticket.status} />}
+                onChange={(val) => handleStatusChange(ticket.id, val)}
+              >
+                {TICKET_STATUS_OPTIONS.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+                ))}
+              </InlineEditSelect>
+            ) : (
+              <StatusBadge kind="status" value={ticket.status} />
+            )}
+          </TableCell>
+        );
+      case 'priority':
+        return (
+          <TableCell key={column}>
+            {isIncident(ticket.type) ? (
+              <StatusBadge kind="priority" value={ticket.priority || ''} />
+            ) : (
+              <Typography variant="caption" color="text.disabled">—</Typography>
+            )}
+          </TableCell>
+        );
+      case 'category':
+        return (
+          <TableCell key={column}>
+            <Typography variant="caption" sx={{ fontWeight: ticket.category ? 600 : 400, lineHeight: 1.3 }}>
+              {ticket.category || '—'}
+            </Typography>
+          </TableCell>
+        );
+      case 'subcategory':
+        return (
+          <TableCell key={column}>
+            <Typography variant="caption" color={ticket.subcategory ? 'text.secondary' : 'text.disabled'} sx={{ lineHeight: 1.3 }}>
+              {ticket.subcategory || '—'}
+            </Typography>
+          </TableCell>
+        );
+      case 'created':
+        return <TableCell key={column} sx={{ whiteSpace: 'nowrap' }}>{formatDate(ticket.created_at)}</TableCell>;
+      case 'due':
+        return (
+          <TableCell key={column} sx={{ whiteSpace: 'nowrap' }}>
+            {ticket.sla_resolution_due ? formatSlaDeadline(ticket.sla_resolution_due) : '—'}
+          </TableCell>
+        );
+      case 'sla_status':
+        return (
+          <TableCell key={column}>
+            {ticket.sla_status ? <StatusBadge kind="sla" value={ticket.sla_status} /> : (
+              <Typography variant="caption" color="text.disabled">—</Typography>
+            )}
+          </TableCell>
+        );
+      default:
+        return <TableCell key={column}>—</TableCell>;
+    }
+  };
 
   const hasActiveFilters =
     (!isStaffTable && search) ||
@@ -756,7 +953,7 @@ export default function TicketsList() {
     setSearch('');
   };
 
-  const staffTableColSpan = canEditAll ? 11 : 10;
+  const staffTableColSpan = 1 + visibleColumns.length + (canEditAll ? 1 : 0);
 
   return (
     <SupportShell
@@ -864,9 +1061,10 @@ export default function TicketsList() {
           }}
         >
           <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-          <Table stickyHeader size="small" sx={{ minWidth: 1480, ...denseTableSx }}>
+          <Table stickyHeader size="small" sx={{ minWidth: Math.max(480, 160 + visibleColumns.length * 150), ...denseTableSx }}>
             <TableHead>
               <StaffTableHeadRow
+                columns={visibleColumns}
                 canEditAll={canEditAll}
                 sort={columnSort}
                 highlightSort={sortEngaged}
@@ -909,98 +1107,7 @@ export default function TicketsList() {
                       sx={{ p: 0.5 }}
                     />
                   </TableCell>
-                  <TableCell sx={{ color: 'text.secondary', fontWeight: 500 }}>{ticket.id}</TableCell>
-                  <TableCell sx={{ minWidth: 200, maxWidth: 320 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-                      <TicketTypeMark type={ticket.type} />
-                      <Typography
-                        variant="body2"
-                        noWrap
-                        title={ticket.title}
-                        sx={{ fontWeight: isTicketUnseen(ticket.seen) ? 700 : 400, minWidth: 0 }}
-                      >
-                        {ticket.title}
-                      </Typography>
-                    </Box>
-                  </TableCell>
-                  <TableCell sx={{ maxWidth: 200 }}>
-                    <Typography variant="caption" color="text.secondary" noWrap title={ticket.user_email || ''}>
-                      {ticket.user_email || '—'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    {canChangeGroup ? (
-                      <InlineEditSelect
-                        value={ticket.group_id ?? ''}
-                        disabled={busyId === ticket.id || groupChoices.length === 0}
-                        display={
-                          <Typography variant="caption" sx={{ wordBreak: 'break-word' }}>
-                            {ticket.group_name || '—'}
-                          </Typography>
-                        }
-                        onChange={(val) => handleGroupChange(ticket.id, Number(val))}
-                      >
-                        {(ticket.group_id && !groupChoices.some((g) => g.id === ticket.group_id)
-                          ? [{ id: ticket.group_id, name: ticket.group_name || 'Grupo actual' }, ...groupChoices]
-                          : groupChoices
-                        ).map((g) => (
-                          <MenuItem key={g.id} value={g.id}>{g.name}</MenuItem>
-                        ))}
-                      </InlineEditSelect>
-                    ) : (
-                      <Typography variant="caption" sx={{ wordBreak: 'break-word' }}>
-                        {ticket.group_name || '—'}
-                      </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <InlineEditSelect
-                      value={ticket.technician_id ?? ''}
-                      disabled={busyId === ticket.id || !ticket.group_id}
-                      display={
-                        ticket.technician_email ? (
-                          <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
-                            {ticket.technician_email}
-                          </Typography>
-                        ) : (
-                          <Typography variant="caption" fontWeight={700}>
-                            Sin asignar
-                          </Typography>
-                        )
-                      }
-                      onChange={(val) =>
-                        handleTechnicianChange(ticket.id, val ? Number(val) : null)
-                      }
-                    >
-                      <MenuItem value=""><em>Sin asignar</em></MenuItem>
-                      {(groupTechnicians[Number(ticket.group_id) || 0] || []).map((tech) => (
-                        <MenuItem key={tech.id} value={tech.id}>{tech.email}</MenuItem>
-                      ))}
-                    </InlineEditSelect>
-                  </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <InlineEditSelect
-                      value={ticket.status}
-                      disabled={busyId === ticket.id}
-                      display={<StatusBadge kind="status" value={ticket.status} />}
-                      onChange={(val) => handleStatusChange(ticket.id, val)}
-                    >
-                      {TICKET_STATUS_OPTIONS.map((s) => (
-                        <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
-                      ))}
-                    </InlineEditSelect>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="caption" sx={{ fontWeight: ticket.category ? 600 : 400, lineHeight: 1.3 }}>
-                      {ticket.category || '—'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="caption" color={ticket.subcategory ? 'text.secondary' : 'text.disabled'} sx={{ lineHeight: 1.3 }}>
-                      {ticket.subcategory || '—'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(ticket.created_at)}</TableCell>
+                  {visibleColumns.map((column) => renderColumnCell(column, ticket, true))}
                   {canEditAll && can('tickets.delete') && (
                     <TableCell align="center" onClick={(e) => e.stopPropagation()}>
                       <Tooltip title="Eliminar">
@@ -1051,16 +1158,24 @@ export default function TicketsList() {
           }}
         >
           <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-          <Table stickyHeader size="small" sx={{ minWidth: 900, ...denseTableSx }}>
+          <Table stickyHeader size="small" sx={{ minWidth: Math.max(480, visibleColumns.length * 150), ...denseTableSx }}>
             <TableHead>
               <TableRow sx={{ bgcolor: '#fafbfc' }}>
-                <SortableHeaderCell label="#" sortKey="id" sort={columnSort} highlightSort={sortEngaged} onSort={handleColumnSort} width={64} />
-                <SortableHeaderCell label="Título" sortKey="title" sort={columnSort} highlightSort={sortEngaged} onSort={handleColumnSort} minWidth={200} />
-                <SortableHeaderCell label="Descripción" sortKey="description" sort={columnSort} highlightSort={sortEngaged} onSort={handleColumnSort} minWidth={280} />
-                <SortableHeaderCell label="Tipo" sortKey="type" sort={columnSort} highlightSort={sortEngaged} onSort={handleColumnSort} minWidth={110} />
-                <SortableHeaderCell label="Estado" sortKey="status" sort={columnSort} highlightSort={sortEngaged} onSort={handleColumnSort} minWidth={130} />
-                <SortableHeaderCell label="Prioridad" sortKey="priority" sort={columnSort} highlightSort={sortEngaged} onSort={handleColumnSort} minWidth={110} />
-                <SortableHeaderCell label="Fecha" sortKey="date" sort={columnSort} highlightSort={sortEngaged} onSort={handleColumnSort} minWidth={120} />
+                {visibleColumns.map((column) => {
+                  const meta = ticketColumnMeta(column);
+                  return (
+                    <SortableHeaderCell
+                      key={column}
+                      label={meta.label}
+                      sortKey={meta.sortKey}
+                      sort={columnSort}
+                      highlightSort={sortEngaged}
+                      onSort={handleColumnSort}
+                      minWidth={meta.minWidth}
+                      width={column === 'id' ? 72 : undefined}
+                    />
+                  );
+                })}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -1071,39 +1186,7 @@ export default function TicketsList() {
                   sx={{ '&:last-child td': { border: 0 }, cursor: 'pointer' }}
                   onClick={() => navigate(`/tickets/${ticket.id}`)}
                 >
-                  <TableCell sx={{ color: 'text.secondary', fontWeight: 500 }}>{ticket.id}</TableCell>
-                  <TableCell sx={{ maxWidth: 280 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-                      <TicketTypeMark type={ticket.type} />
-                      <Typography
-                        variant="body2"
-                        noWrap
-                        title={ticket.title}
-                        sx={{ fontWeight: isTicketUnseen(ticket.seen) ? 700 : 400, minWidth: 0 }}
-                      >
-                        {ticket.title}
-                      </Typography>
-                    </Box>
-                  </TableCell>
-                  <TableCell sx={{ maxWidth: 360 }}>
-                    <Typography variant="caption" color="text.secondary" noWrap title={truncateDescription(ticket.description, 500)}>
-                      {truncateDescription(ticket.description)}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge kind="type" value={ticket.type} />
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge kind="status" value={ticket.status} />
-                  </TableCell>
-                  <TableCell>
-                    {isIncident(ticket.type) ? (
-                      <StatusBadge kind="priority" value={ticket.priority} />
-                    ) : (
-                      <Typography variant="caption" color="text.disabled">—</Typography>
-                    )}
-                  </TableCell>
-                  <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(ticket.created_at)}</TableCell>
+                  {visibleColumns.map((column) => renderColumnCell(column, ticket, false))}
                 </TableRow>
               ))}
             </TableBody>

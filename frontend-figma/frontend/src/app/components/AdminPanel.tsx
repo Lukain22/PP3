@@ -46,7 +46,7 @@ const sections = [
   },
   {
     title: 'Vistas',
-    description: 'Creá, ocultá o eliminá vistas para usuarios comunes y técnicos.',
+    description: 'Creá, ocultá o eliminá vistas de tickets.',
     icon: <ViewListIcon fontSize="large" color="primary" />,
     to: '/admin/views',
     permission: 'admin.access'

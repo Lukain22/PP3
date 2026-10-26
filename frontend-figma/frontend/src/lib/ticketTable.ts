@@ -12,7 +12,9 @@ export type TicketSortKey =
   | 'priority'
   | 'category'
   | 'subcategory'
-  | 'date';
+  | 'date'
+  | 'due'
+  | 'sla';
 
 export type SortDirection = 'asc' | 'desc';
 

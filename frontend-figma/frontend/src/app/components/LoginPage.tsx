@@ -13,11 +13,13 @@ import {
 } from '@mui/material';
 import { toast } from 'sonner';
 import { setAuth, getHomePath, refreshAccess, type UserRole } from '../../lib/auth';
+import { usePreferences } from '../PreferencesProvider';
 
 const API_URL = `${import.meta.env.VITE_API_URL as string}/auth`;
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { t } = usePreferences();
   const [tab, setTab] = useState(0);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -38,7 +40,7 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        toast.error(data.message || 'Login incorrecto');
+        toast.error(data.message || t('login.bad'));
         return;
       }
 
@@ -47,7 +49,7 @@ export default function LoginPage() {
       navigate(getHomePath());
     } catch (error) {
       console.error(error);
-      toast.error('Error conectando con el backend');
+      toast.error(t('login.offline'));
     } finally {
       setLoading(false);
     }
@@ -57,12 +59,12 @@ export default function LoginPage() {
     e.preventDefault();
 
     if (password !== confirmPassword) {
-      toast.error('Las contraseñas no coinciden');
+      toast.error(t('login.mismatch'));
       return;
     }
 
     if (password.length < 6) {
-      toast.error('La contraseña debe tener al menos 6 caracteres');
+      toast.error(t('login.short'));
       return;
     }
 
@@ -81,19 +83,19 @@ export default function LoginPage() {
         const message =
           data.message ||
           (data.code === 'ER_DUP_ENTRY'
-            ? 'Este correo ya está registrado'
-            : 'No se pudo registrar el usuario');
+            ? t('login.duplicate')
+            : t('login.registerFail'));
         toast.error(message);
         return;
       }
 
-      toast.success(data.message || 'Usuario registrado');
+      toast.success(data.message || t('login.registered'));
       setPassword('');
       setConfirmPassword('');
       setTab(0);
     } catch (error) {
       console.error(error);
-      toast.error('Error conectando con el backend');
+      toast.error(t('login.offline'));
     } finally {
       setLoading(false);
     }
@@ -110,10 +112,10 @@ export default function LoginPage() {
             sx={{ height: 64, width: 64, display: 'block', mx: 'auto', mb: 1.25 }}
           />
           <Typography variant="h5" component="h1" align="center" sx={{ mb: 0.5, fontWeight: 500 }}>
-            Sistema de Soporte Técnico
+            {t('login.title')}
           </Typography>
           <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 2 }}>
-            Portal de Tickets
+            {t('login.subtitle')}
           </Typography>
 
           <Tabs
@@ -122,15 +124,15 @@ export default function LoginPage() {
             variant="fullWidth"
             sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
           >
-            <Tab label="Iniciar sesión" />
-            <Tab label="Registro" />
+            <Tab label={t('login.signIn')} />
+            <Tab label={t('login.register')} />
           </Tabs>
 
           {tab === 0 ? (
             <form onSubmit={handleLogin}>
               <TextField
                 fullWidth
-                label="Correo Institucional"
+                label={t('login.email')}
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -141,7 +143,7 @@ export default function LoginPage() {
               />
               <TextField
                 fullWidth
-                label="Contraseña"
+                label={t('login.password')}
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -156,7 +158,7 @@ export default function LoginPage() {
                 disabled={loading}
                 sx={{ mt: 2.5, py: 1.2 }}
               >
-                {loading ? 'Ingresando...' : 'Iniciar Sesión'}
+                {loading ? t('login.submitting') : t('login.submit')}
               </Button>
               <Button
                 fullWidth
@@ -164,14 +166,14 @@ export default function LoginPage() {
                 onClick={() => navigate('/forgot-password')}
                 sx={{ mt: 1 }}
               >
-                Olvidé mi contraseña
+                {t('login.forgot')}
               </Button>
             </form>
           ) : (
             <form onSubmit={handleRegister}>
               <TextField
                 fullWidth
-                label="Correo Institucional"
+                label={t('login.email')}
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -182,7 +184,7 @@ export default function LoginPage() {
               />
               <TextField
                 fullWidth
-                label="Contraseña"
+                label={t('login.password')}
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -192,7 +194,7 @@ export default function LoginPage() {
               />
               <TextField
                 fullWidth
-                label="Confirmar contraseña"
+                label={t('login.confirm')}
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
@@ -207,7 +209,7 @@ export default function LoginPage() {
                 disabled={loading}
                 sx={{ mt: 2.5, py: 1.2 }}
               >
-                {loading ? 'Registrando...' : 'Registrar usuario'}
+                {loading ? t('login.registering') : t('login.registerSubmit')}
               </Button>
             </form>
           )}

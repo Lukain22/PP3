@@ -5,6 +5,7 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import CloseIcon from '@mui/icons-material/Close';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import { STAFF_DEFAULT_COLUMNS, ticketColumnMeta, type TicketColumnKey } from '../../lib/ticketColumns';
 import type { StaffColumnFilters } from '../../lib/ticketViews';
 import { emptyStaffColumnFilters, hasActiveStaffColumnFilters } from '../../lib/ticketViews';
 import {
@@ -197,7 +198,56 @@ function FilterField({
   );
 }
 
+const FILTERABLE_COLUMNS = new Set<TicketColumnKey>([
+  'id', 'title', 'user', 'group', 'assignee', 'status', 'category', 'subcategory', 'created'
+]);
+
+function ColumnFilterField({
+  column,
+  draft,
+  onChange
+}: {
+  column: TicketColumnKey;
+  draft: StaffColumnFilters;
+  onChange: (next: StaffColumnFilters) => void;
+}) {
+  const field = (placeholder: string, value: string, patch: (value: string) => StaffColumnFilters, extra?: { type?: string; inputMode?: 'numeric' | 'text' }) => (
+    <FilterField
+      id={`ticket-filter-${ticketColumnMeta(column).sortKey}`}
+      value={value}
+      placeholder={placeholder}
+      type={extra?.type}
+      inputMode={extra?.inputMode}
+      onChange={(next) => onChange(patch(next))}
+    />
+  );
+
+  switch (column) {
+    case 'id':
+      return field('Filtrar ID', draft.ticketId, (value) => ({ ...draft, ticketId: value.replace(/\D/g, '') }), { inputMode: 'numeric' });
+    case 'title':
+      return field('Filtrar ticket', draft.title, (value) => ({ ...draft, title: value }));
+    case 'user':
+      return field('Filtrar usuario', draft.user, (value) => ({ ...draft, user: value }));
+    case 'group':
+      return field('Filtrar grupo', draft.group, (value) => ({ ...draft, group: value }));
+    case 'assignee':
+      return field('Filtrar asignado', draft.assignee, (value) => ({ ...draft, assignee: value }));
+    case 'status':
+      return field('Filtrar estado', draft.status, (value) => ({ ...draft, status: value }));
+    case 'category':
+      return field('Filtrar categoría', draft.category, (value) => ({ ...draft, category: value }));
+    case 'subcategory':
+      return field('Filtrar subcategoría', draft.subcategory, (value) => ({ ...draft, subcategory: value }));
+    case 'created':
+      return field('Filtrar fecha', draft.date, (value) => ({ ...draft, date: value }), { type: 'date' });
+    default:
+      return null;
+  }
+}
+
 interface StaffTableHeadRowProps {
+  columns?: TicketColumnKey[];
   canEditAll: boolean;
   sort: TicketSort;
   highlightSort: boolean;
@@ -216,6 +266,7 @@ interface StaffTableHeadRowProps {
 }
 
 export default function StaffTableHeadRow({
+  columns = STAFF_DEFAULT_COLUMNS,
   canEditAll,
   sort,
   highlightSort,
@@ -268,15 +319,19 @@ export default function StaffTableHeadRow({
             sx={{ p: 0.5 }}
           />
         </PlainHeaderCell>
-        <SortableHeaderCell label="ID" width={72} {...filterProps('id')} />
-        <SortableHeaderCell label="Ticket" minWidth={200} {...filterProps('title')} />
-        <SortableHeaderCell label="Usuario" minWidth={180} {...filterProps('user')} />
-        <SortableHeaderCell label="Grupo" minWidth={150} {...filterProps('group')} />
-        <SortableHeaderCell label="Asignado a" minWidth={180} {...filterProps('assignee')} />
-        <SortableHeaderCell label="Estado" minWidth={140} {...filterProps('status')} />
-        <SortableHeaderCell label="Categoría" minWidth={140} {...filterProps('category')} />
-        <SortableHeaderCell label="Subcategoría" minWidth={150} {...filterProps('subcategory')} />
-        <SortableHeaderCell label="Fecha" minWidth={140} {...filterProps('date')} />
+        {columns.map((column) => {
+          const meta = ticketColumnMeta(column);
+          return (
+            <SortableHeaderCell
+              key={column}
+              label={meta.label}
+              minWidth={meta.minWidth}
+              width={column === 'id' ? 72 : undefined}
+              {...filterProps(meta.sortKey)}
+              onFilter={FILTERABLE_COLUMNS.has(column) ? onFilterToggle : undefined}
+            />
+          );
+        })}
         {canEditAll && <PlainHeaderCell title="Acciones" width={88} align="center" />}
       </TableRow>
       {filterRowOpen && (
@@ -313,80 +368,11 @@ export default function StaffTableHeadRow({
               )}
             </Box>
           </TableCell>
-          <TableCell sx={{ py: 0.75, px: 1 }}>
-            <FilterField
-              id="ticket-filter-id"
-              value={draft.ticketId}
-              placeholder="Filtrar ID"
-              inputMode="numeric"
-              onChange={(value) => setDraft((prev) => ({ ...prev, ticketId: value.replace(/\D/g, '') }))}
-            />
-          </TableCell>
-          <TableCell sx={{ py: 0.75, px: 1 }}>
-            <FilterField
-              id="ticket-filter-title"
-              value={draft.title}
-              placeholder="Filtrar ticket"
-              onChange={(value) => setDraft((prev) => ({ ...prev, title: value }))}
-            />
-          </TableCell>
-          <TableCell sx={{ py: 0.75, px: 1 }}>
-            <FilterField
-              id="ticket-filter-user"
-              value={draft.user}
-              placeholder="Filtrar usuario"
-              onChange={(value) => setDraft((prev) => ({ ...prev, user: value }))}
-            />
-          </TableCell>
-          <TableCell sx={{ py: 0.75, px: 1 }}>
-            <FilterField
-              id="ticket-filter-group"
-              value={draft.group}
-              placeholder="Filtrar grupo"
-              onChange={(value) => setDraft((prev) => ({ ...prev, group: value }))}
-            />
-          </TableCell>
-          <TableCell sx={{ py: 0.75, px: 1 }}>
-            <FilterField
-              id="ticket-filter-assignee"
-              value={draft.assignee}
-              placeholder="Filtrar asignado"
-              onChange={(value) => setDraft((prev) => ({ ...prev, assignee: value }))}
-            />
-          </TableCell>
-          <TableCell sx={{ py: 0.75, px: 1 }}>
-            <FilterField
-              id="ticket-filter-status"
-              value={draft.status}
-              placeholder="Filtrar estado"
-              onChange={(value) => setDraft((prev) => ({ ...prev, status: value }))}
-            />
-          </TableCell>
-          <TableCell sx={{ py: 0.75, px: 1 }}>
-            <FilterField
-              id="ticket-filter-category"
-              value={draft.category}
-              placeholder="Filtrar categoría"
-              onChange={(value) => setDraft((prev) => ({ ...prev, category: value }))}
-            />
-          </TableCell>
-          <TableCell sx={{ py: 0.75, px: 1 }}>
-            <FilterField
-              id="ticket-filter-subcategory"
-              value={draft.subcategory}
-              placeholder="Filtrar subcategoría"
-              onChange={(value) => setDraft((prev) => ({ ...prev, subcategory: value }))}
-            />
-          </TableCell>
-          <TableCell sx={{ py: 0.75, px: 1 }}>
-            <FilterField
-              id="ticket-filter-date"
-              value={draft.date}
-              placeholder="Filtrar fecha"
-              type="date"
-              onChange={(value) => setDraft((prev) => ({ ...prev, date: value }))}
-            />
-          </TableCell>
+          {columns.map((column) => (
+            <TableCell key={column} sx={{ py: 0.75, px: 1 }}>
+              <ColumnFilterField column={column} draft={draft} onChange={setDraft} />
+            </TableCell>
+          ))}
           {canEditAll && <TableCell />}
         </TableRow>
       )}

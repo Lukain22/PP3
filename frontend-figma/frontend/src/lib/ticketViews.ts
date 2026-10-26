@@ -1,4 +1,5 @@
 import type { UserRole } from './auth';
+import { normalizeTicketColumns, type TicketColumnKey } from './ticketColumns';
 
 export interface TicketViewFilters {
   type?: string | null;
@@ -20,6 +21,7 @@ export interface TicketViewFilters {
   resolved_from?: string | null;
   resolved_to?: string | null;
   filter_order?: string[];
+  columns?: TicketColumnKey[];
 }
 
 export interface TicketView {
@@ -82,6 +84,7 @@ export interface ActiveViewSelection {
   listMode: ListMode;
   filters: TicketListFilters;
   sortBy: string;
+  columns?: TicketColumnKey[];
 }
 
 export const emptyTicketListFilters = (): TicketListFilters => ({
@@ -341,6 +344,11 @@ export function viewFiltersToPayload(filters: TicketListFilters, order: string[]
   return payload;
 }
 
+export function attachViewColumns(filters: TicketViewFilters, columns: TicketColumnKey[]): TicketViewFilters {
+  const normalized = normalizeTicketColumns(columns);
+  return normalized ? { ...filters, columns: normalized } : filters;
+}
+
 export function selectionFromSystemView(view: SystemViewDefinition): ActiveViewSelection {
   return {
     kind: 'system',
@@ -363,7 +371,8 @@ export function selectionFromCustomView(view: TicketView, role: UserRole): Activ
     name: view.name,
     listMode,
     filters: filtersFromView(view),
-    sortBy: view.sort_by || 'date-desc'
+    sortBy: view.sort_by || 'date-desc',
+    columns: normalizeTicketColumns(view.filters?.columns) || undefined
   };
 }
 

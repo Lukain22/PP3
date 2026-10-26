@@ -20,6 +20,7 @@ import NotificationBell from './NotificationBell';
 import UserProfileMenu from './UserProfileMenu';
 import { isAdmin, getHomePath, getRole, can } from '../../lib/auth';
 import { getTicketsPath } from '../../lib/ticketViews';
+import { usePreferences } from '../PreferencesProvider';
 
 type Crumb = { label: string; to?: string };
 
@@ -63,12 +64,13 @@ export default function SupportShell({
   compactTitle = false
 }: SupportShellProps) {
   const navigate = useNavigate();
+  const { t } = usePreferences();
   const canCreateTicket = can('tickets.create');
 
   return (
     <Box sx={{
       minHeight: '100vh',
-      bgcolor: '#F8FAFC',
+      bgcolor: 'background.default',
       ...(compact && {
         height: '100vh',
         display: 'flex',
@@ -80,7 +82,7 @@ export default function SupportShell({
         position="static"
         elevation={0}
         sx={{
-          bgcolor: '#fff',
+          bgcolor: 'background.paper',
           color: 'text.primary',
           borderBottom: '1px solid',
           borderColor: 'divider'
@@ -90,8 +92,8 @@ export default function SupportShell({
           <Box
             component="img"
             alt="Logo"
-            src="/logo-itb.png"
-            sx={{ height: 32, width: 32, borderRadius: 1, cursor: 'pointer', flexShrink: 0 }}
+            src="/logo-itb.png?v=2"
+            sx={{ height: 34, width: 34, objectFit: 'contain', cursor: 'pointer', flexShrink: 0 }}
             onClick={() => navigate(isAdmin() ? '/dashboard' : getHomePath())}
           />
 
@@ -99,7 +101,7 @@ export default function SupportShell({
             variant="subtitle1"
             sx={{ fontWeight: 600, lineHeight: 1.2, flexShrink: 0, display: { xs: 'none', sm: 'block' } }}
           >
-            Soporte Técnico
+            {t('nav.brand')}
           </Typography>
 
           <Button
@@ -108,7 +110,7 @@ export default function SupportShell({
             onClick={() => navigate('/dashboard')}
             sx={{ flexShrink: 0, fontWeight: 500, ml: { xs: 0, sm: -0.5 } }}
           >
-            Inicio
+            {t('nav.home')}
           </Button>
 
           <Button
@@ -117,13 +119,13 @@ export default function SupportShell({
             onClick={() => navigate(getTicketsPath(getRole()))}
             sx={{ flexShrink: 0, fontWeight: 500 }}
           >
-            Solicitudes
+            {t('nav.tickets')}
           </Button>
 
           <Box sx={{ flexGrow: 1 }} />
 
           {can('admin.access') && (
-            <Tooltip title="Administración">
+            <Tooltip title={t('nav.admin')}>
               <IconButton onClick={() => navigate('/admin')} size="small" color="primary" sx={{ flexShrink: 0 }}>
                 <AdminPanelSettingsIcon fontSize="small" />
               </IconButton>
@@ -140,11 +142,11 @@ export default function SupportShell({
               onClick={() => navigate('/create-ticket')}
               sx={{ flexShrink: 0, display: { xs: 'none', sm: 'inline-flex' } }}
             >
-              Nueva solicitud
+              {t('nav.newTicket')}
             </Button>
           )}
           {canCreateTicket && (
-            <Tooltip title="Nueva solicitud">
+            <Tooltip title={t('nav.newTicket')}>
               <IconButton
                 color="primary"
                 size="small"
@@ -156,7 +158,7 @@ export default function SupportShell({
             </Tooltip>
           )}
 
-          <Tooltip title="Créditos">
+          <Tooltip title={t('nav.credits')}>
             <IconButton onClick={() => navigate('/credits')} size="small" sx={{ flexShrink: 0 }}>
               <HelpOutlineIcon fontSize="small" />
             </IconButton>
@@ -207,10 +209,10 @@ export default function SupportShell({
 
         <Box sx={{ mb: compact || compactTitle ? 1 : 2.5, display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
           {backTo && (
-            <Tooltip title="Volver">
+            <Tooltip title={t('nav.back')}>
               <IconButton
                 onClick={() => navigate(backTo)}
-                aria-label="Volver"
+                aria-label={t('nav.back')}
                 sx={{
                   border: '1px solid',
                   borderColor: 'divider',

@@ -27,6 +27,7 @@ import CreateTicketClassic from './components/legacy/CreateTicket.classic';
 import TicketDetailClassic from './components/legacy/TicketDetail.classic';
 import { isClassicUi } from './components/SupportShell';
 import { getToken, isAdmin, isTechnician, can, refreshAccess, getHomePath } from '../lib/auth';
+import { usePreferences } from './PreferencesProvider';
 
 function DashboardPage() {
   return isClassicUi() ? <DashboardClassic /> : <Dashboard />;
@@ -90,6 +91,7 @@ function BlockTechnicianFromUserArea({ children }: { children: ReactNode }) {
 }
 
 export default function App() {
+  const { theme } = usePreferences();
   return (
     <BrowserRouter>
       <AccessGate>
@@ -120,7 +122,7 @@ export default function App() {
           <Route path="/technician" element={<Navigate to="/tickets?view=system:all_my_groups" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-        <Toaster position="top-right" richColors />
+        <Toaster position="bottom-right" theme={theme} richColors />
       </div>
       </AccessGate>
     </BrowserRouter>

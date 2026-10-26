@@ -15,10 +15,12 @@ import { toast } from 'sonner';
 import {
   type TicketView,
   type TicketListFilters,
+  attachViewColumns,
   viewFiltersToPayload,
   emptyTicketListFilters,
   filtersFromView
 } from '../../lib/ticketViews';
+import { normalizeTicketColumns, STAFF_DEFAULT_COLUMNS } from '../../lib/ticketColumns';
 import { rowsFromListFilters, rowsFromStored, rowsToListFilters } from '../../lib/viewFilters';
 import ViewEditorDialog, { type ViewEditorValues } from './ViewEditorDialog';
 
@@ -42,6 +44,7 @@ const emptyDraft = (): ViewEditorValues => ({
   visibility: 'personal',
   share_group_id: '',
   rows: [],
+  columns: [...STAFF_DEFAULT_COLUMNS],
   sort_by: 'date-desc'
 });
 
@@ -78,6 +81,7 @@ export default function TicketViewsBar({
       visibility: 'personal',
       share_group_id: '',
       rows: rowsFromListFilters(currentFilters),
+      columns: [...STAFF_DEFAULT_COLUMNS],
       sort_by: currentSortBy
     });
     setDialogOpen(true);
@@ -91,15 +95,19 @@ export default function TicketViewsBar({
       visibility: view.visibility,
       share_group_id: view.share_group_id ?? '',
       rows: rowsFromStored(view.filters),
+      columns: normalizeTicketColumns(view.filters?.columns) || [...STAFF_DEFAULT_COLUMNS],
       sort_by: view.sort_by || 'date-desc'
     });
     setDialogOpen(true);
   };
 
   const handleSave = async (values: ViewEditorValues) => {
-    const filters = viewFiltersToPayload(
-      rowsToListFilters(values.rows),
-      values.rows.map((row) => row.field)
+    const filters = attachViewColumns(
+      viewFiltersToPayload(
+        rowsToListFilters(values.rows),
+        values.rows.map((row) => row.field)
+      ),
+      values.columns
     );
 
     setSaving(true);
@@ -124,9 +132,11 @@ export default function TicketViewsBar({
         return;
       }
 
+      const saved = result.data as TicketView;
       toast.success(editingView ? 'Vista actualizada' : 'Vista creada');
       setDialogOpen(false);
       await loadViews();
+      onApplyView(saved, filtersFromView(saved), saved.sort_by || 'date-desc');
     } catch {
       toast.error('Error conectando con el backend');
     } finally {
@@ -167,7 +177,7 @@ export default function TicketViewsBar({
               color={activeViewId === view.id ? 'primary' : 'default'}
               variant={activeViewId === view.id ? 'filled' : 'outlined'}
             />
-            {view.is_owner && !view.audience && (
+            {view.is_owner && !view.audience && view.visibility !== 'public' && (
               <>
                 <Tooltip title="Editar vista">
                   <IconButton size="small" onClick={() => openEditDialog(view)}>
