@@ -19,7 +19,7 @@ const VALID_SUBCATEGORIES = {
 };
 
 const VALID_SUBCATEGORY_VALUES = [...new Set(Object.values(VALID_SUBCATEGORIES).flat())];
-const VIEW_FILTER_FIELDS = ['type', 'status', 'priority', 'group', 'technician', 'category', 'subcategory', 'created'];
+const VIEW_FILTER_FIELDS = ['type', 'status', 'priority', 'group', 'technician', 'category', 'subcategory', 'created', 'due', 'resolved'];
 
 const parseStatusFilter = (statusQuery) => {
   if (!statusQuery) return [];
@@ -224,14 +224,31 @@ const appendExtendedListFilters = (conditions, params, query) => {
     }
   }
 
-  if (query.date_from && /^\d{4}-\d{2}-\d{2}$/.test(String(query.date_from))) {
-    conditions.push('DATE(t.created_at) >= ?');
-    params.push(String(query.date_from));
-  }
+  const pushDateRange = (expression, from, to) => {
+    if (isIsoDate(from)) {
+      conditions.push(`DATE(${expression}) >= ?`);
+      params.push(from);
+    }
+    if (isIsoDate(to)) {
+      conditions.push(`DATE(${expression}) <= ?`);
+      params.push(to);
+    }
+  };
 
-  if (query.date_to && /^\d{4}-\d{2}-\d{2}$/.test(String(query.date_to))) {
-    conditions.push('DATE(t.created_at) <= ?');
-    params.push(String(query.date_to));
+  pushDateRange('t.created_at', query.date_from, query.date_to);
+  pushDateRange('t.sla_resolution_due', query.due_from, query.due_to);
+
+  if (isIsoDate(query.resolved_from) || isIsoDate(query.resolved_to)) {
+    const parts = ['res.ticket_id = t.id'];
+    if (isIsoDate(query.resolved_from)) {
+      parts.push('DATE(res.created_at) >= ?');
+      params.push(query.resolved_from);
+    }
+    if (isIsoDate(query.resolved_to)) {
+      parts.push('DATE(res.created_at) <= ?');
+      params.push(query.resolved_to);
+    }
+    conditions.push(`EXISTS (SELECT 1 FROM ticket_resolutions res WHERE ${parts.join(' AND ')})`);
   }
 };
 
@@ -283,15 +300,21 @@ const normalizeViewFilters = (raw) => {
   if (categories.length) result.categories = categories;
   if (subcategories.length) result.subcategories = subcategories;
 
-  let dateFrom = isIsoDate(filters.date_from) ? filters.date_from : null;
-  let dateTo = isIsoDate(filters.date_to) ? filters.date_to : null;
-  if (dateFrom && dateTo && dateFrom > dateTo) {
-    const swap = dateFrom;
-    dateFrom = dateTo;
-    dateTo = swap;
-  }
-  if (dateFrom) result.date_from = dateFrom;
-  if (dateTo) result.date_to = dateTo;
+  const storeDateRange = (fromKey, toKey) => {
+    let from = isIsoDate(filters[fromKey]) ? filters[fromKey] : null;
+    let to = isIsoDate(filters[toKey]) ? filters[toKey] : null;
+    if (from && to && from > to) {
+      const swap = from;
+      from = to;
+      to = swap;
+    }
+    if (from) result[fromKey] = from;
+    if (to) result[toKey] = to;
+  };
+
+  storeDateRange('date_from', 'date_to');
+  storeDateRange('due_from', 'due_to');
+  storeDateRange('resolved_from', 'resolved_to');
 
   if (Array.isArray(filters.filter_order)) {
     const order = [...new Set(filters.filter_order.filter((field) => VIEW_FILTER_FIELDS.includes(field)))];
@@ -365,6 +388,10 @@ const filtersToQuery = (filters) => {
   if (normalized.subcategories?.length) query.subcategories = normalized.subcategories.join(',');
   if (normalized.date_from) query.date_from = normalized.date_from;
   if (normalized.date_to) query.date_to = normalized.date_to;
+  if (normalized.due_from) query.due_from = normalized.due_from;
+  if (normalized.due_to) query.due_to = normalized.due_to;
+  if (normalized.resolved_from) query.resolved_from = normalized.resolved_from;
+  if (normalized.resolved_to) query.resolved_to = normalized.resolved_to;
 
   return query;
 };

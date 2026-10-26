@@ -43,7 +43,7 @@ exports.getAllTickets = (req, res) => {
   const page  = Math.max(1, parseInt(req.query.page)  || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
   const offset = (page - 1) * limit;
-  const { status, user_email, group_id, type, priority, ticket_id, title, group_ids, technician_ids, categories, subcategories, date_from, date_to, group_name, assignee, status_q, category_q, subcategory, date_on, sort } = req.query;
+  const { status, user_email, group_id, type, priority, ticket_id, title, group_ids, technician_ids, categories, subcategories, date_from, date_to, due_from, due_to, resolved_from, resolved_to, group_name, assignee, status_q, category_q, subcategory, date_on, sort } = req.query;
 
   const conditions = [];
   const baseParams = [];
@@ -62,6 +62,10 @@ exports.getAllTickets = (req, res) => {
     subcategories,
     date_from,
     date_to,
+    due_from,
+    due_to,
+    resolved_from,
+    resolved_to,
     group_name,
     assignee,
     status_q,

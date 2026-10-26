@@ -39,6 +39,7 @@ import { TICKET_STATUS_OPTIONS } from '../../lib/ticketStatus';
 import { TICKET_TYPE_OPTIONS } from '../../lib/ticketTypes';
 import {
   VIEW_FILTER_FIELDS,
+  isDateFilterField,
   priorityApplies,
   subcategoryOptions,
   viewFilterIssue,
@@ -711,7 +712,7 @@ export default function ViewEditorDialog({
                       </Box>
                       <Box sx={{ flex: 1, minWidth: 0 }}>
                         <FieldLabel>Valor</FieldLabel>
-                        {row.field === 'created' ? (
+                        {isDateFilterField(row.field) ? (
                           <DateRangeField
                             from={row.values[0] || ''}
                             to={row.values[1] || ''}

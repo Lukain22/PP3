@@ -13,7 +13,9 @@ export type ViewFilterField =
   | 'technician'
   | 'category'
   | 'subcategory'
-  | 'created';
+  | 'created'
+  | 'due'
+  | 'resolved';
 
 export interface ViewFilterRow {
   id: string;
@@ -29,8 +31,22 @@ export const VIEW_FILTER_FIELDS: { field: ViewFilterField; label: string }[] = [
   { field: 'technician', label: 'Asignado a' },
   { field: 'category', label: 'Categoría' },
   { field: 'subcategory', label: 'Subcategoría' },
-  { field: 'created', label: 'Fecha de creación' }
+  { field: 'created', label: 'Fecha de creación' },
+  { field: 'due', label: 'Vencimiento' },
+  { field: 'resolved', label: 'Fecha de resolución' }
 ];
+
+type DateFilterField = 'created' | 'due' | 'resolved';
+
+const DATE_FILTER_KEYS: Record<DateFilterField, readonly ['date_from' | 'due_from' | 'resolved_from', 'date_to' | 'due_to' | 'resolved_to']> = {
+  created: ['date_from', 'date_to'],
+  due: ['due_from', 'due_to'],
+  resolved: ['resolved_from', 'resolved_to']
+};
+
+export function isDateFilterField(field: string): field is DateFilterField {
+  return field === 'created' || field === 'due' || field === 'resolved';
+}
 
 const FIELD_ORDER = VIEW_FILTER_FIELDS.map((item) => item.field);
 
@@ -59,13 +75,16 @@ export function rowsFromListFilters(filters: TicketListFilters): ViewFilterRow[]
   add('priority', splitCsv(filters.priority));
   add('category', splitCsv(filters.category));
   add('subcategory', splitCsv(filters.subcategory));
-  if (filters.date_from || filters.date_to) {
-    rows.push({
-      id: nextRowId(),
-      field: 'created',
-      values: [filters.date_from || '', filters.date_to || '']
-    });
-  }
+  (Object.keys(DATE_FILTER_KEYS) as DateFilterField[]).forEach((field) => {
+    const [fromKey, toKey] = DATE_FILTER_KEYS[field];
+    if (filters[fromKey] || filters[toKey]) {
+      rows.push({
+        id: nextRowId(),
+        field,
+        values: [filters[fromKey] || '', filters[toKey] || '']
+      });
+    }
+  });
 
   return sortRows(rows);
 }
@@ -96,13 +115,16 @@ export function rowsFromStored(filters: TicketViewFilters | null | undefined): V
 
   add('category', source.categories || []);
   add('subcategory', source.subcategories || []);
-  if (source.date_from || source.date_to) {
-    rows.push({
-      id: nextRowId(),
-      field: 'created',
-      values: [source.date_from || '', source.date_to || '']
-    });
-  }
+  (Object.keys(DATE_FILTER_KEYS) as DateFilterField[]).forEach((field) => {
+    const [fromKey, toKey] = DATE_FILTER_KEYS[field];
+    if (source[fromKey] || source[toKey]) {
+      rows.push({
+        id: nextRowId(),
+        field,
+        values: [source[fromKey] || '', source[toKey] || '']
+      });
+    }
+  });
 
   return sortRows(rows, source.filter_order);
 }
@@ -117,9 +139,10 @@ export function rowsToListFilters(rows: ViewFilterRow[]): TicketListFilters {
   const applyPriority = priorityApplies(rows);
 
   for (const row of rows) {
-    if (row.field === 'created') {
-      next.date_from = row.values[0] || '';
-      next.date_to = row.values[1] || '';
+    if (isDateFilterField(row.field)) {
+      const [fromKey, toKey] = DATE_FILTER_KEYS[row.field];
+      next[fromKey] = row.values[0] || '';
+      next[toKey] = row.values[1] || '';
       continue;
     }
     if (row.field === 'priority' && !applyPriority) continue;
@@ -144,7 +167,7 @@ export function viewFilterIssue(row: ViewFilterRow, rows: ViewFilterRow[]): stri
     const groups = rows.find((item) => item.field === 'group')?.values ?? [];
     if (!groups.length) return 'Elegí un grupo para ver sus técnicos';
   }
-  if (row.field === 'created') {
+  if (isDateFilterField(row.field)) {
     if (!row.values[0] && !row.values[1]) return 'Elegí al menos una fecha';
     return null;
   }

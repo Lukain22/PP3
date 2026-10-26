@@ -15,6 +15,10 @@ export interface TicketViewFilters {
   subcategories?: string[];
   date_from?: string | null;
   date_to?: string | null;
+  due_from?: string | null;
+  due_to?: string | null;
+  resolved_from?: string | null;
+  resolved_to?: string | null;
   filter_order?: string[];
 }
 
@@ -60,6 +64,10 @@ export interface TicketListFilters {
   subcategory: string;
   date_from: string;
   date_to: string;
+  due_from: string;
+  due_to: string;
+  resolved_from: string;
+  resolved_to: string;
 }
 
 export interface ActiveViewSelection {
@@ -81,7 +89,11 @@ export const emptyTicketListFilters = (): TicketListFilters => ({
   category: '',
   subcategory: '',
   date_from: '',
-  date_to: ''
+  date_to: '',
+  due_from: '',
+  due_to: '',
+  resolved_from: '',
+  resolved_to: ''
 });
 
 export const SYSTEM_VIEWS: SystemViewDefinition[] = [
@@ -194,7 +206,11 @@ export function filtersFromView(view: TicketView): TicketListFilters {
     category: joinStored(f.categories),
     subcategory: joinStored(f.subcategories),
     date_from: f.date_from || '',
-    date_to: f.date_to || ''
+    date_to: f.date_to || '',
+    due_from: f.due_from || '',
+    due_to: f.due_to || '',
+    resolved_from: f.resolved_from || '',
+    resolved_to: f.resolved_to || ''
   };
 }
 
@@ -272,6 +288,10 @@ export function buildTicketQueryParams(
   if (filters.subcategory) params.set('subcategories', filters.subcategory);
   if (filters.date_from) params.set('date_from', filters.date_from);
   if (filters.date_to) params.set('date_to', filters.date_to);
+  if (filters.due_from) params.set('due_from', filters.due_from);
+  if (filters.due_to) params.set('due_to', filters.due_to);
+  if (filters.resolved_from) params.set('resolved_from', filters.resolved_from);
+  if (filters.resolved_to) params.set('resolved_to', filters.resolved_to);
   if (staffColumnFilters) appendStaffColumnFilters(params, staffColumnFilters);
   return params;
 }
@@ -308,6 +328,10 @@ export function viewFiltersToPayload(filters: TicketListFilters, order: string[]
   if (subcategories.length) payload.subcategories = subcategories;
   if (filters.date_from) payload.date_from = filters.date_from;
   if (filters.date_to) payload.date_to = filters.date_to;
+  if (filters.due_from) payload.due_from = filters.due_from;
+  if (filters.due_to) payload.due_to = filters.due_to;
+  if (filters.resolved_from) payload.resolved_from = filters.resolved_from;
+  if (filters.resolved_to) payload.resolved_to = filters.resolved_to;
   if (order.length) payload.filter_order = order;
 
   return payload;
