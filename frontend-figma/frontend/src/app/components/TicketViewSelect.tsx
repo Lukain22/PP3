@@ -27,7 +27,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import { toast } from 'sonner';
-import type { UserRole } from '../../lib/auth';
+import { can, canWatchTickets, type UserRole } from '../../lib/auth';
 import { normalizeTicketColumns, STAFF_DEFAULT_COLUMNS } from '../../lib/ticketColumns';
 import { rowsFromListFilters, rowsFromStored, rowsToListFilters } from '../../lib/viewFilters';
 import ViewEditorDialog, { type ViewEditorValues } from './ViewEditorDialog';
@@ -102,6 +102,7 @@ export default function TicketViewSelect({
   });
 
   const systemViews = useMemo(() => getSystemViewsForRole(role), [role]);
+  const seesSharedViews = role !== 'user' || canWatchTickets();
   const menuOpen = Boolean(menuAnchor);
 
   const loadData = async () => {
@@ -130,14 +131,14 @@ export default function TicketViewSelect({
       kind: 'system',
       system
     }));
-    if (role === 'user') return systemItems;
+    if (!seesSharedViews) return systemItems;
     const customItems: ViewMenuItem[] = customViews.map((view) => ({
       itemKey: viewIdToItemKey(view.id),
       kind: 'custom',
       view
     }));
     return sortViewItems([...systemItems, ...customItems], layoutOrder);
-  }, [role, systemViews, customViews, layoutOrder]);
+  }, [seesSharedViews, systemViews, customViews, layoutOrder]);
 
   const visibleMenuItems = useMemo(() => {
     const query = viewQuery.trim().toLocaleLowerCase();
@@ -405,7 +406,7 @@ export default function TicketViewSelect({
             return (
               <ListItemButton
                 key={item.itemKey}
-                draggable={role !== 'user' && !reordering}
+                draggable={seesSharedViews && !reordering}
                 selected={isActive}
                 onClick={() => handleViewClick(item)}
                 onDragStart={(e) => {
@@ -439,8 +440,9 @@ export default function TicketViewSelect({
                   position: 'relative',
                   py: 1,
                   pr: 1,
+                  overflow: 'hidden',
                   opacity: isDragging ? 0.45 : 1,
-                  cursor: role === 'user' ? 'pointer' : reordering ? 'wait' : 'grab',
+                  cursor: seesSharedViews ? (reordering ? 'wait' : 'grab') : 'pointer',
                   bgcolor: isDragOver ? 'action.hover' : undefined,
                   borderTop: isDragOver ? '2px solid' : '2px solid transparent',
                   borderColor: isDragOver ? 'primary.main' : 'transparent',
@@ -460,7 +462,7 @@ export default function TicketViewSelect({
                   }
                 }}
               >
-                {role !== 'user' && (
+                {seesSharedViews && (
                   <DragIndicatorIcon sx={{ fontSize: 18, color: 'text.disabled', mr: 0.5, flexShrink: 0 }} />
                 )}
                 {item.kind === 'custom' && (
@@ -476,7 +478,8 @@ export default function TicketViewSelect({
                 )}
                 <ListItemText
                   primary={item.kind === 'system' ? item.system.name : item.view.name}
-                  sx={{ minWidth: 0 }}
+                  slotProps={{ primary: { noWrap: true } }}
+                  sx={{ minWidth: 0, my: 0 }}
                 />
                 <Stack
                   className="view-row-actions"
@@ -557,7 +560,7 @@ export default function TicketViewSelect({
           )}
 
         </Box>
-        {role !== 'user' && (
+        {(role !== 'user' || can('views.create')) && (
           <Box
             sx={{
               flexShrink: 0,

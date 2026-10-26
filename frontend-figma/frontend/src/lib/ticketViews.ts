@@ -1,4 +1,4 @@
-import type { UserRole } from './auth';
+import { canWatchTickets, type UserRole } from './auth';
 import { normalizeTicketColumns, type TicketColumnKey } from './ticketColumns';
 
 export interface TicketViewFilters {
@@ -42,11 +42,12 @@ export interface TicketView {
   created_at?: string;
 }
 
-export type ListMode = 'admin' | 'technician' | 'user';
+export type ListMode = 'admin' | 'technician' | 'user' | 'watch';
 
 export type SystemViewKey =
   | 'all_requests'
   | 'all_my_groups'
+  | 'watched_requests'
   | 'all_my_requests'
   | 'resolved_my_requests'
   | 'pending_my_requests';
@@ -121,6 +122,14 @@ export const SYSTEM_VIEWS: SystemViewDefinition[] = [
     sortBy: 'date-desc'
   },
   {
+    key: 'watched_requests',
+    name: 'Solicitudes visibles',
+    roles: ['user'],
+    listMode: 'watch',
+    filters: emptyTicketListFilters(),
+    sortBy: 'date-desc'
+  },
+  {
     key: 'all_my_requests',
     name: 'Todas mis solicitudes',
     roles: ['admin', 'technician', 'user'],
@@ -147,12 +156,16 @@ export const SYSTEM_VIEWS: SystemViewDefinition[] = [
 ];
 
 export function getSystemViewsForRole(role: UserRole): SystemViewDefinition[] {
-  return SYSTEM_VIEWS.filter((view) => view.roles.includes(role));
+  return SYSTEM_VIEWS.filter((view) => {
+    if (view.key === 'watched_requests') return role === 'user' && canWatchTickets();
+    return view.roles.includes(role);
+  });
 }
 
 export function getDefaultSystemView(role: UserRole): SystemViewDefinition {
   if (role === 'admin') return SYSTEM_VIEWS.find((v) => v.key === 'all_requests')!;
   if (role === 'technician') return SYSTEM_VIEWS.find((v) => v.key === 'all_my_groups')!;
+  if (role === 'user' && canWatchTickets()) return SYSTEM_VIEWS.find((v) => v.key === 'watched_requests')!;
   return SYSTEM_VIEWS.find((v) => v.key === 'all_my_requests')!;
 }
 
@@ -364,6 +377,7 @@ export function selectionFromCustomView(view: TicketView, role: UserRole): Activ
   let listMode: ListMode = 'user';
   if (role === 'admin') listMode = 'admin';
   else if (role === 'technician') listMode = 'technician';
+  else if (canWatchTickets()) listMode = 'watch';
 
   return {
     kind: 'custom',
@@ -379,6 +393,7 @@ export function selectionFromCustomView(view: TicketView, role: UserRole): Activ
 export function getTicketsApiPath(listMode: ListMode): string {
   if (listMode === 'admin') return '/admin/tickets';
   if (listMode === 'technician') return '/technician/tickets';
+  if (listMode === 'watch') return '/tickets/watched';
   return '/tickets';
 }
 

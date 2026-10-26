@@ -2,7 +2,7 @@ const fs = require('fs');
 const db = require('../db/db');
 const { loadTicketWithAccess } = require('./ticketsController');
 const { getMimeType, getStoredPath } = require('../utils/attachments');
-const { assertPermission } = require('../rbac/guard');
+const { assertPermission, assertBeyondOwnTicket } = require('../rbac/guard');
 
 const mapAttachment = (row) => ({
   id: row.id,
@@ -84,6 +84,8 @@ const uploadForTicket = (req, res, id, context) => {
     if (accessErr) return res.status(500).json({ message: 'Error al verificar acceso' });
     if (!ticket) return res.status(404).json({ message: 'Ticket no encontrado' });
 
+    assertBeyondOwnTicket(req, res, ticket, 'tickets.attach').then((allowed) => {
+      if (!allowed) return;
     const files = Array.isArray(req.files) ? req.files : [];
     if (files.length === 0) {
       return res.status(400).json({ message: 'No se recibieron archivos' });
@@ -160,6 +162,7 @@ const uploadForTicket = (req, res, id, context) => {
     }
 
     insertFiles(null);
+    });
   });
 };
 

@@ -262,6 +262,15 @@ exports.getViews = (req, res) => {
     return res.status(400).json({ message: 'Scope inválido' });
   }
 
+  const { getRequestAccess, resolveTicketViewGrant } = require('../rbac/service');
+
+  getRequestAccess(req).then((access) => {
+    const grant = user.role === 'admin' ? null : resolveTicketViewGrant(access);
+    loadVisibleViews(req, res, scope, user, grant);
+  }).catch(() => res.status(500).json({ message: 'Error al obtener vistas' }));
+};
+
+const loadVisibleViews = (req, res, scope, user, grant) => {
   getUserGroupIds(user.id, (groupErr, groupIds) => {
     if (groupErr) return res.status(500).json({ message: 'Error al obtener grupos' });
 
@@ -281,6 +290,29 @@ exports.getViews = (req, res) => {
       params.push(...audiences);
     } else {
       access.push("(v.visibility = 'public')");
+    }
+
+    if (user.role === 'admin' || (grant && grant.mode === 'all')) {
+      access.push("(v.visibility = 'public')");
+      access.push("(v.visibility = 'group' AND (v.share_group_id IS NOT NULL OR EXISTS (SELECT 1 FROM ticket_view_groups vg WHERE vg.view_id = v.id)))");
+    } else if (grant && grant.mode === 'allow' && grant.ids.length > 0) {
+      const placeholders = grant.ids.map(() => '?').join(', ');
+      access.push("(v.visibility = 'public')");
+      access.push(
+        `(v.visibility = 'group' AND (v.share_group_id IN (${placeholders}) OR EXISTS (SELECT 1 FROM ticket_view_groups vg WHERE vg.view_id = v.id AND vg.group_id IN (${placeholders}))))`
+      );
+      params.push(...grant.ids, ...grant.ids);
+    } else if (grant && grant.mode === 'deny') {
+      access.push("(v.visibility = 'public')");
+      if (grant.ids.length > 0) {
+        const placeholders = grant.ids.map(() => '?').join(', ');
+        access.push(
+          `(v.visibility = 'group' AND ((v.share_group_id IS NULL OR v.share_group_id NOT IN (${placeholders})) OR EXISTS (SELECT 1 FROM ticket_view_groups vg WHERE vg.view_id = v.id AND vg.group_id NOT IN (${placeholders}))))`
+        );
+        params.push(...grant.ids, ...grant.ids);
+      } else {
+        access.push("(v.visibility = 'group' AND (v.share_group_id IS NOT NULL OR EXISTS (SELECT 1 FROM ticket_view_groups vg WHERE vg.view_id = v.id)))");
+      }
     }
 
     if (user.role === 'admin') {
@@ -350,9 +382,6 @@ exports.saveViewLayout = (req, res) => {
 };
 
 exports.createView = (req, res) => {
-  if (req.user.role === 'user') {
-    return res.status(403).json({ message: 'No podés crear vistas' });
-  }
   validateViewPayload(req.body, req.user, (err, payload) => {
     if (err) return res.status(400).json({ message: err.message });
 
@@ -390,9 +419,6 @@ exports.createView = (req, res) => {
 };
 
 exports.updateView = (req, res) => {
-  if (req.user.role === 'user') {
-    return res.status(403).json({ message: 'No podés editar vistas' });
-  }
   const { id } = req.params;
 
   db.query('SELECT * FROM ticket_views WHERE id = ?', [id], (err, rows) => {
@@ -437,9 +463,6 @@ exports.updateView = (req, res) => {
 };
 
 exports.deleteView = (req, res) => {
-  if (req.user.role === 'user') {
-    return res.status(403).json({ message: 'No podés eliminar vistas' });
-  }
   const { id } = req.params;
 
   db.query('SELECT user_id FROM ticket_views WHERE id = ?', [id], (err, rows) => {

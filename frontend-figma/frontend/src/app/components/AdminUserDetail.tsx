@@ -278,7 +278,7 @@ export default function AdminUserDetail() {
 
           {role !== 'technician' && (
             <Typography variant="body2" color="text.secondary">
-              Los grupos de soporte solo aplican al perfil Técnico.
+              Los grupos de esta sección solo aplican al perfil Técnico. Para que un usuario vea tickets de un grupo, asignale Espectador del sistema, o un rol con Ver tickets, y elegí el alcance en el rol.
             </Typography>
           )}
 
@@ -305,7 +305,7 @@ export default function AdminUserDetail() {
               Roles y permisos
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Si el usuario tiene varios roles, los permisos se combinan.
+              Si el usuario tiene varios roles, los permisos se combinan. Las acciones salen de esos permisos. La visibilidad de grupos sale del alcance de Ver tickets.
             </Typography>
           </Box>
 

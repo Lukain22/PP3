@@ -14,12 +14,14 @@ import {
   Tooltip,
   Tabs,
   Tab,
+  Menu,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import SendIcon from '@mui/icons-material/Send';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
@@ -29,7 +31,7 @@ import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import { toast } from 'sonner';
 import StatusBadge from './StatusBadge';
 import SupportShell from './SupportShell';
-import { getToken, clearAuth, isAdmin, isTechnician, getEmail, getHomePath, can } from '../../lib/auth';
+import { getToken, clearAuth, isAdmin, isTechnician, getEmail, getHomePath, getUserId, can, canActOnOthers } from '../../lib/auth';
 import { CATEGORIES, SUBCATEGORIES, type Category } from '../../lib/categories';
 import {
   TICKET_TYPE_OPTIONS,
@@ -231,7 +233,8 @@ function CommentCard({
   onDelete,
   onEditTextChange,
   onSaveEdit,
-  onCancelEdit
+  onCancelEdit,
+  canAttach
 }: {
   comment: Comment;
   ticketId: string;
@@ -245,6 +248,7 @@ function CommentCard({
   onEditTextChange: (value: string) => void;
   onSaveEdit: () => void;
   onCancelEdit: () => void;
+  canAttach: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const showContent = expanded || isEditing;
@@ -318,7 +322,7 @@ function CommentCard({
               ticketId={ticketId}
               scope="comment"
               commentId={comment.id}
-              hideWhenEmpty={!can('tickets.attach')}
+              hideWhenEmpty={!canAttach}
             />
           </Stack>
         )
@@ -343,6 +347,10 @@ export default function TicketDetail() {
   const homePath = getHomePath();
 
   const [ticket, setTicket] = useState<Ticket | null>(null);
+  const isOwner = !ticket || Number(ticket.user_id) === getUserId();
+  const canCommentHere = staff || isOwner ? canComment : canActOnOthers('tickets.comment');
+  const canAttachHere = staff || isOwner ? can('tickets.attach') : canActOnOthers('tickets.attach');
+  const canEditThis = staff || isOwner || canActOnOthers('tickets.edit');
   const [comments, setComments] = useState<Comment[]>([]);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [resolution, setResolution] = useState<Resolution | null>(null);
@@ -354,6 +362,7 @@ export default function TicketDetail() {
   const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
+  const [cancelEditPrompt, setCancelEditPrompt] = useState(false);
   const [editFocus, setEditFocus] = useState<TicketEditField | null>(null);
   const [saving, setSaving] = useState(false);
   const editorRef = useRef<RichTextEditorHandle>(null);
@@ -362,6 +371,7 @@ export default function TicketDetail() {
   const [commentText, setCommentText] = useState('');
   const [commentFiles, setCommentFiles] = useState<File[]>([]);
   const [commentDialogOpen, setCommentDialogOpen] = useState(false);
+  const [actionsAnchor, setActionsAnchor] = useState<HTMLElement | null>(null);
   const [postingComment, setPostingComment] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
   const [editingCommentText, setEditingCommentText] = useState('');
@@ -503,6 +513,7 @@ export default function TicketDetail() {
     if (ticket) setFormData(ticketToFormData(ticket));
     setEditFocus(null);
     setEditing(false);
+    setCancelEditPrompt(false);
   };
 
   const beginEdit = (field?: TicketEditField) => {
@@ -874,6 +885,8 @@ export default function TicketDetail() {
       showTitleWhenHasFiles
       uploadBelowFiles
       contentAlign="left"
+      showUpload={canAttachHere}
+      hideWhenEmpty={!canAttachHere}
     />
   );
 
@@ -1315,7 +1328,7 @@ export default function TicketDetail() {
           <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
             Comentarios
           </Typography>
-          {canComment && (
+          {canCommentHere && (
           <Button
             variant="outlined"
             size="small"
@@ -1351,6 +1364,7 @@ export default function TicketDetail() {
                 onEditTextChange={setEditingCommentText}
                 onSaveEdit={() => handleEditComment(comment.id)}
                 onCancelEdit={() => setEditingCommentId(null)}
+                canAttach={canAttachHere}
               />
             ))
           )}
@@ -1540,7 +1554,38 @@ export default function TicketDetail() {
             <Tab label={`Historial (${history.length})`} />
             <Tab label="Resolución" />
           </Tabs>
-          {(admin || technician || !staff) && !editing && (
+          {(canResolve && !isResolved || canCommentHere) && (
+            <>
+              <Tooltip title="Acciones">
+                <IconButton
+                  size="small"
+                  aria-label="Acciones"
+                  onClick={(event) => setActionsAnchor(event.currentTarget)}
+                >
+                  <MoreVertIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Menu
+                anchorEl={actionsAnchor}
+                open={Boolean(actionsAnchor)}
+                onClose={() => setActionsAnchor(null)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+              >
+                {canResolve && !isResolved && (
+                  <MenuItem onClick={() => { setActionsAnchor(null); void openResolveDialog(); }}>
+                    Resolver ticket
+                  </MenuItem>
+                )}
+                {canCommentHere && (
+                  <MenuItem onClick={() => { setActionsAnchor(null); setCommentDialogOpen(true); }}>
+                    Agregar nota
+                  </MenuItem>
+                )}
+              </Menu>
+            </>
+          )}
+          {(admin || technician || canEditThis) && !editing && (
             <Tooltip title={staff ? 'Editar ticket' : 'Editar asunto y descripción'}>
               <IconButton
                 size="small"
@@ -1649,7 +1694,7 @@ export default function TicketDetail() {
           <Button
             size="small"
             variant="outlined"
-            onClick={handleCancelEdit}
+            onClick={() => setCancelEditPrompt(true)}
             disabled={saving}
             sx={{ minWidth: 108, textTransform: 'none', fontWeight: 600 }}
           >
@@ -1666,6 +1711,18 @@ export default function TicketDetail() {
           </Button>
         </Box>
       )}
+      <Dialog open={cancelEditPrompt} onClose={() => setCancelEditPrompt(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Cerrar sin guardar</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            Si cerrás ahora, se pierden los cambios de este ticket.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setCancelEditPrompt(false)}>Volver</Button>
+          <Button variant="contained" onClick={handleCancelEdit}>Cerrar</Button>
+        </DialogActions>
+      </Dialog>
     </SupportShell>
   );
 }

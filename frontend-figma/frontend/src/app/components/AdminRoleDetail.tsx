@@ -75,6 +75,9 @@ export default function AdminRoleDetail() {
   const [roles, setRoles] = useState<RoleOption[]>([]);
   const [transferMode, setTransferMode] = useState<'all' | 'allow' | 'deny'>('all');
   const [groupIds, setGroupIds] = useState<number[]>([]);
+  const [viewMode, setViewMode] = useState<'none' | 'all' | 'allow' | 'deny'>('all');
+  const [viewGroupIds, setViewGroupIds] = useState<number[]>([]);
+  const [inheritedViewAll, setInheritedViewAll] = useState(false);
   const [query, setQuery] = useState('');
 
   const apiCall = async (path: string, options: RequestInit = {}) => {
@@ -124,6 +127,9 @@ export default function AdminRoleDetail() {
         setInheritedTransferAll(Boolean(role.data.inherited_transfer_all));
         setTransferMode(role.data.transfer_scope?.mode || 'all');
         setGroupIds(role.data.transfer_scope?.group_ids || []);
+        setInheritedViewAll(Boolean(role.data.inherited_view_all));
+        setViewMode(role.data.view_scope?.mode || 'none');
+        setViewGroupIds(role.data.view_scope?.group_ids || []);
       }
       setLoading(false);
     };
@@ -137,6 +143,7 @@ export default function AdminRoleDetail() {
 
   const lockedAdmin = systemCode === 'administrador';
   const transferChecked = selected.includes('assignments.transfer') || inherited.includes('assignments.transfer');
+  const viewChecked = selected.includes('tickets.view') || inherited.includes('tickets.view');
 
   const visibleModules = modules.map((mod) => ({
     ...mod,
@@ -176,6 +183,10 @@ export default function AdminRoleDetail() {
       transfer_scope: {
         mode: transferMode,
         group_ids: transferMode === 'all' ? [] : groupIds
+      },
+      view_scope: {
+        mode: viewChecked ? viewMode : 'none',
+        group_ids: viewMode === 'allow' || viewMode === 'deny' ? viewGroupIds : []
       }
     };
     const result = await apiCall(isNew ? '/admin/roles' : `/admin/roles/${id}`, {
@@ -202,7 +213,7 @@ export default function AdminRoleDetail() {
   return (
     <SupportShell
       title={isNew ? 'Nuevo rol' : name || 'Rol'}
-      subtitle="Los permisos de varios roles se suman. Una exclusión de grupo gana sobre el permiso de derivar a todos."
+      subtitle="Los permisos definen las acciones. El alcance de Ver tickets define qué grupos puede ver un usuario, aunque su perfil sea Usuario."
       backTo="/admin/roles"
     >
       <Stack spacing={2.5}>
@@ -295,6 +306,49 @@ export default function AdminRoleDetail() {
               </AccordionDetails>
             </Accordion>
           ))}
+
+          {viewChecked && (
+            <Box sx={{ mt: 2, p: 2, borderRadius: 2, bgcolor: 'action.hover' }}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Alcance de visibilidad</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Un usuario base con este permiso ve los tickets de esos grupos y las vistas públicas o compartidas con ellos. Crear, comentar o editar sigue dependiendo de los demás permisos.
+              </Typography>
+              {inheritedViewAll && (
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  Un rol padre permite ver todos los tickets. Las exclusiones de este rol igual se aplican.
+                </Typography>
+              )}
+              <RadioGroup
+                value={viewMode}
+                onChange={(e) => setViewMode(e.target.value as 'none' | 'all' | 'allow' | 'deny')}
+              >
+                <FormControlLabel value="none" control={<Radio />} label="Sin visibilidad sobre otros grupos" disabled={lockedAdmin} />
+                <FormControlLabel value="all" control={<Radio />} label="Ver todos los tickets" disabled={lockedAdmin} />
+                <FormControlLabel value="allow" control={<Radio />} label="Ver solo los grupos elegidos" disabled={lockedAdmin} />
+                <FormControlLabel value="deny" control={<Radio />} label="Ver todos excepto los grupos elegidos" disabled={lockedAdmin} />
+              </RadioGroup>
+              {(viewMode === 'allow' || viewMode === 'deny') && (
+                <FormControl fullWidth sx={{ mt: 1 }}>
+                  <InputLabel id="view-scope-groups">Grupos</InputLabel>
+                  <Select
+                    labelId="view-scope-groups"
+                    multiple
+                    value={viewGroupIds}
+                    onChange={(e) => setViewGroupIds(e.target.value as number[])}
+                    input={<OutlinedInput label="Grupos" />}
+                    renderValue={(selectedIds) => groups.filter((group) => selectedIds.includes(group.id)).map((group) => group.name).join(', ')}
+                  >
+                    {groups.map((group) => (
+                      <MenuItem key={group.id} value={group.id}>
+                        <Checkbox checked={viewGroupIds.includes(group.id)} />
+                        {group.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              )}
+            </Box>
+          )}
 
           {transferChecked && (
             <Box sx={{ mt: 2, p: 2, borderRadius: 2, bgcolor: '#fafbfc', border: '1px solid', borderColor: 'divider' }}>

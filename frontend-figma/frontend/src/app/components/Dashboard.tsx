@@ -11,18 +11,22 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Button,
   CircularProgress,
   Paper,
   Typography,
   TextField,
   MenuItem
 } from '@mui/material';
+import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as RechartsTooltip } from 'recharts';
+import { toast } from 'sonner';
 import SupportShell from './SupportShell';
 import StatusBadge from './StatusBadge';
+import { downloadDashboardPdf } from '../../lib/dashboardPdf';
 import { getTicketTypeLabel } from '../../lib/ticketTypes';
 import { getPriorityLabel, getSlaStatusLabel, isIncident } from '../../lib/sla';
-import { isAdmin, isStaff, isTechnician } from '../../lib/auth';
+import { getEmail, isAdmin, isStaff, isTechnician } from '../../lib/auth';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -162,6 +166,7 @@ export default function Dashboard() {
   const [scope, setScope] = useState<DashboardScope>(getDefaultScope);
   const [groupId, setGroupId] = useState('');
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (!staff || scope !== 'groups') {
@@ -281,13 +286,45 @@ export default function Dashboard() {
     { title: 'Distribución por SLA', data: slaChartData }
   ].filter((chart) => chart.data.length > 0);
 
+  const scopeLabel = scope === 'groups'
+    ? `${SCOPE_LABELS.groups}${groupId ? `: ${groups.find((group) => String(group.id) === groupId)?.name || 'Grupo'}` : ''}`
+    : SCOPE_LABELS[scope];
+
+  const exportCharts = async () => {
+    setExporting(true);
+    try {
+      const name = await downloadDashboardPdf({
+        charts,
+        subtitle: scopeLabel,
+        generatedBy: getEmail()
+      });
+      toast.success(`Archivo descargado: ${name}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo exportar el PDF');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const exportButton = (
+    <Button
+      size="small"
+      variant="outlined"
+      startIcon={exporting ? <CircularProgress size={14} /> : <PictureAsPdfOutlinedIcon />}
+      disabled={loading || exporting || charts.length === 0}
+      onClick={() => void exportCharts()}
+      sx={{ flexShrink: 0, minHeight: 30, whiteSpace: 'nowrap' }}
+    >
+      Exportar PDF
+    </Button>
+  );
+
   return (
     <SupportShell
       title="Tablero"
       compactTitle
       headerActionGrow
       headerAction={
-        staff ? (
           <Box sx={{
             display: 'flex',
             alignItems: 'center',
@@ -296,6 +333,8 @@ export default function Dashboard() {
             minWidth: 0,
             '& .MuiInputBase-root': { minHeight: 30 }
           }}>
+            {staff && (
+            <>
             <TextField
               select
               size="small"
@@ -336,8 +375,11 @@ export default function Dashboard() {
                 ))}
               </TextField>
             )}
+            </>
+            )}
+            <Box sx={{ flex: 1 }} />
+            {exportButton}
           </Box>
-        ) : undefined
       }
     >
       <Grid container spacing={2} sx={{ mb: 3 }}>

@@ -298,7 +298,7 @@ export default function TicketsList() {
   const [exporting, setExporting] = useState(false);
   const [exportAnchor, setExportAnchor] = useState<HTMLElement | null>(null);
 
-  const isStaffTable = listMode === 'admin' || listMode === 'technician';
+  const isStaffTable = listMode === 'admin' || listMode === 'technician' || listMode === 'watch';
   const canEditAll = listMode === 'admin';
   const canChangeGroup = canEditAll || listMode === 'technician';
   const groupChoices = listMode === 'technician' ? transferGroups : groups;
@@ -334,7 +334,7 @@ export default function TicketsList() {
       currentPage,
       PAGE_SIZE,
       filters,
-      mode === 'admin' || mode === 'technician' ? staffFilters : undefined,
+      mode === 'admin' || mode === 'technician' || mode === 'watch' ? staffFilters : undefined,
       sortToQuery(sort)
     );
     const result = await apiCall(`${getTicketsApiPath(mode)}?${params}`);
@@ -360,6 +360,14 @@ export default function TicketsList() {
   const loadGroups = async (mode: ListMode) => {
     if (mode === 'user') {
       setGroups([]);
+      setTransferGroups([]);
+      return;
+    }
+    if (mode === 'watch') {
+      const result = await apiCall('/tickets/visible-groups');
+      if (result?.response.ok) {
+        setGroups(Array.isArray(result.data) ? result.data : []);
+      }
       setTransferGroups([]);
       return;
     }
@@ -943,7 +951,9 @@ export default function TicketsList() {
       ? 'Sin resultados para esa búsqueda.'
       : listMode === 'technician'
         ? 'No hay solicitudes en tus grupos.'
-        : 'No hay solicitudes en el sistema.'
+        : listMode === 'watch'
+          ? 'No hay solicitudes en los grupos autorizados.'
+          : 'No hay solicitudes en el sistema.'
     : hasActiveFilters
       ? 'Sin resultados para esa búsqueda.'
       : 'No tenés solicitudes. Creá una nueva.';
@@ -1107,7 +1117,7 @@ export default function TicketsList() {
                       sx={{ p: 0.5 }}
                     />
                   </TableCell>
-                  {visibleColumns.map((column) => renderColumnCell(column, ticket, true))}
+                  {visibleColumns.map((column) => renderColumnCell(column, ticket, listMode !== 'watch'))}
                   {canEditAll && can('tickets.delete') && (
                     <TableCell align="center" onClick={(e) => e.stopPropagation()}>
                       <Tooltip title="Eliminar">

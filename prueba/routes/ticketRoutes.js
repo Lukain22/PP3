@@ -20,11 +20,15 @@ const {
   getTicketResolution,
   saveTicketResolution,
   listTransferGroups,
-  listAssigneesByGroup
+  listAssigneesByGroup,
+  listWatchedTickets,
+  listVisibleGroups
 } = require('../controllers/ticketsController');
 const upload = require('../middleware/uploadMiddleware');
 
 router.get('/', authMiddleware, getTickets);
+router.get('/watched', authMiddleware, listWatchedTickets);
+router.get('/visible-groups', authMiddleware, listVisibleGroups);
 router.get('/transfer-groups', authMiddleware, listTransferGroups);
 router.get('/assignees', authMiddleware, listAssigneesByGroup);
 router.post('/', authMiddleware, createTicket);

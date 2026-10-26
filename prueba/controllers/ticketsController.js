@@ -18,7 +18,8 @@ const {
   notifyTicketCreatorOnResolution,
   notifyOnComment
 } = require('../utils/notifications');
-const { assertPermission, assertTicketMutation } = require('../rbac/guard');
+const { assertPermission, assertTicketMutation, assertBeyondOwnTicket } = require('../rbac/guard');
+const { getRequestAccess, resolveTicketViewGrant } = require('../rbac/service');
 const { sanitizeDescription, isEmptyDescription } = require('../utils/richText');
 const { removeScopedAttachments } = require('../utils/attachments');
 const { rejectDirectResolve, missingResolveFields } = require('../utils/resolveRules');
@@ -64,8 +65,23 @@ const loadTicketWithAccess = (req, ticketId, callback) => {
     }
 
     if (ticket.user_id === req.user.id) return callback(null, ticket);
-    callback(null, null);
+
+    getRequestAccess(req)
+      .then((access) => {
+        const grant = resolveTicketViewGrant(access);
+        if (grant && ticketVisibleByGrant(grant, ticket.group_id)) return callback(null, ticket);
+        callback(null, null);
+      })
+      .catch((accessErr) => callback(accessErr));
   });
+};
+
+const ticketVisibleByGrant = (grant, groupId) => {
+  if (!grant) return false;
+  const id = Number(groupId) || 0;
+  if (grant.mode === 'all') return true;
+  if (grant.mode === 'deny') return id > 0 && !grant.ids.includes(id);
+  return grant.ids.includes(id);
 };
 
 const initTicketsTable = () => {
@@ -213,10 +229,18 @@ exports.getTicketById = (req, res) => {
         });
       }
 
-      if (ticket.user_id !== req.user.id) {
-        return res.status(404).json({ message: 'Ticket no encontrado' });
-      }
-      sendTicket();
+      if (ticket.user_id === req.user.id) return sendTicket();
+
+      getRequestAccess(req)
+        .then((access) => {
+          const grant = resolveTicketViewGrant(access);
+          if (!grant || !ticketVisibleByGrant(grant, ticket.group_id)) {
+            return res.status(404).json({ message: 'Ticket no encontrado' });
+          }
+          sendTicket();
+        })
+        .catch(() => res.status(500).json({ message: 'Error al validar acceso' }));
+      return;
     }
   );
 };
@@ -629,15 +653,18 @@ const runAddTicketComment = (req, res) => {
     if (err) return res.status(500).json({ message: 'Error al verificar ticket' });
     if (!ticket) return res.status(404).json({ message: 'Ticket no encontrado' });
 
-    db.query(
-      'INSERT INTO ticket_comments (ticket_id, user_id, content) VALUES (?, ?, ?)',
-      [id, req.user.id, content],
-      (insertErr, result) => {
-        if (insertErr) return res.status(500).json({ message: 'Error al agregar comentario' });
-        notifyOnComment(ticket, req.user.id, req.user.role);
-        res.status(201).json({ message: 'Comentario agregado', id: result.insertId });
-      }
-    );
+    assertBeyondOwnTicket(req, res, ticket, 'tickets.comment').then((allowed) => {
+      if (!allowed) return;
+      db.query(
+        'INSERT INTO ticket_comments (ticket_id, user_id, content) VALUES (?, ?, ?)',
+        [id, req.user.id, content],
+        (insertErr, result) => {
+          if (insertErr) return res.status(500).json({ message: 'Error al agregar comentario' });
+          notifyOnComment(ticket, req.user.id, req.user.role);
+          res.status(201).json({ message: 'Comentario agregado', id: result.insertId });
+        }
+      );
+    });
   });
 };
 
@@ -770,6 +797,140 @@ exports.deleteTicket = (req, res) => {
 exports.initTicketsTable = initTicketsTable;
 exports.initCommentsTable = initCommentsTable;
 exports.loadTicketWithAccess = loadTicketWithAccess;
+
+const emptyTicketPage = (res, page, limit) => {
+  res.json({ data: [], total: 0, page, limit, totalPages: 0 });
+};
+
+const appendGrantCondition = (grant, conditions, params, requestedGroupIds) => {
+  if (grant.mode === 'allow') {
+    const ids = requestedGroupIds.length
+      ? requestedGroupIds.filter((id) => grant.ids.includes(id))
+      : grant.ids;
+    if (!ids.length) return false;
+    conditions.push(`t.group_id IN (${ids.map(() => '?').join(', ')})`);
+    params.push(...ids);
+    return true;
+  }
+
+  if (grant.mode === 'deny' && grant.ids.length) {
+    conditions.push(`t.group_id NOT IN (${grant.ids.map(() => '?').join(', ')})`);
+    params.push(...grant.ids);
+  }
+
+  if (requestedGroupIds.length) {
+    const ids = grant.mode === 'deny'
+      ? requestedGroupIds.filter((id) => !grant.ids.includes(id))
+      : requestedGroupIds;
+    if (!ids.length) return false;
+    conditions.push(`t.group_id IN (${ids.map(() => '?').join(', ')})`);
+    params.push(...ids);
+  }
+
+  return true;
+};
+
+exports.listWatchedTickets = (req, res) => {
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+  const offset = (page - 1) * limit;
+
+  getRequestAccess(req).then((access) => {
+    const grant = resolveTicketViewGrant(access);
+    if (!grant) return res.status(403).json({ message: 'No tenés permiso para ver tickets de otros grupos' });
+    if (grant.mode === 'allow' && grant.ids.length === 0) return emptyTicketPage(res, page, limit);
+
+    const requestedGroupIds = String(req.query.group_ids || req.query.group_id || '')
+      .split(',')
+      .map((part) => parseInt(part.trim(), 10))
+      .filter((id) => Number.isInteger(id) && id > 0);
+
+    const conditions = [];
+    const params = [];
+    if (!appendGrantCondition(grant, conditions, params, requestedGroupIds)) {
+      return emptyTicketPage(res, page, limit);
+    }
+
+    const {
+      status, group_id, group_ids, type, priority, ticket_id, title, user_email, technician_ids,
+      categories, subcategories, date_from, date_to, due_from, due_to, resolved_from, resolved_to,
+      group_name, assignee, status_q, category_q, subcategory, date_on, sort
+    } = req.query;
+
+    appendExtendedListFilters(conditions, params, {
+      status, type, priority, ticket_id, title, user_email, technician_ids,
+      categories, subcategories, date_from, date_to, due_from, due_to, resolved_from, resolved_to,
+      group_name, assignee, status_q, category_q, subcategory, date_on
+    });
+
+    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const orderBy = resolveTicketOrderBy(sort, 'staff');
+    const joinClause = 'JOIN users u ON u.id = t.user_id LEFT JOIN `groups` g ON g.id = t.group_id LEFT JOIN users tech ON tech.id = t.technician_id';
+
+    db.query(
+      `SELECT COUNT(*) AS total FROM tickets t ${joinClause} ${whereClause}`,
+      params,
+      (err, countResult) => {
+        if (err) return res.status(500).json({ message: 'Error al obtener tickets' });
+        const total = countResult[0].total;
+        db.query(
+          `SELECT t.id, t.title, t.description, t.status, t.priority, t.type,
+                  t.category, t.subcategory, t.group_id, g.name AS group_name,
+                  t.technician_id, tech.email AS technician_email,
+                  t.sla_response_due, t.sla_resolution_due, t.sla_status,
+                  t.created_at, t.updated_at, t.user_id, u.email AS user_email,
+                  ${SEEN_SELECT}
+           FROM tickets t
+           ${joinClause}
+           ${whereClause}
+           ORDER BY ${orderBy}
+           LIMIT ? OFFSET ?`,
+          [req.user.id, ...params, limit, offset],
+          (err2, results) => {
+            if (err2) return res.status(500).json({ message: 'Error al obtener tickets' });
+            res.json({
+              data: enrichTickets(results),
+              total,
+              page,
+              limit,
+              totalPages: Math.ceil(total / limit)
+            });
+          }
+        );
+      }
+    );
+  }).catch((err) => {
+    console.error('Error en listWatchedTickets:', err.code || err.message);
+    res.status(500).json({ message: 'Error al obtener tickets' });
+  });
+};
+
+exports.listVisibleGroups = (req, res) => {
+  getRequestAccess(req).then((access) => {
+    const grant = resolveTicketViewGrant(access);
+    if (!grant) return res.status(403).json({ message: 'No tenés permiso para ver tickets de otros grupos' });
+
+    let sql = 'SELECT id, name, description, is_default FROM `groups`';
+    const params = [];
+    if (grant.mode === 'allow') {
+      if (!grant.ids.length) return res.json([]);
+      sql += ` WHERE id IN (${grant.ids.map(() => '?').join(', ')})`;
+      params.push(...grant.ids);
+    } else if (grant.mode === 'deny' && grant.ids.length) {
+      sql += ` WHERE id NOT IN (${grant.ids.map(() => '?').join(', ')})`;
+      params.push(...grant.ids);
+    }
+    sql += ' ORDER BY name ASC';
+
+    db.query(sql, params, (err, rows) => {
+      if (err) return res.status(500).json({ message: 'Error al obtener grupos' });
+      res.json(rows);
+    });
+  }).catch((err) => {
+    console.error('Error en listVisibleGroups:', err.code || err.message);
+    res.status(500).json({ message: 'Error al obtener grupos' });
+  });
+};
 
 exports.listTransferGroups = async (req, res) => {
   try {

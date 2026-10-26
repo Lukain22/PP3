@@ -93,6 +93,7 @@ export interface AccessSnapshot {
   roles: { id: number; name: string; code: string; is_active?: boolean }[];
   permissions: AccessPermission[];
   scopes: Record<string, { all: boolean; allow: number[]; deny: number[] }>;
+  acting_codes?: string[];
 }
 
 const ACCESS_KEY = 'rbac';
@@ -116,6 +117,25 @@ export function can(code: string): boolean {
   if (!access) return getRole() === 'admin';
   if (access.is_superuser) return true;
   return access.permissions.some((item) => item.code === code);
+}
+
+export function canActOnOthers(code: string): boolean {
+  const role = getRole();
+  if (role === 'admin' || role === 'technician') return can(code);
+  const access = getAccess();
+  if (!access) return false;
+  if (access.is_superuser) return true;
+  return (access.acting_codes || []).includes(code);
+}
+
+export function canWatchTickets(): boolean {
+  if (getRole() !== 'user') return false;
+  const access = getAccess();
+  if (!access || access.is_superuser) return false;
+  if (!access.permissions.some((item) => item.code === 'tickets.view')) return false;
+  const scope = access.scopes?.['tickets.view'];
+  if (!scope) return false;
+  return Boolean(scope.all || scope.allow.length > 0 || scope.deny.length > 0);
 }
 
 export function canTransferToGroup(groupId: number): boolean {
@@ -157,7 +177,8 @@ export async function refreshAccess(): Promise<void> {
       account_role: data.account_role || getRole(),
       roles: Array.isArray(data.roles) ? data.roles : [],
       permissions: Array.isArray(data.permissions) ? data.permissions : [],
-      scopes: data.scopes || {}
+      scopes: data.scopes || {},
+      acting_codes: Array.isArray(data.acting_codes) ? data.acting_codes : []
     });
     if (data.account_role) localStorage.setItem('role', data.account_role);
     writeUiPreferences({

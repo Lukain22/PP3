@@ -5,7 +5,9 @@ const {
   groupedCatalog,
   loadCatalog,
   readTransferScope,
+  readViewScope,
   replaceTransferScope,
+  replaceViewScope,
   replaceRolePermissions,
   inheritedPermissionCodes,
   loadGrantsForRoles,
@@ -141,13 +143,16 @@ exports.getRole = async (req, res) => {
     );
     const inherited = await inheritedPermissionCodes(role.id);
     const transfer = await readTransferScope(role.id);
+    const view = await readViewScope(role.id);
 
     res.json({
       ...mapRoleRow(role),
       permission_codes: permRows.map((row) => row.code),
       inherited_permission_codes: inherited.codes,
       inherited_transfer_all: inherited.transferAll,
-      transfer_scope: transfer
+      inherited_view_all: inherited.viewAll,
+      transfer_scope: transfer,
+      view_scope: view
     });
   } catch (err) {
     console.error('Error en getRole:', err.code || err.message);
@@ -164,18 +169,24 @@ const parsePayload = (body) => {
   if (permissionCodes.some((code) => code.startsWith('admin.') && code !== 'admin.access') && !permissionCodes.includes('admin.access')) {
     permissionCodes.push('admin.access');
   }
-  const transferScope = body.transfer_scope || { mode: 'all', group_ids: [] };
-  const mode = ['all', 'allow', 'deny'].includes(transferScope.mode) ? transferScope.mode : 'all';
+  const transferScope = normalizeScope(body.transfer_scope, 'all');
+  const viewScope = normalizeScope(body.view_scope, 'none');
   return {
     name,
     description: description || null,
     parentId: parentId || null,
     isActive,
     permissionCodes,
-    transferScope: {
-      mode,
-      group_ids: Array.isArray(transferScope.group_ids) ? transferScope.group_ids.map(Number).filter((id) => id > 0) : []
-    }
+    transferScope,
+    viewScope
+  };
+};
+
+const normalizeScope = (scope, fallback) => {
+  const mode = ['all', 'allow', 'deny', 'none'].includes(scope?.mode) ? scope.mode : fallback;
+  return {
+    mode,
+    group_ids: Array.isArray(scope?.group_ids) ? scope.group_ids.map(Number).filter((id) => id > 0) : []
   };
 };
 
@@ -198,23 +209,38 @@ const validatePayload = async (payload, roleId) => {
     return 'Elegí al menos un grupo para el alcance de derivación';
   }
 
-  if (payload.transferScope.group_ids.length) {
-    const groups = await query('SELECT id FROM `groups` WHERE id IN (?)', [payload.transferScope.group_ids]);
-    if (groups.length !== payload.transferScope.group_ids.length) return 'Hay grupos inválidos en el alcance';
+  if (payload.permissionCodes.includes('tickets.view') && ['allow', 'deny'].includes(payload.viewScope.mode) && payload.viewScope.group_ids.length === 0) {
+    return 'Elegí al menos un grupo para el alcance de visibilidad';
+  }
+
+  const scopeIds = [...new Set([...payload.transferScope.group_ids, ...payload.viewScope.group_ids])];
+  if (scopeIds.length) {
+    const groups = await query('SELECT id FROM `groups` WHERE id IN (?)', [scopeIds]);
+    if (groups.length !== scopeIds.length) return 'Hay grupos inválidos en el alcance';
   }
 
   return null;
+};
+
+const clearPermissionScope = async (roleId, code) => {
+  const perm = await query('SELECT id FROM permissions WHERE code = ?', [code]);
+  if (!perm.length) return;
+  await query('DELETE FROM role_permission_scopes WHERE role_id = ? AND permission_id = ?', [roleId, perm[0].id]);
 };
 
 const persistGrants = async (roleId, payload) => {
   await replaceRolePermissions(roleId, payload.permissionCodes);
   if (payload.permissionCodes.includes('assignments.transfer')) {
     await replaceTransferScope(roleId, payload.transferScope);
-    return;
+  } else {
+    await clearPermissionScope(roleId, 'assignments.transfer');
   }
-  const perm = await query('SELECT id FROM permissions WHERE code = ?', ['assignments.transfer']);
-  if (!perm.length) return;
-  await query('DELETE FROM role_permission_scopes WHERE role_id = ? AND permission_id = ?', [roleId, perm[0].id]);
+
+  if (payload.permissionCodes.includes('tickets.view') && payload.viewScope.mode !== 'none') {
+    await replaceViewScope(roleId, payload.viewScope);
+  } else {
+    await clearPermissionScope(roleId, 'tickets.view');
+  }
 };
 
 exports.createRole = async (req, res) => {
@@ -266,6 +292,7 @@ exports.updateRole = async (req, res) => {
       payload.parentId = null;
       payload.permissionCodes = knownCodes(require('../rbac/permissions').ALL_CODES);
       payload.transferScope = { mode: 'all', group_ids: [] };
+      payload.viewScope = { mode: 'all', group_ids: [] };
     }
 
     if (current.is_system && req.body.name && req.body.name !== current.name) {
@@ -277,7 +304,8 @@ exports.updateRole = async (req, res) => {
       && req.body.permission_codes === undefined
       && req.body.description === undefined
       && req.body.parent_role_id === undefined
-      && req.body.transfer_scope === undefined;
+      && req.body.transfer_scope === undefined
+      && req.body.view_scope === undefined;
 
     if (onlyStatus) {
       if (current.code === 'administrador' && !payload.isActive) {
@@ -304,7 +332,7 @@ exports.updateRole = async (req, res) => {
        WHERE id = ?`,
       [payload.name, payload.description, payload.isActive ? 1 : 0, payload.parentId, current.id]
     );
-    if (req.body.permission_codes !== undefined || req.body.transfer_scope !== undefined || current.code === 'administrador') {
+    if (req.body.permission_codes !== undefined || req.body.transfer_scope !== undefined || req.body.view_scope !== undefined || current.code === 'administrador') {
       await persistGrants(current.id, payload);
     }
     const updated = await loadRole(current.id);
@@ -356,6 +384,7 @@ exports.duplicateRole = async (req, res) => {
     }
     const code = await uniqueCode(name);
     const transfer = await readTransferScope(role.id);
+    const view = await readViewScope(role.id);
     const result = await query(
       `INSERT INTO roles (code, name, description, is_active, is_system, parent_role_id, created_by)
        VALUES (?, ?, ?, 1, 0, ?, ?)`,
@@ -363,7 +392,8 @@ exports.duplicateRole = async (req, res) => {
     );
     await persistGrants(result.insertId, {
       permissionCodes: codes,
-      transferScope: transfer
+      transferScope: transfer,
+      viewScope: view
     });
     const created = await loadRole(result.insertId);
     res.status(201).json(mapRoleRow(created));

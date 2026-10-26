@@ -18,7 +18,7 @@ const MODULES = [
 ];
 
 const PERMISSIONS = [
-  { code: 'tickets.view', module: 'tickets', name: 'Ver tickets', description: 'Ver la cola y el detalle de tickets fuera de los propios', sort: 10 },
+  { code: 'tickets.view', module: 'tickets', name: 'Ver tickets', description: 'Ver la cola y el detalle de tickets fuera de los propios. El alcance indica de qué grupos.', supportsScope: true, sort: 10 },
   { code: 'tickets.create', module: 'tickets', name: 'Crear tickets', description: 'Abrir una solicitud nueva', sort: 20 },
   { code: 'tickets.edit', module: 'tickets', name: 'Editar tickets', description: 'Modificar datos y el estado operativo del ticket', sort: 30 },
   { code: 'tickets.delete', module: 'tickets', name: 'Eliminar tickets', description: 'Borrar tickets', sort: 40 },
@@ -60,6 +60,10 @@ const SOLICITANTE_CODES = [
   'tickets.create',
   'tickets.comment',
   'tickets.attach'
+];
+
+const ESPECTADOR_CODES = [
+  'tickets.view'
 ];
 
 const OPERADOR_CODES = [
@@ -107,6 +111,12 @@ const SYSTEM_ROLES = [
     name: 'Solicitante',
     description: 'Crea solicitudes, comenta y adjunta archivos en sus propios tickets.',
     codes: SOLICITANTE_CODES
+  },
+  {
+    code: 'espectador-sistema',
+    name: 'Espectador del sistema',
+    description: 'Ve tickets y las vistas compartidas según el alcance de grupos, sin modificarlos. Duplicá el rol para autorizar distintos grupos.',
+    codes: ESPECTADOR_CODES
   }
 ];
 

@@ -14,6 +14,7 @@ interface SearchableSelectProps {
   disabled?: boolean;
   autoFocus?: boolean;
   compact?: boolean;
+  error?: boolean;
 }
 
 function normalize(text: string) {
@@ -27,7 +28,8 @@ export default function SearchableSelect({
   onChange,
   disabled = false,
   autoFocus = false,
-  compact = false
+  compact = false,
+  error = false
 }: SearchableSelectProps) {
   const optionsKey = options.map((option) => `${String(option.value)}\u0000${option.label}`).join('\u0001');
   const stableOptions = useMemo(
@@ -96,13 +98,18 @@ export default function SearchableSelect({
           label={compact ? undefined : label}
           size={compact ? 'small' : undefined}
           autoFocus={autoFocus}
+          error={error}
           sx={compact ? {
             '& .MuiOutlinedInput-root': {
               height: 32,
               fontSize: '0.875rem',
               bgcolor: '#fff'
             },
-            '& .MuiOutlinedInput-input': { py: '0 !important' }
+            '& .MuiOutlinedInput-input': { py: '0 !important' },
+            ...(error ? {
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: 'error.main' },
+              '& .MuiOutlinedInput-root.Mui-disabled .MuiOutlinedInput-notchedOutline': { borderColor: 'error.main' }
+            } : {})
           } : undefined}
         />
       )}

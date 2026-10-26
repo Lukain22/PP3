@@ -204,10 +204,21 @@ export default function ResolveTicketDialog({
   }
 
   const subcategoryOptions = category ? (SUBCATEGORIES[category as Category] || []) : [];
+  const needsTechnician = !technicianId;
+  const needsCategory = !category;
+  const needsSubcategory = !subcategory;
+  const needsResolution = isDescriptionEmpty(content) && fileCount === 0;
+  const needsGroup = canChangeGroup && !groupId && needsTechnician;
   const missing: string[] = [];
-  if (!technicianId) missing.push('Asigná un técnico');
-  if (!category || !subcategory) missing.push('Completá la categoría y la subcategoría');
-  if (isDescriptionEmpty(content) && fileCount === 0) missing.push('Ingresá la resolución');
+  if (needsTechnician) missing.push('Asigná un técnico');
+  if (needsCategory || needsSubcategory) missing.push('Completá la categoría y la subcategoría');
+  if (needsResolution) missing.push('Ingresá la resolución');
+
+  const fieldCaption = (label: string, required: boolean) => (
+    <Typography variant="caption" color={required ? 'error' : 'text.secondary'} sx={{ display: 'block', mb: 0.5 }}>
+      {label}
+    </Typography>
+  );
 
   const handleConfirm = async () => {
     if (!baseline || missing.length > 0) return;
@@ -389,12 +400,11 @@ export default function ResolveTicketDialog({
           )}
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 1.5 }}>
             <Box sx={{ flex: 1 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                Categoría
-              </Typography>
+              {fieldCaption('Categoría', needsCategory)}
               {canClassify ? (
                 <SearchableSelect
                   compact
+                  error={needsCategory}
                   label="Categoría"
                   value={category}
                   options={CATEGORIES.map((item) => ({ value: item, label: item }))}
@@ -409,12 +419,11 @@ export default function ResolveTicketDialog({
               )}
             </Box>
             <Box sx={{ flex: 1 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                Subcategoría
-              </Typography>
+              {fieldCaption('Subcategoría', needsSubcategory)}
               {canClassify ? (
                 <SearchableSelect
                   compact
+                  error={needsSubcategory}
                   label="Subcategoría"
                   value={subcategory}
                   disabled={!category}
@@ -428,12 +437,11 @@ export default function ResolveTicketDialog({
           </Stack>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 1.5 }}>
             <Box sx={{ flex: 1 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                Grupo
-              </Typography>
+              {fieldCaption('Grupo', needsGroup)}
               {canChangeGroup ? (
                 <SearchableSelect
                   compact
+                  error={needsGroup}
                   label="Grupo"
                   value={groupId}
                   options={[
@@ -450,12 +458,11 @@ export default function ResolveTicketDialog({
               )}
             </Box>
             <Box sx={{ flex: 1 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                Técnico
-              </Typography>
+              {fieldCaption('Técnico', needsTechnician)}
               {canAssign ? (
                 <SearchableSelect
                   compact
+                  error={needsTechnician}
                   label="Técnico"
                   value={technicianId}
                   disabled={!groupId}
@@ -475,7 +482,7 @@ export default function ResolveTicketDialog({
         </Box>
 
         <Box sx={{ ...cardSx, mt: 2 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+          <Typography variant="subtitle2" color={needsResolution ? 'error' : 'text.primary'} sx={{ fontWeight: 700, mb: 1 }}>
             Resolución
           </Typography>
           <Tabs
@@ -487,7 +494,15 @@ export default function ResolveTicketDialog({
             <Tab value="solutions" label="Soluciones" />
           </Tabs>
           <Box sx={{ display: section === 'resolution' ? 'flex' : 'none', flexDirection: 'column', minHeight: 0 }}>
-            <Box sx={{ height: 240, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <Box sx={{
+              height: 240,
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: 0,
+              borderRadius: 1,
+              border: '1px solid',
+              borderColor: needsResolution ? 'error.main' : 'transparent'
+            }}>
               <RichTextEditor
                 ref={editorRef}
                 bounded

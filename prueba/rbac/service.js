@@ -30,7 +30,7 @@ const serializeScope = (scope) => ({
 const hasScopeGrant = (scope) =>
   Boolean(scope && (scope.all || scope.allow.size > 0 || scope.deny.size > 0));
 
-const buildAccess = ({ isSuperuser, accountRole, roles, permissionCodes, catalog, scopes }) => {
+const buildAccess = ({ isSuperuser, accountRole, roles, permissionCodes, catalog, scopes, actingCodes }) => {
   const codes = new Set(permissionCodes);
   const permissions = catalog
     .filter((item) => codes.has(item.code))
@@ -55,9 +55,14 @@ const buildAccess = ({ isSuperuser, accountRole, roles, permissionCodes, catalog
     permissions,
     scopes,
     publicScopes,
+    actingCodes: actingCodes || new Set(),
     has(code) {
       if (isSuperuser) return true;
       return codes.has(code);
+    },
+    canActOnOthers(code) {
+      if (isSuperuser || accountRole === 'admin' || accountRole === 'technician') return codes.has(code) || isSuperuser;
+      return (actingCodes || new Set()).has(code);
     },
     canTransferTo(groupId) {
       if (isSuperuser) return true;
@@ -79,7 +84,8 @@ const toPublicAccess = (access) => ({
   account_role: access.accountRole,
   roles: access.roles,
   permissions: access.permissions,
-  scopes: access.publicScopes
+  scopes: access.publicScopes,
+  acting_codes: [...(access.actingCodes || [])]
 });
 
 const mergeScopeRow = (bucket, row) => {
@@ -98,7 +104,8 @@ const loadCatalog = async () => {
   return rows;
 };
 
-const expandRoleIds = async (roleIds) => {
+const expandRoleIds = async (roleIds, options = {}) => {
+  const skipRoleCodes = new Set(options.skipRoleCodes || []);
   const seen = new Set();
   const ordered = [];
   const queue = roleIds.map(Number).filter(Boolean);
@@ -110,12 +117,18 @@ const expandRoleIds = async (roleIds) => {
     ordered.push(id);
     if (ordered.length >= MAX_DEPTH * Math.max(roleIds.length, 1)) break;
 
-    const rows = await query('SELECT parent_role_id, is_active FROM roles WHERE id = ?', [id]);
+    const rows = await query('SELECT parent_role_id FROM roles WHERE id = ?', [id]);
     const parentId = rows[0]?.parent_role_id ? Number(rows[0].parent_role_id) : null;
-    const parentActive = parentId
-      ? (await query('SELECT is_active FROM roles WHERE id = ?', [parentId]))[0]
+    const parent = parentId
+      ? (await query('SELECT code, is_active FROM roles WHERE id = ?', [parentId]))[0]
       : null;
-    if (parentId && parentActive && Number(parentActive.is_active) === 1 && !seen.has(parentId)) {
+    if (
+      parentId
+      && parent
+      && Number(parent.is_active) === 1
+      && !skipRoleCodes.has(parent.code)
+      && !seen.has(parentId)
+    ) {
       queue.push(parentId);
     }
   }
@@ -123,12 +136,12 @@ const expandRoleIds = async (roleIds) => {
   return ordered;
 };
 
-const loadGrantsForRoles = async (roleIds) => {
+const loadGrantsForRoles = async (roleIds, options = {}) => {
   if (!roleIds.length) {
     return { codes: new Set(), scopes: {} };
   }
 
-  const expanded = await expandRoleIds(roleIds);
+  const expanded = await expandRoleIds(roleIds, options);
   const permRows = await query(
     `SELECT p.code
      FROM role_permissions rp
@@ -209,18 +222,24 @@ const resolveAccess = async (userId, accountRole) => {
       catalog,
       scopes: {
         'assignments.transfer': { all: true, allow: new Set(), deny: new Set() }
-      }
+      },
+      actingCodes: roleName === 'technician' ? new Set(legacyCodesForAccount(roleName)) : new Set()
     });
   }
 
   const { codes, scopes } = await loadGrantsForRoles(assigned.map((row) => row.id));
+  const actingIds = assigned.filter((row) => row.code !== 'solicitante').map((row) => row.id);
+  const acting = actingIds.length
+    ? await loadGrantsForRoles(actingIds, { skipRoleCodes: ['solicitante'] })
+    : { codes: new Set() };
   return buildAccess({
     isSuperuser: false,
     accountRole: roleName,
     roles: assigned,
     permissionCodes: codes,
     catalog,
-    scopes
+    scopes,
+    actingCodes: acting.codes
   });
 };
 
@@ -246,13 +265,13 @@ const groupedCatalog = (rows) =>
       }))
   })).filter((mod) => mod.permissions.length > 0);
 
-const readTransferScope = async (roleId) => {
+const readPermissionScope = async (roleId, code) => {
   const rows = await query(
     `SELECT s.scope_mode, s.scope_ref_id
      FROM role_permission_scopes s
      JOIN permissions p ON p.id = s.permission_id
-     WHERE s.role_id = ? AND p.code = 'assignments.transfer' AND s.scope_type = 'group'`,
-    [roleId]
+     WHERE s.role_id = ? AND p.code = ? AND s.scope_type = 'group'`,
+    [roleId, code]
   );
   if (!rows.length) return { mode: 'all', group_ids: [] };
   if (rows.some((row) => row.scope_mode === 'all')) return { mode: 'all', group_ids: [] };
@@ -268,8 +287,32 @@ const readTransferScope = async (roleId) => {
   };
 };
 
-const replaceTransferScope = async (roleId, scope) => {
-  const perm = await query('SELECT id FROM permissions WHERE code = ?', ['assignments.transfer']);
+const readTransferScope = (roleId) => readPermissionScope(roleId, 'assignments.transfer');
+
+const readViewScope = async (roleId) => {
+  const rows = await query(
+    `SELECT s.scope_mode, s.scope_ref_id
+     FROM role_permission_scopes s
+     JOIN permissions p ON p.id = s.permission_id
+     WHERE s.role_id = ? AND p.code = 'tickets.view' AND s.scope_type = 'group'`,
+    [roleId]
+  );
+  if (!rows.length) return { mode: 'none', group_ids: [] };
+  if (rows.some((row) => row.scope_mode === 'all')) return { mode: 'all', group_ids: [] };
+  if (rows.some((row) => row.scope_mode === 'deny')) {
+    return {
+      mode: 'deny',
+      group_ids: rows.filter((row) => row.scope_mode === 'deny' && Number(row.scope_ref_id) > 0).map((row) => Number(row.scope_ref_id))
+    };
+  }
+  return {
+    mode: 'allow',
+    group_ids: rows.filter((row) => row.scope_mode === 'allow' && Number(row.scope_ref_id) > 0).map((row) => Number(row.scope_ref_id))
+  };
+};
+
+const replacePermissionScope = async (roleId, code, scope) => {
+  const perm = await query('SELECT id FROM permissions WHERE code = ?', [code]);
   if (!perm.length) return;
   const permissionId = perm[0].id;
   await query('DELETE FROM role_permission_scopes WHERE role_id = ? AND permission_id = ? AND scope_type = ?', [
@@ -306,6 +349,24 @@ const replaceTransferScope = async (roleId, scope) => {
   );
 };
 
+const replaceTransferScope = (roleId, scope) => replacePermissionScope(roleId, 'assignments.transfer', scope);
+const replaceViewScope = (roleId, scope) => replacePermissionScope(roleId, 'tickets.view', scope);
+
+const scopeIdList = (scope) => [...(scope?.allow || []), ...(scope?.deny || [])].map(Number).filter((id) => id > 0);
+
+const resolveTicketViewGrant = (access) => {
+  if (!access?.has('tickets.view')) return null;
+  const scope = access.scopes?.['tickets.view'];
+  if (!scope) return null;
+  const allow = scopeIdList({ allow: scope.allow });
+  const deny = scopeIdList({ deny: scope.deny });
+  if (scope.all) {
+    return deny.length ? { mode: 'deny', ids: deny } : { mode: 'all', ids: [] };
+  }
+  if (!allow.length) return null;
+  return { mode: 'allow', ids: allow.filter((id) => !deny.includes(id)) };
+};
+
 const replaceRolePermissions = async (roleId, codes) => {
   const unique = [...new Set(codes)];
   await query('DELETE FROM role_permissions WHERE role_id = ?', [roleId]);
@@ -321,12 +382,14 @@ const replaceRolePermissions = async (roleId, codes) => {
 const inheritedPermissionCodes = async (roleId) => {
   const rows = await query('SELECT parent_role_id FROM roles WHERE id = ?', [roleId]);
   const parentId = rows[0]?.parent_role_id ? Number(rows[0].parent_role_id) : null;
-  if (!parentId) return { codes: [], transferAll: false };
+  if (!parentId) return { codes: [], transferAll: false, viewAll: false };
   const { codes, scopes } = await loadGrantsForRoles([parentId]);
   const transfer = scopes['assignments.transfer'];
+  const view = scopes['tickets.view'];
   return {
     codes: [...codes],
-    transferAll: Boolean(transfer?.all)
+    transferAll: Boolean(transfer?.all),
+    viewAll: Boolean(view?.all)
   };
 };
 
@@ -460,6 +523,20 @@ const seedSystemRoles = async () => {
         await replaceTransferScope(roleId, { mode: 'all', group_ids: [] });
       }
     }
+
+    if (role.code === 'espectador-sistema') {
+      const view = await query(
+        `SELECT s.id
+         FROM role_permission_scopes s
+         JOIN permissions p ON p.id = s.permission_id
+         WHERE s.role_id = ? AND p.code = 'tickets.view'
+         LIMIT 1`,
+        [roleId]
+      );
+      if (!view.length) {
+        await replaceViewScope(roleId, { mode: 'all', group_ids: [] });
+      }
+    }
   }
 };
 
@@ -545,7 +622,10 @@ module.exports = {
   groupedCatalog,
   loadCatalog,
   readTransferScope,
+  readViewScope,
   replaceTransferScope,
+  replaceViewScope,
+  resolveTicketViewGrant,
   replaceRolePermissions,
   inheritedPermissionCodes,
   loadGrantsForRoles,

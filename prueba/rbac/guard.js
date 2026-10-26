@@ -78,6 +78,22 @@ const assertTicketMutation = async (req, res, oldTicket, body) => {
   }
 };
 
+const assertBeyondOwnTicket = async (req, res, ticket, code) => {
+  if (!ticket) return false;
+  if (req.user.role !== 'user') return true;
+  if (Number(ticket.user_id) === Number(req.user.id)) return true;
+  try {
+    const access = await getRequestAccess(req);
+    if (access.canActOnOthers(code)) return true;
+    res.status(403).json({ message: DENIED });
+    return false;
+  } catch (err) {
+    console.error('Error validando permiso sobre ticket ajeno:', err.code || err.message);
+    res.status(500).json({ message: 'Error al validar permisos' });
+    return false;
+  }
+};
+
 const requirePermission = (...codes) => async (req, res, next) => {
   try {
     const access = await getRequestAccess(req);
@@ -104,6 +120,7 @@ module.exports = {
   assertPermission,
   assertAll,
   assertTicketMutation,
+  assertBeyondOwnTicket,
   requirePermission,
   requireViewWrite
 };
