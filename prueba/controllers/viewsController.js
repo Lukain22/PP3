@@ -3,7 +3,7 @@ const { getUserGroupIds } = require('../utils/groups');
 const { normalizeViewFilters } = require('../utils/ticketFilters');
 
 const VALID_SCOPES = ['tickets', 'admin', 'technician'];
-const VALID_VISIBILITY = ['personal', 'group'];
+const VALID_VISIBILITY = ['personal', 'group', 'public'];
 
 const normalizeScope = (scope) => {
   if (scope === 'admin' || scope === 'technician') return 'tickets';
@@ -30,18 +30,61 @@ const initTicketViewsTable = () => {
   `;
 
   db.query(sql, (err) => {
-    if (err) console.error('Error creando tabla ticket_views:', err.code);
-    else console.log('Tabla ticket_views lista');
-  });
-
-  db.query(
-    'ALTER TABLE ticket_views ADD COLUMN sort_order INT NOT NULL DEFAULT 0',
-    (alterErr) => {
-      if (alterErr && alterErr.errno !== 1060) {
-        console.error('Error migrando sort_order en ticket_views:', alterErr.code);
-      }
+    if (err) {
+      console.error('Error creando tabla ticket_views:', err.code);
+      return;
     }
-  );
+    console.log('Tabla ticket_views lista');
+
+    const migrate = (statement, label, next) => {
+      db.query(statement, (alterErr) => {
+        if (alterErr && alterErr.errno !== 1060) {
+          console.error(`Error migrando ${label} en ticket_views:`, alterErr.code);
+        }
+        next();
+      });
+    };
+
+    migrate(
+      'ALTER TABLE ticket_views ADD COLUMN sort_order INT NOT NULL DEFAULT 0',
+      'sort_order',
+      () => migrate(
+        'ALTER TABLE ticket_views ADD COLUMN hidden TINYINT(1) NOT NULL DEFAULT 0',
+        'hidden',
+        () => migrate(
+          'ALTER TABLE ticket_views ADD COLUMN audience VARCHAR(20) NULL DEFAULT NULL',
+          'audience',
+          () => {
+            db.query(
+              `CREATE TABLE IF NOT EXISTS ticket_view_groups (
+                view_id INT NOT NULL,
+                group_id INT NOT NULL,
+                PRIMARY KEY (view_id, group_id),
+                FOREIGN KEY (view_id) REFERENCES ticket_views(id) ON DELETE CASCADE,
+                FOREIGN KEY (group_id) REFERENCES \`groups\`(id) ON DELETE CASCADE
+              )`,
+              (groupErr) => {
+                if (groupErr) {
+                  console.error('Error creando ticket_view_groups:', groupErr.code);
+                  return;
+                }
+                db.query(
+                  `INSERT IGNORE INTO ticket_view_groups (view_id, group_id)
+                   SELECT v.id, v.share_group_id
+                   FROM ticket_views v
+                   JOIN \`groups\` g ON g.id = v.share_group_id
+                   WHERE v.share_group_id IS NOT NULL`,
+                  (backfillErr) => {
+                    if (backfillErr) console.error('Error vinculando grupos de vistas:', backfillErr.code);
+                  }
+                );
+              }
+            );
+          }
+        )
+      )
+    );
+  });
 
   db.query(
     `CREATE TABLE IF NOT EXISTS user_view_layout (
@@ -57,22 +100,102 @@ const initTicketViewsTable = () => {
   );
 };
 
-const serializeView = (row) => ({
-  id: row.id,
-  user_id: row.user_id,
-  name: row.name,
-  scope: normalizeScope(row.scope),
-  visibility: row.visibility,
-  share_group_id: row.share_group_id,
-  share_group_name: row.share_group_name || null,
-  filters: typeof row.filters === 'string' ? JSON.parse(row.filters) : row.filters,
-  sort_by: row.sort_by,
-  sort_order: row.sort_order ?? 0,
-  creator_email: row.creator_email || null,
-  is_owner: Boolean(Number(row.is_owner)),
-  created_at: row.created_at,
-  updated_at: row.updated_at
-});
+const groupsForRow = (row, map) => {
+  const listed = map?.get(row.id) || [];
+  if (listed.length) return listed;
+  if (row.share_group_id) {
+    return [{ id: row.share_group_id, name: row.share_group_name || null }];
+  }
+  return [];
+};
+
+const serializeView = (row, shareGroups) => {
+  const groups = shareGroups || groupsForRow(row);
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    name: row.name,
+    scope: normalizeScope(row.scope),
+    visibility: row.visibility,
+    share_group_id: groups[0]?.id ?? row.share_group_id ?? null,
+    share_group_name: groups[0]?.name ?? row.share_group_name ?? null,
+    share_groups: groups,
+    filters: typeof row.filters === 'string' ? JSON.parse(row.filters) : row.filters,
+    sort_by: row.sort_by,
+    sort_order: row.sort_order ?? 0,
+    creator_email: row.creator_email || null,
+    is_owner: Boolean(Number(row.is_owner)),
+    hidden: Boolean(Number(row.hidden)),
+    audience: row.audience || null,
+    created_at: row.created_at,
+    updated_at: row.updated_at
+  };
+};
+
+const loadShareGroups = (viewIds, callback) => {
+  if (!viewIds.length) return callback(null, new Map());
+  db.query(
+    `SELECT vg.view_id, g.id, g.name
+     FROM ticket_view_groups vg
+     JOIN \`groups\` g ON g.id = vg.group_id
+     WHERE vg.view_id IN (?)
+     ORDER BY g.name ASC`,
+    [viewIds],
+    (err, rows) => {
+      if (err) return callback(err);
+      const map = new Map();
+      rows.forEach((row) => {
+        const list = map.get(row.view_id) || [];
+        list.push({ id: row.id, name: row.name });
+        map.set(row.view_id, list);
+      });
+      callback(null, map);
+    }
+  );
+};
+
+const replaceViewGroups = (viewId, groupIds, callback) => {
+  db.query('DELETE FROM ticket_view_groups WHERE view_id = ?', [viewId], (err) => {
+    if (err) return callback(err);
+    if (!groupIds.length) return callback(null);
+    const values = groupIds.map((groupId) => [viewId, groupId]);
+    db.query(
+      'INSERT INTO ticket_view_groups (view_id, group_id) VALUES ?',
+      [values],
+      (insertErr) => callback(insertErr || null)
+    );
+  });
+};
+
+const normalizeAudience = (value) => {
+  const list = Array.isArray(value) ? value : (value ? [value] : []);
+  const hasUser = list.includes('user');
+  const hasTech = list.includes('technician');
+  if (list.includes('both') || (hasUser && hasTech)) return 'both';
+  if (hasUser) return 'user';
+  if (hasTech) return 'technician';
+  return null;
+};
+
+const fetchSerializedView = (id, userId, callback) => {
+  db.query(
+    `SELECT v.*, u.email AS creator_email, g.name AS share_group_name,
+            (v.user_id = ?) AS is_owner
+     FROM ticket_views v
+     JOIN users u ON u.id = v.user_id
+     LEFT JOIN \`groups\` g ON g.id = v.share_group_id
+     WHERE v.id = ?`,
+    [userId, id],
+    (err, rows) => {
+      if (err) return callback(err);
+      if (!rows.length) return callback(null, null);
+      loadShareGroups([rows[0].id], (groupErr, map) => {
+        if (groupErr) return callback(groupErr);
+        callback(null, serializeView(rows[0], groupsForRow(rows[0], map)));
+      });
+    }
+  );
+};
 
 const validateViewPayload = (body, user, callback) => {
   const { name, scope, visibility, share_group_id, filters, sort_by, sort_order } = body;
@@ -87,7 +210,7 @@ const validateViewPayload = (body, user, callback) => {
   }
 
   const vis = visibility || 'personal';
-  if (!VALID_VISIBILITY.includes(vis)) {
+  if (!VALID_VISIBILITY.includes(vis) || (vis === 'public' && user.role !== 'admin')) {
     return callback(new Error('Visibilidad inválida'));
   }
 
@@ -96,6 +219,7 @@ const validateViewPayload = (body, user, callback) => {
     scope: normalizedScope,
     visibility: vis,
     share_group_id: null,
+    share_group_ids: [],
     filters: normalizeViewFilters(filters),
     sort_by: sort_by || 'date-desc',
     sort_order: Number.isFinite(Number(sort_order)) ? Number(sort_order) : 0
@@ -105,24 +229,35 @@ const validateViewPayload = (body, user, callback) => {
     return callback(null, basePayload);
   }
 
-  const groupId = parseInt(share_group_id, 10);
-  if (!groupId) {
+  const rawIds = Array.isArray(body.share_group_ids) && body.share_group_ids.length
+    ? body.share_group_ids
+    : [share_group_id];
+  const groupIds = [...new Set(
+    rawIds
+      .map((id) => parseInt(id, 10))
+      .filter((id) => Number.isInteger(id) && id > 0)
+  )];
+  if (!groupIds.length) {
     return callback(new Error('Seleccioná un grupo para compartir la vista'));
   }
 
-  const finish = () => callback(null, { ...basePayload, share_group_id: groupId });
+  const finish = () => callback(null, {
+    ...basePayload,
+    share_group_id: groupIds[0],
+    share_group_ids: groupIds
+  });
 
   if (user.role === 'admin') {
-    return db.query('SELECT id FROM `groups` WHERE id = ?', [groupId], (err, rows) => {
+    return db.query('SELECT id FROM `groups` WHERE id IN (?)', [groupIds], (err, rows) => {
       if (err) return callback(new Error('Error al verificar grupo'));
-      if (rows.length === 0) return callback(new Error('Grupo inválido'));
+      if (rows.length !== groupIds.length) return callback(new Error('Grupo inválido'));
       finish();
     });
   }
 
-  return getUserGroupIds(user.id, (groupErr, groupIds) => {
+  return getUserGroupIds(user.id, (groupErr, memberIds) => {
     if (groupErr) return callback(new Error('Error al verificar grupos'));
-    if (!groupIds.includes(groupId)) {
+    if (groupIds.some((id) => !memberIds.includes(id))) {
       return callback(new Error('Solo podés compartir vistas con grupos a los que pertenecés'));
     }
     finish();
@@ -141,14 +276,31 @@ exports.getViews = (req, res) => {
     if (groupErr) return res.status(500).json({ message: 'Error al obtener grupos' });
 
     const params = [user.id, scope, user.id];
-    let groupClause = '';
+    const access = ['v.user_id = ?'];
+    const audiences = user.role === 'user'
+      ? ['user', 'both']
+      : user.role === 'technician'
+        ? ['technician', 'both']
+        : null;
+    const audienceSql = audiences
+      ? `AND (v.audience IS NULL OR v.audience IN (${audiences.map(() => '?').join(', ')}))`
+      : '';
+
+    if (audiences) {
+      access.push(`(v.visibility = 'public' ${audienceSql})`);
+      params.push(...audiences);
+    } else {
+      access.push("(v.visibility = 'public')");
+    }
 
     if (user.role === 'admin') {
-      groupClause = "OR (v.visibility = 'group' AND v.share_group_id IS NOT NULL)";
+      access.push("(v.visibility = 'group' AND (v.share_group_id IS NOT NULL OR EXISTS (SELECT 1 FROM ticket_view_groups vg WHERE vg.view_id = v.id)))");
     } else if (groupIds.length > 0) {
       const placeholders = groupIds.map(() => '?').join(', ');
-      groupClause = `OR (v.visibility = 'group' AND v.share_group_id IN (${placeholders}))`;
-      params.push(...groupIds);
+      access.push(
+        `(v.visibility = 'group' ${audienceSql} AND (v.share_group_id IN (${placeholders}) OR EXISTS (SELECT 1 FROM ticket_view_groups vg WHERE vg.view_id = v.id AND vg.group_id IN (${placeholders}))))`
+      );
+      params.push(...(audiences || []), ...groupIds, ...groupIds);
     }
 
     db.query(
@@ -157,11 +309,9 @@ exports.getViews = (req, res) => {
        FROM ticket_views v
        JOIN users u ON u.id = v.user_id
        LEFT JOIN \`groups\` g ON g.id = v.share_group_id
-       WHERE v.scope IN (?, 'admin', 'technician')
-         AND (
-           v.user_id = ?
-           ${groupClause}
-         )
+       WHERE IFNULL(v.hidden, 0) = 0
+         AND v.scope IN (?, 'admin', 'technician')
+         AND (${access.join(' OR ')})
        ORDER BY v.sort_order ASC, v.name ASC`,
       params,
       (err, rows) => {
@@ -231,19 +381,19 @@ exports.createView = (req, res) => {
       ],
       (insertErr, result) => {
         if (insertErr) return res.status(500).json({ message: 'Error al crear vista' });
-
-        db.query(
-          `SELECT v.*, u.email AS creator_email, g.name AS share_group_name, 1 AS is_owner
-           FROM ticket_views v
-           JOIN users u ON u.id = v.user_id
-           LEFT JOIN \`groups\` g ON g.id = v.share_group_id
-           WHERE v.id = ?`,
-          [result.insertId],
-          (selErr, rows) => {
-            if (selErr) return res.status(500).json({ message: 'Error al obtener vista creada' });
-            res.status(201).json(serializeView(rows[0]));
+        const viewId = result.insertId;
+        replaceViewGroups(viewId, payload.share_group_ids || [], (groupErr) => {
+          if (groupErr) {
+            db.query('DELETE FROM ticket_views WHERE id = ?', [viewId], () => {
+              res.status(500).json({ message: 'Error al guardar grupos' });
+            });
+            return;
           }
-        );
+          fetchSerializedView(viewId, req.user.id, (selErr, view) => {
+            if (selErr || !view) return res.status(500).json({ message: 'Error al obtener vista creada' });
+            res.status(201).json(view);
+          });
+        });
       }
     );
   });
@@ -283,20 +433,13 @@ exports.updateView = (req, res) => {
         ],
         (updErr) => {
           if (updErr) return res.status(500).json({ message: 'Error al actualizar vista' });
-
-          db.query(
-            `SELECT v.*, u.email AS creator_email, g.name AS share_group_name,
-                    (v.user_id = ?) AS is_owner
-             FROM ticket_views v
-             JOIN users u ON u.id = v.user_id
-             LEFT JOIN \`groups\` g ON g.id = v.share_group_id
-             WHERE v.id = ?`,
-            [req.user.id, id],
-            (selErr, updated) => {
-              if (selErr) return res.status(500).json({ message: 'Error al obtener vista' });
-              res.json(serializeView(updated[0]));
-            }
-          );
+          replaceViewGroups(id, payload.share_group_ids || [], (groupErr) => {
+            if (groupErr) return res.status(500).json({ message: 'Error al guardar grupos' });
+            fetchSerializedView(id, req.user.id, (selErr, view) => {
+              if (selErr || !view) return res.status(500).json({ message: 'Error al obtener vista' });
+              res.json(view);
+            });
+          });
         }
       );
     });
@@ -322,10 +465,136 @@ exports.deleteView = (req, res) => {
       if (delErr) return res.status(500).json({ message: 'Error al eliminar vista' });
       if (result.affectedRows === 0) return res.status(404).json({ message: 'Vista no encontrada' });
       db.query(
-        'DELETE FROM user_view_layout WHERE user_id = ? AND item_key = ?',
-        [req.user.id, `view:${id}`],
+        'DELETE FROM user_view_layout WHERE item_key = ?',
+        [`view:${id}`],
         () => res.json({ message: 'Vista eliminada' })
       );
+    });
+  });
+};
+
+const saveAdminView = (req, res, existingId) => {
+  validateViewPayload(req.body, { ...req.user, role: 'admin' }, (err, payload) => {
+    if (err) return res.status(400).json({ message: err.message });
+    const audience = normalizeAudience(req.body.audience);
+    if (!audience) {
+      return res.status(400).json({ message: 'Elegí usuarios comunes, técnicos o ambos' });
+    }
+
+    const finish = (viewId, statusCode) => {
+      replaceViewGroups(viewId, payload.share_group_ids || [], (groupErr) => {
+        if (groupErr) {
+          if (!existingId) {
+            db.query('DELETE FROM ticket_views WHERE id = ?', [viewId], () => {
+              res.status(500).json({ message: 'Error al guardar grupos' });
+            });
+            return;
+          }
+          return res.status(500).json({ message: 'Error al guardar grupos' });
+        }
+        fetchSerializedView(viewId, req.user.id, (selErr, view) => {
+          if (selErr || !view) return res.status(500).json({ message: 'Error al obtener vista' });
+          if (statusCode === 201) return res.status(201).json(view);
+          res.json(view);
+        });
+      });
+    };
+
+    if (!existingId) {
+      db.query(
+        `INSERT INTO ticket_views
+          (user_id, name, scope, visibility, share_group_id, filters, sort_by, sort_order, audience, hidden)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+        [
+          req.user.id,
+          payload.name,
+          payload.scope,
+          payload.visibility,
+          payload.share_group_id,
+          JSON.stringify(payload.filters),
+          payload.sort_by,
+          payload.sort_order,
+          audience
+        ],
+        (insertErr, result) => {
+          if (insertErr) return res.status(500).json({ message: 'Error al crear vista' });
+          finish(result.insertId, 201);
+        }
+      );
+      return;
+    }
+
+    db.query(
+      `UPDATE ticket_views
+       SET name = ?, visibility = ?, share_group_id = ?, filters = ?, sort_by = ?, audience = ?
+       WHERE id = ?`,
+      [
+        payload.name,
+        payload.visibility,
+        payload.share_group_id,
+        JSON.stringify(payload.filters),
+        payload.sort_by,
+        audience,
+        existingId
+      ],
+      (updErr) => {
+        if (updErr) return res.status(500).json({ message: 'Error al actualizar vista' });
+        finish(existingId, 200);
+      }
+    );
+  });
+};
+
+exports.listAdminViews = (req, res) => {
+  db.query(
+    `SELECT v.*, u.email AS creator_email, g.name AS share_group_name,
+            (v.user_id = ?) AS is_owner
+     FROM ticket_views v
+     JOIN users u ON u.id = v.user_id
+     LEFT JOIN \`groups\` g ON g.id = v.share_group_id
+     ORDER BY v.created_at DESC, v.name ASC`,
+    [req.user.id],
+    (err, rows) => {
+      if (err) return res.status(500).json({ message: 'Error al obtener vistas' });
+      loadShareGroups(rows.map((row) => row.id), (groupErr, map) => {
+        if (groupErr) return res.status(500).json({ message: 'Error al obtener grupos' });
+        res.json(rows.map((row) => serializeView(row, groupsForRow(row, map))));
+      });
+    }
+  );
+};
+
+exports.createAdminView = (req, res) => saveAdminView(req, res, null);
+
+exports.updateAdminView = (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  db.query('SELECT id FROM ticket_views WHERE id = ?', [id], (err, rows) => {
+    if (err) return res.status(500).json({ message: 'Error al verificar vista' });
+    if (!rows.length) return res.status(404).json({ message: 'Vista no encontrada' });
+    saveAdminView(req, res, id);
+  });
+};
+
+exports.setAdminViewHidden = (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const hidden = req.body.hidden ? 1 : 0;
+  db.query('SELECT id FROM ticket_views WHERE id = ?', [id], (err, rows) => {
+    if (err) return res.status(500).json({ message: 'Error al verificar vista' });
+    if (!rows.length) return res.status(404).json({ message: 'Vista no encontrada' });
+    db.query('UPDATE ticket_views SET hidden = ? WHERE id = ?', [hidden, id], (updErr) => {
+      if (updErr) return res.status(500).json({ message: 'Error al actualizar la vista' });
+      res.json({ message: hidden ? 'Vista oculta' : 'Vista visible', hidden: Boolean(hidden) });
+    });
+  });
+};
+
+exports.deleteAdminView = (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  db.query('DELETE FROM ticket_views WHERE id = ?', [id], (err, result) => {
+    if (err) return res.status(500).json({ message: 'Error al eliminar vista' });
+    if (!result.affectedRows) return res.status(404).json({ message: 'Vista no encontrada' });
+    db.query('DELETE FROM user_view_layout WHERE item_key = ?', [`view:${id}`], () => {
+      res.json({ message: 'Vista eliminada' });
     });
   });
 };

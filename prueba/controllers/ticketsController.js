@@ -12,7 +12,7 @@ const {
   formatDateForDb
 } = require('../utils/sla');
 const { getDefaultGroupId, getUserGroupIds, userCanAccessTicket } = require('../utils/groups');
-const { appendListFilters, resolveTicketOrderBy, VALID_CATEGORIES, VALID_SUBCATEGORIES } = require('../utils/ticketFilters');
+const { appendExtendedListFilters, resolveTicketOrderBy, VALID_CATEGORIES, VALID_SUBCATEGORIES } = require('../utils/ticketFilters');
 const {
   notifyTicketCreatorOnChanges,
   notifyTicketCreatorOnResolution,
@@ -124,13 +124,23 @@ exports.getTickets = (req, res) => {
   const page  = Math.max(1, parseInt(req.query.page)  || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
   const offset = (page - 1) * limit;
-  const { status, type, priority, sort } = req.query;
+  const {
+    status, type, priority, sort,
+    group_id, group_ids, technician_ids,
+    categories, subcategories,
+    date_from, date_to, due_from, due_to, resolved_from, resolved_to
+  } = req.query;
   const orderBy = resolveTicketOrderBy(sort, 'user');
 
   const conditions = ['user_id = ?'];
   const baseParams = [req.user.id];
 
-  appendListFilters(conditions, baseParams, { status, type, priority });
+  appendExtendedListFilters(conditions, baseParams, {
+    status, type, priority,
+    group_id, group_ids, technician_ids,
+    categories, subcategories,
+    date_from, date_to, due_from, due_to, resolved_from, resolved_to
+  });
 
   const whereClause = `WHERE ${conditions.join(' AND ')}`;
 

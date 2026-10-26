@@ -94,6 +94,20 @@ router.patch('/roles/:id', requirePermission('admin.roles'), updateRole);
 router.delete('/roles/:id', requirePermission('admin.roles'), deleteRole);
 router.post('/roles/:id/duplicate', requirePermission('admin.roles'), duplicateRole);
 
+const {
+  listAdminViews,
+  createAdminView,
+  updateAdminView,
+  setAdminViewHidden,
+  deleteAdminView
+} = require('../controllers/viewsController');
+
+router.get('/views', listAdminViews);
+router.post('/views', createAdminView);
+router.patch('/views/:id/hidden', setAdminViewHidden);
+router.patch('/views/:id', updateAdminView);
+router.delete('/views/:id', deleteAdminView);
+
 const canManageSolutions = requirePermission('kb.create', 'kb.edit', 'kb.delete', 'kb.publish', 'kb.approve');
 router.get('/solutions/groups', canManageSolutions, listSolutionGroups);
 router.get('/solutions', canManageSolutions, listSolutions);

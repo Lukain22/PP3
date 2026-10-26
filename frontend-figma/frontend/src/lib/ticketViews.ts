@@ -26,14 +26,18 @@ export interface TicketView {
   id: number;
   name: string;
   scope: string;
-  visibility: 'personal' | 'group';
+  visibility: 'personal' | 'group' | 'public';
   share_group_id: number | null;
   share_group_name: string | null;
+  share_groups?: { id: number; name: string | null }[];
+  hidden?: boolean;
+  audience?: 'user' | 'technician' | 'both' | null;
   filters: TicketViewFilters;
   sort_by: string;
   sort_order?: number;
   creator_email: string | null;
   is_owner: boolean;
+  created_at?: string;
 }
 
 export type ListMode = 'admin' | 'technician' | 'user';

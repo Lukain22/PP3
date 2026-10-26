@@ -27,7 +27,9 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import GroupsIcon from '@mui/icons-material/Groups';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import PersonIcon from '@mui/icons-material/Person';
+import PublicIcon from '@mui/icons-material/Public';
 import SearchIcon from '@mui/icons-material/Search';
 import { es } from 'date-fns/locale';
 import { format, isValid, parse, startOfMonth, endOfMonth, startOfYear, subDays, subMonths } from 'date-fns';
@@ -49,8 +51,10 @@ import {
 
 export interface ViewEditorValues {
   name: string;
-  visibility: 'personal' | 'group';
+  visibility: 'personal' | 'group' | 'public';
   share_group_id: number | '';
+  share_group_ids?: number[];
+  audience?: Array<'user' | 'technician'>;
   rows: ViewFilterRow[];
   sort_by: string;
 }
@@ -62,6 +66,7 @@ interface ViewEditorDialogProps {
   initial: ViewEditorValues;
   groups: { id: number; name: string }[];
   apiCall: (path: string, options?: RequestInit) => Promise<{ response: Response; data: any } | null>;
+  adminMode?: boolean;
   onClose: () => void;
   onSubmit: (values: ViewEditorValues) => void;
 }
@@ -403,12 +408,24 @@ export default function ViewEditorDialog({
   initial,
   groups,
   apiCall,
+  adminMode = false,
   onClose,
   onSubmit
 }: ViewEditorDialogProps) {
   const [name, setName] = useState(initial.name);
-  const [visibility, setVisibility] = useState(initial.visibility);
+  const [visibility, setVisibility] = useState<'personal' | 'group' | 'public'>(
+    adminMode
+      ? (initial.visibility === 'public' ? 'public' : 'personal')
+      : (initial.visibility === 'public' ? 'personal' : initial.visibility)
+  );
   const [shareGroupId, setShareGroupId] = useState<number | ''>(initial.share_group_id);
+  const [shareGroupIds, setShareGroupIds] = useState<string[]>(
+    (initial.share_group_ids?.length
+      ? initial.share_group_ids
+      : (initial.share_group_id ? [initial.share_group_id] : [])
+    ).map(String)
+  );
+  const [audience, setAudience] = useState<Array<'user' | 'technician'>>(initial.audience || []);
   const [rows, setRows] = useState<ViewFilterRow[]>(initial.rows);
   const [assignees, setAssignees] = useState<{ id: number; email: string }[]>([]);
   const [addAnchor, setAddAnchor] = useState<HTMLElement | null>(null);
@@ -504,7 +521,12 @@ export default function ViewEditorDialog({
       toast.error('El nombre es requerido');
       return;
     }
-    if (visibility === 'group' && !shareGroupId) {
+    if (adminMode && audience.length === 0) {
+      setShowIssues(true);
+      toast.error('Elegí usuarios comunes, técnicos o ambos');
+      return;
+    }
+    if (!adminMode && visibility === 'group' && !shareGroupId) {
       toast.error('Seleccioná un grupo para compartir');
       return;
     }
@@ -514,21 +536,41 @@ export default function ViewEditorDialog({
       toast.error(issue);
       return;
     }
+    const groupIds = shareGroupIds.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0);
     onSubmit({
       name: name.trim(),
-      visibility,
-      share_group_id: visibility === 'group' ? shareGroupId : '',
+      visibility: adminMode
+        ? (visibility === 'public' ? 'public' : (groupIds.length ? 'group' : 'personal'))
+        : visibility,
+      share_group_id: adminMode
+        ? (visibility === 'public' ? '' : (groupIds[0] ?? ''))
+        : (visibility === 'group' ? shareGroupId : ''),
+      share_group_ids: adminMode && visibility !== 'public' ? groupIds : undefined,
+      audience: adminMode ? audience : undefined,
       rows,
       sort_by: initial.sort_by || 'date-desc'
     });
   };
+
+  const visibilityOptions = adminMode
+    ? [
+        { value: 'personal' as const, label: 'Privada', icon: LockOutlinedIcon },
+        { value: 'public' as const, label: 'Pública', icon: PublicIcon }
+      ]
+    : [
+        { value: 'personal' as const, label: 'Personal', icon: PersonIcon },
+        { value: 'group' as const, label: 'Compartida', icon: GroupsIcon }
+      ];
+  const showShareGroups = adminMode ? visibility === 'personal' : visibility === 'group';
 
   return (
     <Dialog open={open} onClose={() => !saving && onClose()} maxWidth="md" fullWidth>
       <DialogTitle sx={{ pb: 1 }}>
         {title}
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, fontWeight: 400 }}>
-          Seleccioná filtros para definir qué tickets muestra esta vista.
+          {adminMode
+            ? 'Pública la ven todos los destinatarios. Privada la ven quienes estén en los grupos elegidos.'
+            : 'Seleccioná filtros para definir qué tickets muestra esta vista.'}
         </Typography>
       </DialogTitle>
       <DialogContent>
@@ -538,7 +580,7 @@ export default function ViewEditorDialog({
               display: 'grid',
               gap: 2,
               alignItems: 'end',
-              gridTemplateColumns: visibility === 'group'
+              gridTemplateColumns: showShareGroups
                 ? { xs: '1fr', md: 'minmax(0, 1.35fr) 248px minmax(180px, 1fr)' }
                 : { xs: '1fr', sm: 'minmax(0, 1fr) 248px' }
             }}
@@ -570,10 +612,7 @@ export default function ViewEditorDialog({
                   bgcolor: '#f4f7fb'
                 }}
               >
-                {([
-                  { value: 'personal' as const, label: 'Personal', icon: PersonIcon },
-                  { value: 'group' as const, label: 'Compartida', icon: GroupsIcon }
-                ]).map((option) => {
+                {visibilityOptions.map((option) => {
                   const selected = visibility === option.value;
                   const Icon = option.icon;
                   return (
@@ -584,7 +623,8 @@ export default function ViewEditorDialog({
                       aria-pressed={selected}
                       onClick={() => {
                         setVisibility(option.value);
-                        if (option.value === 'personal') setShareGroupId('');
+                        if (!adminMode && option.value === 'personal') setShareGroupId('');
+                        if (adminMode && option.value === 'public') setShareGroupIds([]);
                       }}
                       sx={{
                         flex: 1,
@@ -613,19 +653,93 @@ export default function ViewEditorDialog({
                 })}
               </Box>
             </Box>
-            {visibility === 'group' && (
+            {showShareGroups && (
               <Box sx={{ minWidth: 0 }}>
-                <FieldLabel>Grupo con acceso</FieldLabel>
+                <FieldLabel>{adminMode ? 'Grupos con acceso' : 'Grupo con acceso'}</FieldLabel>
                 <OptionMenu
+                  multiple={adminMode}
                   options={groups.map((group) => ({ value: String(group.id), label: group.name }))}
-                  selected={shareGroupId ? [String(shareGroupId)] : []}
-                  placeholder="Seleccionar grupo"
-                  error={showIssues && !shareGroupId}
-                  onChange={(values) => setShareGroupId(values[0] ? Number(values[0]) : '')}
+                  selected={adminMode ? shareGroupIds : (shareGroupId ? [String(shareGroupId)] : [])}
+                  placeholder={adminMode ? 'Sin grupos' : 'Seleccionar grupo'}
+                  error={!adminMode && showIssues && !shareGroupId}
+                  onChange={(values) => {
+                    if (adminMode) setShareGroupIds(values);
+                    else setShareGroupId(values[0] ? Number(values[0]) : '');
+                  }}
                 />
+                {adminMode && (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                    Quien pertenezca a uno de estos grupos puede ver la vista.
+                  </Typography>
+                )}
               </Box>
             )}
           </Box>
+
+          {adminMode && (
+            <Box sx={{ maxWidth: 460 }}>
+              <FieldLabel>Destinatarios</FieldLabel>
+              <Box
+                role="group"
+                aria-label="Destinatarios"
+                sx={{
+                  height: 40,
+                  display: 'flex',
+                  p: '3px',
+                  gap: '3px',
+                  border: '1px solid',
+                  borderColor: showIssues && audience.length === 0 ? 'error.main' : '#c5d0dc',
+                  borderRadius: 1,
+                  bgcolor: '#f4f7fb'
+                }}
+              >
+                {([
+                  { value: 'user' as const, label: 'Usuarios comunes', icon: PersonIcon },
+                  { value: 'technician' as const, label: 'Técnicos', icon: GroupsIcon }
+                ]).map((option) => {
+                  const selected = audience.includes(option.value);
+                  const Icon = option.icon;
+                  return (
+                    <Box
+                      key={option.value}
+                      component="button"
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => {
+                        setAudience((current) => (
+                          current.includes(option.value)
+                            ? current.filter((item) => item !== option.value)
+                            : [...current, option.value]
+                        ));
+                      }}
+                      sx={{
+                        flex: 1,
+                        minWidth: 0,
+                        border: 0,
+                        borderRadius: 0.75,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 0.75,
+                        px: 1,
+                        cursor: 'pointer',
+                        font: 'inherit',
+                        fontSize: 13.5,
+                        fontWeight: selected ? 600 : 500,
+                        color: selected ? 'primary.main' : 'text.secondary',
+                        bgcolor: selected ? '#fff' : 'transparent',
+                        boxShadow: selected ? '0 1px 2px rgba(15, 23, 42, 0.08)' : 'none',
+                        '&:hover': { color: selected ? 'primary.main' : 'text.primary' }
+                      }}
+                    >
+                      <Icon sx={{ fontSize: 16 }} />
+                      {option.label}
+                    </Box>
+                  );
+                })}
+              </Box>
+            </Box>
+          )}
 
           <Divider />
 

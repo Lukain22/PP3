@@ -21,6 +21,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import GroupsIcon from '@mui/icons-material/Groups';
 import PersonIcon from '@mui/icons-material/Person';
+import PublicIcon from '@mui/icons-material/Public';
 import SearchIcon from '@mui/icons-material/Search';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import StarIcon from '@mui/icons-material/Star';
@@ -458,7 +459,9 @@ export default function TicketViewSelect({
                 )}
                 {item.kind === 'custom' && (
                   <Box sx={{ mr: 1, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                    {item.view.visibility === 'group' ? (
+                    {item.view.visibility === 'public' ? (
+                      <PublicIcon sx={{ fontSize: 16 }} />
+                    ) : item.view.visibility === 'group' ? (
                       <GroupsIcon sx={{ fontSize: 16 }} />
                     ) : (
                       <PersonIcon sx={{ fontSize: 16 }} />
@@ -505,7 +508,7 @@ export default function TicketViewSelect({
                       )}
                     </IconButton>
                   </Tooltip>
-                  {item.kind === 'custom' && item.view.is_owner && (
+                  {item.kind === 'custom' && item.view.is_owner && !item.view.audience && (
                     <>
                       <Tooltip title="Editar vista">
                         <IconButton

@@ -19,6 +19,7 @@ import AdminSlaPolicies from './components/AdminSlaPolicies';
 import AdminRoles from './components/AdminRoles';
 import AdminRoleDetail from './components/AdminRoleDetail';
 import AdminSolutions from './components/AdminSolutions';
+import AdminViews from './components/AdminViews';
 import AdminSolutionForm from './components/AdminSolutionForm';
 import DashboardClassic from './components/legacy/Dashboard.classic';
 import TicketsListClassic from './components/legacy/TicketsList.classic';
@@ -111,6 +112,7 @@ export default function App() {
           <Route path="/admin/roles" element={<RequirePermission code="admin.roles"><AdminRoles /></RequirePermission>} />
           <Route path="/admin/roles/new" element={<RequirePermission code="admin.roles"><AdminRoleDetail /></RequirePermission>} />
           <Route path="/admin/roles/:id" element={<RequirePermission code="admin.roles"><AdminRoleDetail /></RequirePermission>} />
+          <Route path="/admin/views" element={<RequireAdmin><AdminViews /></RequireAdmin>} />
           <Route path="/admin/solutions" element={<RequirePermission anyOf={['kb.create', 'kb.edit', 'kb.delete', 'kb.publish', 'kb.approve']}><AdminSolutions /></RequirePermission>} />
           <Route path="/admin/solutions/new" element={<RequirePermission code="kb.create"><AdminSolutionForm /></RequirePermission>} />
           <Route path="/admin/solutions/:id" element={<RequirePermission code="kb.edit"><AdminSolutionForm /></RequirePermission>} />

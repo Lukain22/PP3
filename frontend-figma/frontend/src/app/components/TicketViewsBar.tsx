@@ -167,7 +167,7 @@ export default function TicketViewsBar({
               color={activeViewId === view.id ? 'primary' : 'default'}
               variant={activeViewId === view.id ? 'filled' : 'outlined'}
             />
-            {view.is_owner && (
+            {view.is_owner && !view.audience && (
               <>
                 <Tooltip title="Editar vista">
                   <IconButton size="small" onClick={() => openEditDialog(view)}>

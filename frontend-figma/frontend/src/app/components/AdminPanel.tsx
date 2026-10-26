@@ -11,6 +11,7 @@ import GroupWorkIcon from '@mui/icons-material/GroupWork';
 import TimerIcon from '@mui/icons-material/Timer';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
+import ViewListIcon from '@mui/icons-material/ViewList';
 import SupportShell from './SupportShell';
 import { can } from '../../lib/auth';
 
@@ -42,6 +43,13 @@ const sections = [
     icon: <AdminPanelSettingsIcon fontSize="large" color="primary" />,
     to: '/admin/roles',
     permission: 'admin.roles'
+  },
+  {
+    title: 'Vistas',
+    description: 'Creá, ocultá o eliminá vistas para usuarios comunes y técnicos.',
+    icon: <ViewListIcon fontSize="large" color="primary" />,
+    to: '/admin/views',
+    permission: 'admin.access'
   },
   {
     title: 'Soluciones',
