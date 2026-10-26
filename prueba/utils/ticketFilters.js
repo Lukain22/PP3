@@ -18,6 +18,9 @@ const VALID_SUBCATEGORIES = {
   Otro: ['Consulta general', 'Otro']
 };
 
+const VALID_SUBCATEGORY_VALUES = [...new Set(Object.values(VALID_SUBCATEGORIES).flat())];
+const VIEW_FILTER_FIELDS = ['type', 'status', 'priority', 'group', 'technician', 'category', 'subcategory', 'created'];
+
 const parseStatusFilter = (statusQuery) => {
   if (!statusQuery) return [];
   return String(statusQuery)
@@ -37,14 +40,22 @@ const parseCsvPositiveInts = (value) => {
 };
 
 const appendListFilters = (conditions, params, query) => {
-  if (query.type && VALID_TYPES.includes(query.type)) {
+  const types = parseAllowedList(query.type, VALID_TYPES);
+  if (types.length === 1) {
     conditions.push('t.type = ?');
-    params.push(query.type);
+    params.push(types[0]);
+  } else if (types.length > 1) {
+    conditions.push(`t.type IN (${types.map(() => '?').join(', ')})`);
+    params.push(...types);
   }
 
-  if (query.priority && VALID_PRIORITIES.includes(query.priority)) {
+  const priorities = parseAllowedList(query.priorities || query.priority, VALID_PRIORITIES);
+  if (priorities.length === 1) {
     conditions.push('t.priority = ?');
-    params.push(query.priority);
+    params.push(priorities[0]);
+  } else if (priorities.length > 1) {
+    conditions.push(`t.priority IN (${priorities.map(() => '?').join(', ')})`);
+    params.push(...priorities);
   }
 
   const groupIds = parseCsvPositiveInts(query.group_ids);
@@ -199,6 +210,20 @@ const appendExtendedListFilters = (conditions, params, query) => {
     }
   }
 
+  if (query.subcategories) {
+    const subcategories = String(query.subcategories)
+      .split(',')
+      .map((part) => part.trim())
+      .filter((part) => VALID_SUBCATEGORY_VALUES.includes(part));
+    if (subcategories.length === 1) {
+      conditions.push('t.subcategory = ?');
+      params.push(subcategories[0]);
+    } else if (subcategories.length > 1) {
+      conditions.push(`t.subcategory IN (${subcategories.map(() => '?').join(', ')})`);
+      params.push(...subcategories);
+    }
+  }
+
   if (query.date_from && /^\d{4}-\d{2}-\d{2}$/.test(String(query.date_from))) {
     conditions.push('DATE(t.created_at) >= ?');
     params.push(String(query.date_from));
@@ -210,34 +235,67 @@ const appendExtendedListFilters = (conditions, params, query) => {
   }
 };
 
+const asList = (value) => {
+  if (Array.isArray(value)) return value;
+  if (value === null || value === undefined || value === '') return [];
+  return [value];
+};
+
+const parseAllowedList = (value, allowed) => [...new Set(
+  asList(value)
+    .flatMap((item) => String(item).split(','))
+    .map((item) => item.trim())
+    .filter((item) => allowed.includes(item))
+)];
+
+const parseIdList = (value) => [...new Set(
+  asList(value)
+    .map((item) => parseInt(item, 10))
+    .filter((id) => Number.isInteger(id) && id > 0)
+)];
+
+const isIsoDate = (value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+
 const normalizeViewFilters = (raw) => {
   const filters = typeof raw === 'string' ? JSON.parse(raw) : (raw || {});
   const result = {};
 
-  if (filters.type && VALID_TYPES.includes(filters.type)) {
-    result.type = filters.type;
-  }
+  const types = parseAllowedList(asList(filters.types).length ? filters.types : filters.type, VALID_TYPES);
+  const priorities = parseAllowedList(asList(filters.priorities).length ? filters.priorities : filters.priority, VALID_PRIORITIES);
+  const groupIds = parseIdList(asList(filters.filter_group_ids).length ? filters.filter_group_ids : (filters.filter_group_id ?? filters.group_id));
+  const technicianIds = parseIdList(asList(filters.technician_ids).length ? filters.technician_ids : filters.technician_id);
+  const categories = parseAllowedList(filters.categories, VALID_CATEGORIES);
+  const subcategories = parseAllowedList(filters.subcategories, VALID_SUBCATEGORY_VALUES);
+  const statuses = parseAllowedList(filters.status, VALID_STATUSES);
 
-  if (filters.priority && VALID_PRIORITIES.includes(filters.priority)) {
-    result.priority = filters.priority;
+  if (types.length === 1) result.type = types[0];
+  if (types.length) result.types = types;
+  if (priorities.length === 1) result.priority = priorities[0];
+  if (priorities.length) result.priorities = priorities;
+  if (groupIds.length === 1) {
+    result.filter_group_id = groupIds[0];
+    result.group_id = groupIds[0];
   }
+  if (groupIds.length) result.filter_group_ids = groupIds;
+  if (groupIds.length && technicianIds.length === 1) result.technician_id = technicianIds[0];
+  if (groupIds.length && technicianIds.length) result.technician_ids = technicianIds;
+  if (statuses.length) result.status = statuses;
+  if (categories.length) result.categories = categories;
+  if (subcategories.length) result.subcategories = subcategories;
 
-  const groupId = filters.filter_group_id ?? filters.group_id;
-  if (groupId !== null && groupId !== undefined && groupId !== '') {
-    const parsed = parseInt(groupId, 10);
-    if (parsed) result.filter_group_id = parsed;
+  let dateFrom = isIsoDate(filters.date_from) ? filters.date_from : null;
+  let dateTo = isIsoDate(filters.date_to) ? filters.date_to : null;
+  if (dateFrom && dateTo && dateFrom > dateTo) {
+    const swap = dateFrom;
+    dateFrom = dateTo;
+    dateTo = swap;
   }
+  if (dateFrom) result.date_from = dateFrom;
+  if (dateTo) result.date_to = dateTo;
 
-  if (result.filter_group_id && filters.technician_id) {
-    const technicianId = parseInt(filters.technician_id, 10);
-    if (technicianId) result.technician_id = technicianId;
-  }
-
-  if (Array.isArray(filters.status)) {
-    const statuses = filters.status.filter((s) => VALID_STATUSES.includes(s));
-    if (statuses.length > 0) result.status = statuses;
-  } else if (filters.status && VALID_STATUSES.includes(filters.status)) {
-    result.status = [filters.status];
+  if (Array.isArray(filters.filter_order)) {
+    const order = [...new Set(filters.filter_order.filter((field) => VIEW_FILTER_FIELDS.includes(field)))];
+    if (order.length) result.filter_order = order;
   }
 
   return result;
@@ -294,11 +352,19 @@ const filtersToQuery = (filters) => {
   const normalized = normalizeViewFilters(filters);
   const query = {};
 
-  if (normalized.type) query.type = normalized.type;
-  if (normalized.priority) query.priority = normalized.priority;
-  if (normalized.filter_group_id) query.group_id = String(normalized.filter_group_id);
-  if (normalized.technician_id) query.technician_ids = String(normalized.technician_id);
+  if (normalized.types?.length) query.type = normalized.types.join(',');
+  else if (normalized.type) query.type = normalized.type;
+  if (normalized.priorities?.length) query.priority = normalized.priorities.join(',');
+  else if (normalized.priority) query.priority = normalized.priority;
+  if (normalized.filter_group_ids?.length > 1) query.group_ids = normalized.filter_group_ids.join(',');
+  else if (normalized.filter_group_id) query.group_id = String(normalized.filter_group_id);
+  if (normalized.technician_ids?.length) query.technician_ids = normalized.technician_ids.join(',');
+  else if (normalized.technician_id) query.technician_ids = String(normalized.technician_id);
   if (normalized.status?.length) query.status = normalized.status.join(',');
+  if (normalized.categories?.length) query.categories = normalized.categories.join(',');
+  if (normalized.subcategories?.length) query.subcategories = normalized.subcategories.join(',');
+  if (normalized.date_from) query.date_from = normalized.date_from;
+  if (normalized.date_to) query.date_to = normalized.date_to;
 
   return query;
 };

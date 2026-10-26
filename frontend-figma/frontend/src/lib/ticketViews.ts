@@ -2,11 +2,20 @@ import type { UserRole } from './auth';
 
 export interface TicketViewFilters {
   type?: string | null;
+  types?: string[];
   filter_group_id?: number | null;
+  filter_group_ids?: number[];
   group_id?: number | null;
   technician_id?: number | null;
+  technician_ids?: number[];
   status?: string[];
   priority?: string | null;
+  priorities?: string[];
+  categories?: string[];
+  subcategories?: string[];
+  date_from?: string | null;
+  date_to?: string | null;
+  filter_order?: string[];
 }
 
 export interface TicketView {
@@ -47,6 +56,10 @@ export interface TicketListFilters {
   technician_id: string;
   status: string;
   priority: string;
+  category: string;
+  subcategory: string;
+  date_from: string;
+  date_to: string;
 }
 
 export interface ActiveViewSelection {
@@ -64,7 +77,11 @@ export const emptyTicketListFilters = (): TicketListFilters => ({
   group_id: '',
   technician_id: '',
   status: '',
-  priority: ''
+  priority: '',
+  category: '',
+  subcategory: '',
+  date_from: '',
+  date_to: ''
 });
 
 export const SYSTEM_VIEWS: SystemViewDefinition[] = [
@@ -159,15 +176,25 @@ export function sortViewItems<T extends { itemKey: string }>(
   });
 }
 
+const joinStored = (list?: Array<string | number> | null, single?: string | number | null) => {
+  if (Array.isArray(list) && list.length > 0) return list.map(String).join(',');
+  if (single !== undefined && single !== null && String(single) !== '') return String(single);
+  return '';
+};
+
 export function filtersFromView(view: TicketView): TicketListFilters {
-  const f = view.filters;
-  const groupId = f.filter_group_id ?? f.group_id;
+  const f = view.filters || {};
+  const groupId = joinStored(f.filter_group_ids, f.filter_group_id ?? f.group_id);
   return {
-    type: f.type || '',
-    group_id: groupId ? String(groupId) : '',
-    technician_id: groupId && f.technician_id ? String(f.technician_id) : '',
+    type: joinStored(f.types, f.type),
+    group_id: groupId,
+    technician_id: groupId ? joinStored(f.technician_ids, f.technician_id) : '',
     status: f.status?.length ? f.status.join(',') : '',
-    priority: f.priority || ''
+    priority: joinStored(f.priorities, f.priority),
+    category: joinStored(f.categories),
+    subcategory: joinStored(f.subcategories),
+    date_from: f.date_from || '',
+    date_to: f.date_to || ''
   };
 }
 
@@ -236,22 +263,53 @@ export function buildTicketQueryParams(
   if (sort) params.set('sort', sort);
   if (filters.type) params.set('type', filters.type);
   if (filters.priority) params.set('priority', filters.priority);
-  if (filters.group_id) params.set('group_id', filters.group_id);
-  if (filters.group_id && filters.technician_id) params.set('technician_ids', filters.technician_id);
+  const groupIds = String(filters.group_id || '').split(',').map((part) => part.trim()).filter(Boolean);
+  if (groupIds.length === 1) params.set('group_id', groupIds[0]);
+  else if (groupIds.length > 1) params.set('group_ids', groupIds.join(','));
+  if (groupIds.length > 0 && filters.technician_id) params.set('technician_ids', filters.technician_id);
   if (filters.status) params.set('status', filters.status);
+  if (filters.category) params.set('categories', filters.category);
+  if (filters.subcategory) params.set('subcategories', filters.subcategory);
+  if (filters.date_from) params.set('date_from', filters.date_from);
+  if (filters.date_to) params.set('date_to', filters.date_to);
   if (staffColumnFilters) appendStaffColumnFilters(params, staffColumnFilters);
   return params;
 }
 
-export function viewFiltersToPayload(filters: TicketListFilters): TicketViewFilters {
+const splitFilter = (value?: string | null) => String(value || '').split(',').map((part) => part.trim()).filter(Boolean);
+
+const positiveIds = (value?: string | null) => splitFilter(value)
+  .map((part) => Number(part))
+  .filter((id) => Number.isInteger(id) && id > 0);
+
+export function viewFiltersToPayload(filters: TicketListFilters, order: string[] = []): TicketViewFilters {
+  const types = splitFilter(filters.type);
+  const statuses = splitFilter(filters.status);
+  const priorities = splitFilter(filters.priority);
+  const groupIds = positiveIds(filters.group_id);
+  const technicianIds = groupIds.length ? positiveIds(filters.technician_id) : [];
+  const categories = splitFilter(filters.category);
+  const subcategories = splitFilter(filters.subcategory);
   const payload: TicketViewFilters = {};
-  if (filters.type) payload.type = filters.type;
-  if (filters.group_id) payload.filter_group_id = Number(filters.group_id);
-  if (filters.group_id && filters.technician_id) payload.technician_id = Number(filters.technician_id);
-  if (filters.priority) payload.priority = filters.priority;
-  if (filters.status) {
-    payload.status = filters.status.split(',').filter(Boolean);
+
+  if (types.length === 1) payload.type = types[0];
+  if (types.length) payload.types = types;
+  if (groupIds.length === 1) {
+    payload.filter_group_id = groupIds[0];
+    payload.group_id = groupIds[0];
   }
+  if (groupIds.length) payload.filter_group_ids = groupIds;
+  if (technicianIds.length === 1) payload.technician_id = technicianIds[0];
+  if (technicianIds.length) payload.technician_ids = technicianIds;
+  if (statuses.length) payload.status = statuses;
+  if (priorities.length === 1) payload.priority = priorities[0];
+  if (priorities.length) payload.priorities = priorities;
+  if (categories.length) payload.categories = categories;
+  if (subcategories.length) payload.subcategories = subcategories;
+  if (filters.date_from) payload.date_from = filters.date_from;
+  if (filters.date_to) payload.date_to = filters.date_to;
+  if (order.length) payload.filter_order = order;
+
   return payload;
 }
 

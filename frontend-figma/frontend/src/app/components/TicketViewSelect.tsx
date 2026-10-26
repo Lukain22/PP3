@@ -2,21 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Box,
   Button,
-  Checkbox,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   FormControl,
   IconButton,
   InputAdornment,
   InputLabel,
   ListItemButton,
   ListItemText,
-  MenuItem,
   OutlinedInput,
   Popover,
-  Select,
   Stack,
   TextField,
   Tooltip,
@@ -34,8 +27,8 @@ import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import { toast } from 'sonner';
 import type { UserRole } from '../../lib/auth';
-import { TICKET_STATUS_OPTIONS } from '../../lib/ticketStatus';
-import { TICKET_TYPE_OPTIONS } from '../../lib/ticketTypes';
+import { rowsFromListFilters, rowsFromStored, rowsToListFilters } from '../../lib/viewFilters';
+import ViewEditorDialog, { type ViewEditorValues } from './ViewEditorDialog';
 import {
   type ActiveViewSelection,
   type SystemViewDefinition,
@@ -69,12 +62,6 @@ interface TicketViewSelectProps {
   inline?: boolean;
 }
 
-const PRIORITY_OPTIONS = [
-  { value: 'high', label: 'Alta' },
-  { value: 'medium', label: 'Media' },
-  { value: 'low', label: 'Baja' }
-];
-
 type ViewMenuItem =
   | { itemKey: string; kind: 'system'; system: SystemViewDefinition }
   | { itemKey: string; kind: 'custom'; view: TicketView };
@@ -101,36 +88,17 @@ export default function TicketViewSelect({
   const [draggingKey, setDraggingKey] = useState<string | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const didDragRef = useRef(false);
-  const [assigneeOptions, setAssigneeOptions] = useState<{ id: number; email: string }[]>([]);
-  const [form, setForm] = useState({
+  const [editorKey, setEditorKey] = useState(0);
+  const [draft, setDraft] = useState<ViewEditorValues>({
     name: '',
-    visibility: 'personal' as 'personal' | 'group',
-    share_group_id: '' as number | '',
-    type: '',
-    filter_group_id: '',
-    technician_id: '',
-    status: [] as string[],
-    priority: '',
+    visibility: 'personal',
+    share_group_id: '',
+    rows: [],
     sort_by: 'date-desc'
   });
 
   const systemViews = useMemo(() => getSystemViewsForRole(role), [role]);
   const menuOpen = Boolean(menuAnchor);
-
-  useEffect(() => {
-    if (!dialogOpen) return;
-    const groupId = Number(form.filter_group_id);
-    if (!groupId) {
-      setAssigneeOptions([]);
-      return;
-    }
-    let cancelled = false;
-    apiCall(`/tickets/assignees?group_id=${groupId}`).then((result) => {
-      if (cancelled) return;
-      setAssigneeOptions(result?.response.ok && Array.isArray(result.data) ? result.data : []);
-    });
-    return () => { cancelled = true; };
-  }, [dialogOpen, form.filter_group_id]);
 
   const loadData = async () => {
     const [viewsResult, layoutResult] = await Promise.all([
@@ -262,15 +230,12 @@ export default function TicketViewSelect({
   const openCreateDialog = () => {
     closeMenu();
     setEditingView(null);
-    setForm({
+    setEditorKey((key) => key + 1);
+    setDraft({
       name: '',
       visibility: 'personal',
       share_group_id: '',
-      type: currentFilters.type,
-      filter_group_id: currentFilters.group_id,
-      technician_id: currentFilters.technician_id,
-      status: currentFilters.status ? currentFilters.status.split(',').filter(Boolean) : [],
-      priority: currentFilters.priority,
+      rows: rowsFromListFilters(currentFilters),
       sort_by: currentSortBy
     });
     setDialogOpen(true);
@@ -279,51 +244,30 @@ export default function TicketViewSelect({
   const openEditDialog = (view: TicketView) => {
     closeMenu();
     setEditingView(view);
-    setForm({
+    setEditorKey((key) => key + 1);
+    setDraft({
       name: view.name,
       visibility: view.visibility,
       share_group_id: view.share_group_id ?? '',
-      type: view.filters.type || '',
-      filter_group_id: view.filters.filter_group_id
-        ? String(view.filters.filter_group_id)
-        : view.filters.group_id
-          ? String(view.filters.group_id)
-          : '',
-      technician_id: view.filters.technician_id ? String(view.filters.technician_id) : '',
-      status: view.filters.status || [],
-      priority: view.filters.priority || '',
+      rows: rowsFromStored(view.filters),
       sort_by: view.sort_by || 'date-desc'
     });
     setDialogOpen(true);
   };
 
-  const handleSaveView = async () => {
-    if (!form.name.trim()) {
-      toast.error('El nombre es requerido');
-      return;
-    }
-    if (form.visibility === 'group' && !form.share_group_id) {
-      toast.error('Seleccioná un grupo para compartir');
-      return;
-    }
-
-    const filters = viewFiltersToPayload({
-      type: form.type,
-      group_id: form.filter_group_id,
-      technician_id: form.technician_id,
-      status: form.status.join(','),
-      priority: form.priority
-    });
+  const handleSaveView = async (values: ViewEditorValues) => {
+    const listFilters = rowsToListFilters(values.rows);
+    const filters = viewFiltersToPayload(listFilters, values.rows.map((row) => row.field));
 
     setSaving(true);
     try {
       const payload = {
-        name: form.name.trim(),
+        name: values.name,
         scope: 'tickets',
-        visibility: form.visibility,
-        share_group_id: form.visibility === 'group' ? form.share_group_id : null,
+        visibility: values.visibility,
+        share_group_id: values.visibility === 'group' ? values.share_group_id : null,
         filters,
-        sort_by: form.sort_by
+        sort_by: values.sort_by
       };
 
       const result = await apiCall(editingView ? `/views/${editingView.id}` : '/views', {
@@ -645,70 +589,17 @@ export default function TicketViewSelect({
         )}
       </Popover>
 
-      <Dialog open={dialogOpen} onClose={() => !saving && setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{editingView ? 'Editar vista' : 'Nueva vista'}</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField label="Nombre" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} fullWidth autoFocus />
-            <TextField select label="Visibilidad" value={form.visibility} onChange={(e) => setForm({ ...form, visibility: e.target.value as 'personal' | 'group', share_group_id: e.target.value === 'personal' ? '' : form.share_group_id })} fullWidth>
-              <MenuItem value="personal">Personal</MenuItem>
-              <MenuItem value="group">Compartida con grupo</MenuItem>
-            </TextField>
-            {form.visibility === 'group' && (
-              <TextField select label="Grupo con acceso" value={form.share_group_id} onChange={(e) => setForm({ ...form, share_group_id: Number(e.target.value) })} fullWidth>
-                {groups.map((g) => <MenuItem key={g.id} value={g.id}>{g.name}</MenuItem>)}
-              </TextField>
-            )}
-            <TextField select label="Tipo (filtro)" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value, priority: e.target.value === 'requirement' ? '' : form.priority })} fullWidth>
-              <MenuItem value="">Todos</MenuItem>
-              {TICKET_TYPE_OPTIONS.map((t) => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}
-            </TextField>
-            <TextField select label="Grupo (filtro)" value={form.filter_group_id} onChange={(e) => setForm({ ...form, filter_group_id: e.target.value, technician_id: '' })} fullWidth>
-              <MenuItem value="">Todos</MenuItem>
-              {groups.map((g) => <MenuItem key={g.id} value={String(g.id)}>{g.name}</MenuItem>)}
-            </TextField>
-            <TextField
-              select
-              label="Asignado a"
-              value={form.technician_id}
-              disabled={!form.filter_group_id}
-              helperText={form.filter_group_id ? 'Solo técnicos de ese grupo' : 'Elegí un grupo para ver sus técnicos'}
-              onChange={(e) => setForm({ ...form, technician_id: e.target.value })}
-              fullWidth
-            >
-              <MenuItem value="">Todos</MenuItem>
-              {assigneeOptions.map((tech) => (
-                <MenuItem key={tech.id} value={String(tech.id)}>{tech.email}</MenuItem>
-              ))}
-            </TextField>
-            <FormControl fullWidth>
-              <InputLabel id="view-status-label">Estado (filtro)</InputLabel>
-              <Select labelId="view-status-label" multiple value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as string[] })} input={<OutlinedInput label="Estado (filtro)" />} renderValue={(selected) => selected.map((s) => TICKET_STATUS_OPTIONS.find((o) => o.value === s)?.label || s).join(', ')}>
-                {TICKET_STATUS_OPTIONS.map((s) => (
-                  <MenuItem key={s.value} value={s.value}>
-                    <Checkbox checked={form.status.includes(s.value)} />
-                    <ListItemText primary={s.label} />
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField select label="Prioridad (filtro)" value={form.priority} disabled={form.type === 'requirement'} onChange={(e) => setForm({ ...form, priority: e.target.value })} fullWidth>
-              <MenuItem value="">Todas</MenuItem>
-              {PRIORITY_OPTIONS.map((p) => <MenuItem key={p.value} value={p.value}>{p.label}</MenuItem>)}
-            </TextField>
-            <TextField select label="Orden" value={form.sort_by} onChange={(e) => setForm({ ...form, sort_by: e.target.value })} fullWidth>
-              <MenuItem value="date-desc">Más recientes</MenuItem>
-              <MenuItem value="date-asc">Más antiguos</MenuItem>
-              <MenuItem value="priority-desc">Prioridad alta primero</MenuItem>
-              <MenuItem value="title-asc">Título A-Z</MenuItem>
-            </TextField>
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogOpen(false)} disabled={saving}>Cancelar</Button>
-          <Button variant="contained" onClick={handleSaveView} disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</Button>
-        </DialogActions>
-      </Dialog>
+      <ViewEditorDialog
+        key={editorKey}
+        open={dialogOpen}
+        saving={saving}
+        title={editingView ? 'Editar vista' : 'Nueva vista'}
+        initial={draft}
+        groups={groups}
+        apiCall={apiCall}
+        onClose={() => setDialogOpen(false)}
+        onSubmit={handleSaveView}
+      />
     </>
   );
 }
