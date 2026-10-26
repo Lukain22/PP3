@@ -12,6 +12,7 @@ const { notifyTicketCreatorOnChanges, notifyOnComment } = require('../utils/noti
 const { assertTicketMutation } = require('../rbac/guard');
 const { sanitizeDescription, isEmptyDescription } = require('../utils/richText');
 const { removeScopedAttachments } = require('../utils/attachments');
+const { rejectDirectResolve } = require('../utils/resolveRules');
 const { syncSystemRoleForAccount } = require('../rbac/service');
 
 const SLA_SELECT = 't.sla_response_due, t.sla_resolution_due, t.sla_status';
@@ -171,6 +172,9 @@ exports.updateAnyTicket = (req, res) => {
   }
 
   const applyUpdate = (oldTicket) => {
+    const blocked = rejectDirectResolve(oldTicket.status, status);
+    if (blocked) return res.status(400).json({ message: blocked });
+
     const nextType = type !== undefined ? type : oldTicket.type;
 
     loadPolicies((policyErr, policies) => {

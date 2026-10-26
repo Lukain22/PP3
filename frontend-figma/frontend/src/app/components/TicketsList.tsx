@@ -21,6 +21,8 @@ import {
   InputAdornment
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
+import AssignmentLateOutlinedIcon from '@mui/icons-material/AssignmentLateOutlined';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -32,6 +34,7 @@ import { getToken, clearAuth, getRole, getEmail, can } from '../../lib/auth';
 import { isIncident } from '../../lib/sla';
 import { TICKET_STATUS_OPTIONS, getTicketStatusLabel } from '../../lib/ticketStatus';
 import InlineEditSelect from './InlineEditSelect';
+import ResolveTicketDialog from './ResolveTicketDialog';
 import TicketViewSelect from './TicketViewSelect';
 import StaffTableHeadRow, { SortableHeaderCell } from './StaffTableColumnFilters';
 import {
@@ -65,6 +68,33 @@ import {
 import { downloadTableExport, type ExportFormat } from '../../lib/tableExport';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
+
+function TicketTypeMark({ type }: { type?: string | null }) {
+  const incident = isIncident(type);
+  const label = incident ? 'Incidente' : 'Requerimiento';
+  return (
+    <Tooltip title={label}>
+      <Box
+        component="span"
+        aria-label={label}
+        sx={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          width: 16,
+          color: incident ? '#B91C1C' : '#1E3A8A'
+        }}
+      >
+        {incident ? (
+          <AssignmentLateOutlinedIcon sx={{ fontSize: 16 }} />
+        ) : (
+          <DescriptionOutlinedIcon sx={{ fontSize: 16 }} />
+        )}
+      </Box>
+    </Tooltip>
+  );
+}
 
 interface Ticket {
   id: number;
@@ -202,6 +232,7 @@ export default function TicketsList() {
   const [loading, setLoading] = useState(true);
   const [viewReady, setViewReady] = useState(customViewParam?.kind !== 'custom');
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [resolveTicket, setResolveTicket] = useState<Ticket | null>(null);
   const [search, setSearch] = useState('');
   const [selection, setSelection] = useState<ActiveViewSelection>(initialSelection);
   const [listFilters, setListFilters] = useState<TicketListFilters>(initialSelection.filters);
@@ -529,6 +560,17 @@ export default function TicketsList() {
   };
 
   const handleStatusChange = async (ticketId: number, newStatus: string) => {
+    if (newStatus === 'resolved') {
+      const current = tickets.find((ticket) => ticket.id === ticketId);
+      if (current && current.status !== 'resolved') {
+        if (!can('tickets.resolve')) {
+          toast.error('No tenés permiso para resolver este ticket');
+          return;
+        }
+        setResolveTicket(current);
+        return;
+      }
+    }
     setBusyId(ticketId);
     try {
       const result = await apiCall(patchPath(ticketId), {
@@ -864,9 +906,12 @@ export default function TicketsList() {
                   </TableCell>
                   <TableCell sx={{ color: 'text.secondary', fontWeight: 500 }}>{ticket.id}</TableCell>
                   <TableCell sx={{ minWidth: 200, maxWidth: 320 }}>
-                    <Typography variant="body2" noWrap title={ticket.title} sx={{ fontWeight: 600 }}>
-                      {ticket.title}
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+                      <TicketTypeMark type={ticket.type} />
+                      <Typography variant="body2" noWrap title={ticket.title} sx={{ fontWeight: 600, minWidth: 0 }}>
+                        {ticket.title}
+                      </Typography>
+                    </Box>
                   </TableCell>
                   <TableCell sx={{ maxWidth: 200 }}>
                     <Typography variant="caption" color="text.secondary" noWrap title={ticket.user_email || ''}>
@@ -1018,9 +1063,12 @@ export default function TicketsList() {
                 >
                   <TableCell sx={{ color: 'text.secondary', fontWeight: 500 }}>{ticket.id}</TableCell>
                   <TableCell sx={{ maxWidth: 280 }}>
-                    <Typography variant="body2" noWrap title={ticket.title} sx={{ fontWeight: 600 }}>
-                      {ticket.title}
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+                      <TicketTypeMark type={ticket.type} />
+                      <Typography variant="body2" noWrap title={ticket.title} sx={{ fontWeight: 600, minWidth: 0 }}>
+                        {ticket.title}
+                      </Typography>
+                    </Box>
                   </TableCell>
                   <TableCell sx={{ maxWidth: 360 }}>
                     <Typography variant="caption" color="text.secondary" noWrap title={truncateDescription(ticket.description, 500)}>
@@ -1055,6 +1103,16 @@ export default function TicketsList() {
         </Paper>
       )}
       </Box>
+      <ResolveTicketDialog
+        open={Boolean(resolveTicket)}
+        ticket={resolveTicket}
+        onClose={() => setResolveTicket(null)}
+        onResolved={() => {
+          const resolvedId = resolveTicket?.id;
+          setResolveTicket(null);
+          if (resolvedId) void reloadCurrentView(resolvedId);
+        }}
+      />
     </SupportShell>
   );
 }

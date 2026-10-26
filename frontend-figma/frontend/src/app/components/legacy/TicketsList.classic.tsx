@@ -26,6 +26,8 @@ import {
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { toast } from 'sonner';
 import UiModeToggle from '../UiModeToggle';
+import ResolveTicketDialog from '../ResolveTicketDialog';
+import { can } from '../../../lib/auth';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -45,6 +47,7 @@ export default function TicketsList() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [resolveTicket, setResolveTicket] = useState<Ticket | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -119,6 +122,17 @@ export default function TicketsList() {
   };
 
   const handleStatusChange = async (ticketId: number, newStatus: string) => {
+    if (newStatus === 'resolved') {
+      const current = tickets.find((ticket) => ticket.id === ticketId);
+      if (current && current.status !== 'resolved') {
+        if (!can('tickets.resolve')) {
+          toast.error('No tenés permiso para resolver este ticket');
+          return;
+        }
+        setResolveTicket(current);
+        return;
+      }
+    }
     setBusyId(ticketId);
 
     try {
@@ -312,6 +326,19 @@ export default function TicketsList() {
           </TableContainer>
         )}
       </Container>
+      <ResolveTicketDialog
+        open={Boolean(resolveTicket)}
+        ticket={resolveTicket}
+        onClose={() => setResolveTicket(null)}
+        onResolved={() => {
+          const resolvedId = resolveTicket?.id;
+          setResolveTicket(null);
+          if (!resolvedId) return;
+          setTickets((prev) => prev.map((ticket) => (
+            ticket.id === resolvedId ? { ...ticket, status: 'resolved' } : ticket
+          )));
+        }}
+      />
     </Box>
   );
 }

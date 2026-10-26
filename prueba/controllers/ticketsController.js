@@ -21,6 +21,7 @@ const {
 const { assertPermission, assertTicketMutation } = require('../rbac/guard');
 const { sanitizeDescription, isEmptyDescription } = require('../utils/richText');
 const { removeScopedAttachments } = require('../utils/attachments');
+const { rejectDirectResolve, missingResolveFields } = require('../utils/resolveRules');
 
 const SLA_SELECT = 'sla_response_due, sla_resolution_due, sla_status, sla_paused_at';
 
@@ -309,6 +310,9 @@ exports.updateTicketStatus = (req, res) => {
     assertTicketMutation(req, res, oldTicket, { status }).then((allowed) => {
       if (!allowed) return;
 
+      const blocked = rejectDirectResolve(oldStatus, status);
+      if (blocked) return res.status(400).json({ message: blocked });
+
     loadPolicies((policyErr, policies) => {
       if (policyErr) {
         return res.status(500).json({ message: 'Error al cargar políticas SLA' });
@@ -404,6 +408,9 @@ exports.updateTicket = (req, res) => {
       if (!allowed) return;
 
     const applyUpdate = () => {
+      const blocked = rejectDirectResolve(oldTicket.status, status);
+      if (blocked) return res.status(400).json({ message: blocked });
+
       loadPolicies((policyErr, policies) => {
         if (policyErr) {
           return res.status(500).json({ message: 'Error al cargar políticas SLA' });
@@ -653,6 +660,9 @@ const runSaveTicketResolution = (req, res) => {
   loadTicketWithAccess(req, id, (err, ticket) => {
     if (err) return res.status(500).json({ message: 'Error al verificar ticket' });
     if (!ticket) return res.status(404).json({ message: 'Ticket no encontrado' });
+
+    const missing = missingResolveFields(ticket);
+    if (missing) return res.status(400).json({ message: missing });
 
     const trimmed = content;
 

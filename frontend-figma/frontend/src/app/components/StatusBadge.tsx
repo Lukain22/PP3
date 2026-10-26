@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import Chip from '@mui/material/Chip';
-import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
+import AssignmentLateOutlinedIcon from '@mui/icons-material/AssignmentLateOutlined';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
@@ -60,9 +60,7 @@ function labelFor(kind: BadgeKind, value: string) {
 }
 
 function iconFor(kind: BadgeKind, value: string): ReactElement | undefined {
-  if (kind === 'type' && value === 'incident') {
-    return <FiberManualRecordIcon sx={{ fontSize: '8px !important' }} />;
-  }
+  if (kind === 'type' && value === 'incident') return <AssignmentLateOutlinedIcon />;
   if (kind === 'type' && value === 'requirement') return <DescriptionOutlinedIcon />;
   if (kind === 'priority' && value === 'high') return <KeyboardDoubleArrowUpIcon />;
   if (kind === 'priority' && value === 'medium') return <ArrowUpwardIcon />;

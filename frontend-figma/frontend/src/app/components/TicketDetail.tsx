@@ -47,6 +47,7 @@ import SearchableSelect from './SearchableSelect';
 import RichTextEditor, { type RichTextEditorHandle } from './richtext/RichTextEditor';
 import RichTextView from './richtext/RichTextView';
 import TicketSolutions from './TicketSolutions';
+import ResolveTicketDialog from './ResolveTicketDialog';
 import { appendPlainTextToHtml, appendRichHtml, isDescriptionEmpty, isRichHtml } from '../../lib/richText';
 import { uploadTicketAttachments } from '../../lib/attachments';
 
@@ -346,9 +347,9 @@ export default function TicketDetail() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [resolution, setResolution] = useState<Resolution | null>(null);
   const [resolutionText, setResolutionText] = useState('');
-  const [resolutionFileCount, setResolutionFileCount] = useState(0);
   const [resolutionSection, setResolutionSection] = useState<'resolution' | 'solutions'>('resolution');
-  const [savingResolution, setSavingResolution] = useState(false);
+  const [resolveOpen, setResolveOpen] = useState(false);
+  const [resolveInitial, setResolveInitial] = useState('');
   const [reopening, setReopening] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -356,6 +357,7 @@ export default function TicketDetail() {
   const [editFocus, setEditFocus] = useState<TicketEditField | null>(null);
   const [saving, setSaving] = useState(false);
   const editorRef = useRef<RichTextEditorHandle>(null);
+  const resolutionEditorRef = useRef<RichTextEditorHandle>(null);
   const commentEditorRef = useRef<RichTextEditorHandle>(null);
   const [commentText, setCommentText] = useState('');
   const [commentFiles, setCommentFiles] = useState<File[]>([]);
@@ -639,34 +641,37 @@ export default function TicketDetail() {
     }
   };
 
-  const handleSaveResolution = async () => {
-    const content = isDescriptionEmpty(resolutionText)
-      ? (resolutionFileCount > 0 ? '<p>Archivo adjunto</p>' : '')
-      : resolutionText;
-    if (!content) {
-      toast.error('La resolución no puede estar vacía');
-      return;
-    }
-
-    setSavingResolution(true);
-    try {
-      const result = await apiCall(`/tickets/${id}/resolution`, {
-        method: 'POST',
-        body: JSON.stringify({ content })
-      });
-      if (!result) return;
-      if (!result.response.ok) {
-        toast.error(result.data.message || 'No se pudo guardar la resolución');
+  const openResolveDialog = async () => {
+    let content = resolutionText;
+    if (id && resolutionEditorRef.current?.hasPendingImages()) {
+      const flushed = await resolutionEditorRef.current.flushPendingImages(id, { context: 'resolution' });
+      if (!flushed.ok) {
+        toast.error('No se pudieron guardar las imágenes pegadas');
         return;
       }
-      toast.success(result.data.message || 'Resolución guardada');
-      await Promise.all([loadTicket(), loadHistory(), loadResolution()]);
-      setActiveTab(2);
-    } catch {
-      toast.error('Error conectando con el backend');
-    } finally {
-      setSavingResolution(false);
+      content = flushed.html;
+      setResolutionText(content);
     }
+    setResolveInitial(content);
+    setResolveOpen(true);
+  };
+
+  const prepareResolveExtra = async () => {
+    if (!editing || !(admin || !staff)) return {};
+    if (!formData.title.trim() || isDescriptionEmpty(formData.description)) {
+      toast.error('Título y descripción son requeridos');
+      return null;
+    }
+    let description = formData.description;
+    if (id && editorRef.current?.hasPendingImages()) {
+      const flushed = await editorRef.current.flushPendingImages(id);
+      if (!flushed.ok) {
+        toast.error('No se pudieron guardar las imágenes pegadas');
+        return null;
+      }
+      description = flushed.html;
+    }
+    return { title: formData.title.trim(), description };
   };
 
   const handleReopen = async () => {
@@ -1025,7 +1030,13 @@ export default function TicketDetail() {
                       autoFocus={editFocus === 'status'}
                       value={formData.status}
                       options={statusOptions.map((s) => ({ value: s.value, label: s.label }))}
-                      onChange={(status) => setFormData({ ...formData, status })}
+                      onChange={(status) => {
+                        if (status === 'resolved' && ticket.status !== 'resolved') {
+                          void openResolveDialog();
+                          return;
+                        }
+                        setFormData({ ...formData, status });
+                      }}
                     />
                   ) : canChangeStatus ? (
                     <InlineEditSelect
@@ -1437,6 +1448,7 @@ export default function TicketDetail() {
         <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           <Box sx={{ height: 'clamp(220px, calc(100vh - 460px), 340px)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <RichTextEditor
+              ref={resolutionEditorRef}
               bounded
               value={resolutionText}
               onChange={setResolutionText}
@@ -1446,15 +1458,11 @@ export default function TicketDetail() {
             />
           </Box>
           <Box sx={{ flexShrink: 0, pt: 1.5 }}>
-            <TicketAttachments ticketId={id} scope="resolution" onCountChange={setResolutionFileCount} />
+            <TicketAttachments ticketId={id} scope="resolution" />
           </Box>
           <Box sx={{ flexShrink: 0, pt: 1.5 }}>
-            <Button
-              variant="contained"
-              disabled={savingResolution || (isDescriptionEmpty(resolutionText) && resolutionFileCount === 0)}
-              onClick={handleSaveResolution}
-            >
-              {savingResolution ? 'Guardando...' : 'Registrar resolución'}
+            <Button variant="contained" onClick={() => { void openResolveDialog(); }}>
+              Registrar resolución
             </Button>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
               Al guardar, el ticket pasará a estado resuelto con tu nombre y la fecha actual.
@@ -1579,6 +1587,46 @@ export default function TicketDetail() {
           ) : resolutionPanel)}
         </Box>
       </Box>
+      <ResolveTicketDialog
+        open={resolveOpen}
+        ticket={ticket ? {
+          id: ticket.id,
+          title: editing ? formData.title : ticket.title,
+          type: editing ? formData.type : ticket.type,
+          priority: editing ? formData.priority : ticket.priority,
+          category: (editing ? formData.category : ticket.category) || null,
+          subcategory: (editing ? formData.subcategory : ticket.subcategory) || null,
+          group_id: editing
+            ? (formData.group_id === '' ? null : formData.group_id)
+            : (ticket.group_id ?? null),
+          group_name: ticket.group_name,
+          technician_id: editing
+            ? (formData.technician_id === '' ? null : formData.technician_id)
+            : (ticket.technician_id ?? null),
+          technician_email: ticket.technician_email,
+          sla_status: ticket.sla_status
+        } : null}
+        saved={ticket ? {
+          id: ticket.id,
+          type: ticket.type,
+          priority: ticket.priority,
+          category: ticket.category || null,
+          subcategory: ticket.subcategory || null,
+          group_id: ticket.group_id ?? null,
+          technician_id: ticket.technician_id ?? null
+        } : null}
+        initialContent={resolveInitial}
+        onClose={() => setResolveOpen(false)}
+        onBeforeResolve={prepareResolveExtra}
+        onResolved={() => {
+          setResolveOpen(false);
+          setEditing(false);
+          setEditFocus(null);
+          setResolutionText('');
+          void Promise.all([loadTicket(), loadHistory(), loadResolution()]);
+          setActiveTab(2);
+        }}
+      />
       {editing && (
         <Box
           sx={{
