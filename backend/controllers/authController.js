@@ -94,36 +94,32 @@ exports.login = (req, res) => {
     return res.status(400).json({ message: 'Correo y contraseña son requeridos' });
   }
 
-  db.query(
-    'SELECT * FROM users WHERE email = ?',
-    [email.toLowerCase().trim()],
-    async (err, results) => {
-      if (err) {
-        console.error('Error en login:', err.code);
-        return res.status(500).json({ message: 'Error interno del servidor' });
-      }
-
-      if (results.length === 0) {
-        return res.status(401).json({ message: 'Correo o contraseña incorrectos' });
-      }
-
-      const user = results[0];
-
-      const validPassword = await bcrypt.compare(password, user.password_hash);
-
-      if (!validPassword) {
-        return res.status(401).json({ message: 'Correo o contraseña incorrectos' });
-      }
-
-      const token = jwt.sign(
-        { id: user.id, email: user.email, role: user.role || 'user' },
-        process.env.JWT_SECRET,
-        { expiresIn: '24h' }
-      );
-
-      res.json({ token, role: user.role || 'user' });
+  db.query('SELECT * FROM users WHERE email = ?', [email.toLowerCase().trim()], async (err, results) => {
+    if (err) {
+      console.error('Error en login:', err.code);
+      return res.status(500).json({ message: 'Error interno del servidor' });
     }
-  );
+
+    if (results.length === 0) {
+      return res.status(401).json({ message: 'Correo o contraseña incorrectos' });
+    }
+
+    const user = results[0];
+
+    const validPassword = await bcrypt.compare(password, user.password_hash);
+
+    if (!validPassword) {
+      return res.status(401).json({ message: 'Correo o contraseña incorrectos' });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role || 'user' },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({ token, role: user.role || 'user' });
+  });
 };
 
 exports.forgotPassword = async (req, res) => {
@@ -144,7 +140,8 @@ exports.forgotPassword = async (req, res) => {
   if (!isMailConfigured()) {
     console.error('forgotPassword: faltan GMAIL_USER o GMAIL_APP_PASSWORD');
     return res.status(500).json({
-      message: 'El envío de correo no está configurado. Pedile a un administrador que complete GMAIL_USER y GMAIL_APP_PASSWORD en el servidor.'
+      message:
+        'El envío de correo no está configurado. Pedile a un administrador que complete GMAIL_USER y GMAIL_APP_PASSWORD en el servidor.'
     });
   }
 
@@ -165,10 +162,11 @@ exports.forgotPassword = async (req, res) => {
       [user.id]
     );
 
-    await queryAsync(
-      'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)',
-      [user.id, tokenHash, expiresAt]
-    );
+    await queryAsync('INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)', [
+      user.id,
+      tokenHash,
+      expiresAt
+    ]);
 
     const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
     const resetUrl = `${frontendUrl}/reset-password?token=${rawToken}`;

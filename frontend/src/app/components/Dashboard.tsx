@@ -102,8 +102,26 @@ function countSlices(
     .filter((slice) => slice.value > 0);
 }
 
-const GROUP_CHART_COLORS = ['#1e3a5f', '#1d4ed8', '#047857', '#b45309', '#7c3aed', '#db2777', '#0891b2', '#0d9488'];
-const GROUP_CHART_COLORS_DARK = ['#93C5FD', '#60A5FA', '#34D399', '#FBBF24', '#A78BFA', '#F472B6', '#22D3EE', '#2DD4BF'];
+const GROUP_CHART_COLORS = [
+  '#1e3a5f',
+  '#1d4ed8',
+  '#047857',
+  '#b45309',
+  '#7c3aed',
+  '#db2777',
+  '#0891b2',
+  '#0d9488'
+];
+const GROUP_CHART_COLORS_DARK = [
+  '#93C5FD',
+  '#60A5FA',
+  '#34D399',
+  '#FBBF24',
+  '#A78BFA',
+  '#F472B6',
+  '#22D3EE',
+  '#2DD4BF'
+];
 
 function countByGroup(tickets: Ticket[], palette: string[]): ChartSlice[] {
   const counts: Record<string, number> = {};
@@ -126,7 +144,18 @@ function DistributionChart({ title, data }: { title: string; data: ChartSlice[] 
   if (data.length === 0) return null;
 
   return (
-    <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: 'background.paper', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)', p: 2.5, height: '100%' }}>
+    <Paper
+      elevation={0}
+      sx={{
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 2,
+        bgcolor: 'background.paper',
+        boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)',
+        p: 2.5,
+        height: '100%'
+      }}
+    >
       <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
         {title}
       </Typography>
@@ -234,12 +263,27 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   }, [navigate, scope, groupId]);
 
-  const stats = useMemo(() => [
-    { label: 'Total', value: tickets.length, color: dark ? '#E2E8F0' : '#1e3a5f' },
-    { label: 'Abiertos', value: tickets.filter((t) => t.status === 'open').length, color: dark ? '#93C5FD' : '#1E40AF' },
-    { label: 'En proceso', value: tickets.filter((t) => t.status === 'in-progress').length, color: dark ? '#A5B4FC' : '#3730A3' },
-    { label: 'Resueltos', value: tickets.filter((t) => t.status === 'resolved').length, color: dark ? '#6EE7B7' : '#047857' }
-  ], [tickets, dark]);
+  const stats = useMemo(
+    () => [
+      { label: 'Total', value: tickets.length, color: dark ? '#E2E8F0' : '#1e3a5f' },
+      {
+        label: 'Abiertos',
+        value: tickets.filter((t) => t.status === 'open').length,
+        color: dark ? '#93C5FD' : '#1E40AF'
+      },
+      {
+        label: 'En proceso',
+        value: tickets.filter((t) => t.status === 'in-progress').length,
+        color: dark ? '#A5B4FC' : '#3730A3'
+      },
+      {
+        label: 'Resueltos',
+        value: tickets.filter((t) => t.status === 'resolved').length,
+        color: dark ? '#6EE7B7' : '#047857'
+      }
+    ],
+    [tickets, dark]
+  );
 
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
@@ -280,7 +324,8 @@ export default function Dashboard() {
     { on_track: '#34D399', at_risk: '#FB923C', breached: '#F87171', met: '#60A5FA', paused: '#94A3B8' }
   );
 
-  const groupChartData = scope === 'all' ? countByGroup(tickets, dark ? GROUP_CHART_COLORS_DARK : GROUP_CHART_COLORS) : [];
+  const groupChartData =
+    scope === 'all' ? countByGroup(tickets, dark ? GROUP_CHART_COLORS_DARK : GROUP_CHART_COLORS) : [];
 
   const charts = [
     ...(groupChartData.length > 0 ? [{ title: 'Distribución por grupo', data: groupChartData }] : []),
@@ -290,9 +335,10 @@ export default function Dashboard() {
     { title: 'Distribución por SLA', data: slaChartData }
   ].filter((chart) => chart.data.length > 0);
 
-  const scopeLabel = scope === 'groups'
-    ? `${SCOPE_LABELS.groups}${groupId ? `: ${groups.find((group) => String(group.id) === groupId)?.name || 'Grupo'}` : ''}`
-    : SCOPE_LABELS[scope];
+  const scopeLabel =
+    scope === 'groups'
+      ? `${SCOPE_LABELS.groups}${groupId ? `: ${groups.find((group) => String(group.id) === groupId)?.name || 'Grupo'}` : ''}`
+      : SCOPE_LABELS[scope];
 
   const exportCharts = async () => {
     setExporting(true);
@@ -332,7 +378,8 @@ export default function Dashboard() {
       matchList
       headerActionGrow
       headerAction={
-          <Box sx={{
+        <Box
+          sx={{
             display: 'flex',
             alignItems: 'center',
             gap: 1.5,
@@ -340,54 +387,53 @@ export default function Dashboard() {
             minWidth: 0,
             minHeight: 40,
             '& .MuiInputBase-root': { minHeight: 30 }
-          }}>
-            {staff && (
+          }}
+        >
+          {staff && (
             <>
-            <TextField
-              select
-              size="small"
-              value={scope}
-              onChange={(e) => {
-                setScope(e.target.value as DashboardScope);
-                setGroupId('');
-              }}
-              sx={scopeSelectSx}
-              slotProps={{
-                select: { inputProps: { 'aria-label': 'Ver' } }
-              }}
-            >
-              {scopeOptions.map((option) => (
-                <MenuItem key={option} value={option}>
-                  {SCOPE_LABELS[option]}
-                </MenuItem>
-              ))}
-            </TextField>
-            {scope === 'groups' && (
               <TextField
                 select
                 size="small"
-                value={groupId}
-                onChange={(e) => setGroupId(e.target.value)}
+                value={scope}
+                onChange={(e) => {
+                  setScope(e.target.value as DashboardScope);
+                  setGroupId('');
+                }}
                 sx={scopeSelectSx}
                 slotProps={{
-                  select: { inputProps: { 'aria-label': 'Grupo' } }
+                  select: { inputProps: { 'aria-label': 'Ver' } }
                 }}
               >
-                <MenuItem value="">
-                  {isTechnician() ? 'Todos mis grupos' : 'Todos los grupos'}
-                </MenuItem>
-                {groups.map((group) => (
-                  <MenuItem key={group.id} value={String(group.id)}>
-                    {group.name}
+                {scopeOptions.map((option) => (
+                  <MenuItem key={option} value={option}>
+                    {SCOPE_LABELS[option]}
                   </MenuItem>
                 ))}
               </TextField>
-            )}
+              {scope === 'groups' && (
+                <TextField
+                  select
+                  size="small"
+                  value={groupId}
+                  onChange={(e) => setGroupId(e.target.value)}
+                  sx={scopeSelectSx}
+                  slotProps={{
+                    select: { inputProps: { 'aria-label': 'Grupo' } }
+                  }}
+                >
+                  <MenuItem value="">{isTechnician() ? 'Todos mis grupos' : 'Todos los grupos'}</MenuItem>
+                  {groups.map((group) => (
+                    <MenuItem key={group.id} value={String(group.id)}>
+                      {group.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
             </>
-            )}
-            <Box sx={{ flex: 1 }} />
-            {exportButton}
-          </Box>
+          )}
+          <Box sx={{ flex: 1 }} />
+          {exportButton}
+        </Box>
       }
     >
       <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -395,10 +441,20 @@ export default function Dashboard() {
           <Grid size={{ xs: 6, md: 3 }} key={stat.label}>
             <Card
               elevation={0}
-              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: 'background.paper', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)' }}
+              sx={{
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 2,
+                bgcolor: 'background.paper',
+                boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)'
+              }}
             >
               <CardContent sx={{ py: 2, px: 2.5 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}
+                >
                   {stat.label}
                 </Typography>
                 <Typography variant="h4" sx={{ fontWeight: 700, mt: 0.5, color: stat.color }}>
@@ -420,8 +476,20 @@ export default function Dashboard() {
         </Grid>
       )}
 
-      <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: 'background.paper', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)', overflow: 'hidden' }}>
-        <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
+      <Paper
+        elevation={0}
+        sx={{
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 2,
+          bgcolor: 'background.paper',
+          boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)',
+          overflow: 'hidden'
+        }}
+      >
+        <Box
+          sx={{ px: 2.5, py: 2, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}
+        >
           <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
             Actividad reciente
           </Typography>

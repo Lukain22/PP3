@@ -1,14 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import {
-  TextField,
-  Button,
-  Card,
-  CardContent,
-  Typography,
-  Box,
-  Container
-} from '@mui/material';
+import { TextField, Button, Card, CardContent, Typography, Box, Container } from '@mui/material';
 import { toast } from 'sonner';
 
 const API_URL = `${import.meta.env.VITE_API_URL as string}/auth`;
@@ -48,7 +40,10 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <Container maxWidth="sm" sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', px: 2 }}>
+    <Container
+      maxWidth="sm"
+      sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', px: 2 }}
+    >
       <Card sx={{ width: '100%', maxWidth: 420, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <CardContent sx={{ p: 4 }}>
           <Box
@@ -61,14 +56,15 @@ export default function ForgotPasswordPage() {
             Recuperar contraseña
           </Typography>
           <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
-            Ingresá el correo con el que te registraste. Si existe una cuenta, te enviamos un enlace que vale 30 minutos.
+            Ingresá el correo con el que te registraste. Si existe una cuenta, te enviamos un enlace que vale
+            30 minutos.
           </Typography>
 
           {sent ? (
             <>
               <Typography variant="body2" align="center" sx={{ mb: 3 }}>
-                Si el correo está registrado, vas a recibir un mail con el enlace. Revisá también la carpeta de spam.
-                El enlace vale 30 minutos.
+                Si el correo está registrado, vas a recibir un mail con el enlace. Revisá también la carpeta
+                de spam. El enlace vale 30 minutos.
               </Typography>
               <Button fullWidth variant="contained" onClick={() => navigate('/')}>
                 Volver al inicio de sesión
@@ -96,12 +92,7 @@ export default function ForgotPasswordPage() {
               >
                 {loading ? 'Enviando...' : 'Enviar enlace'}
               </Button>
-              <Button
-                fullWidth
-                variant="text"
-                onClick={() => navigate('/')}
-                sx={{ mt: 1 }}
-              >
+              <Button fullWidth variant="text" onClick={() => navigate('/')} sx={{ mt: 1 }}>
                 Volver al inicio de sesión
               </Button>
             </form>

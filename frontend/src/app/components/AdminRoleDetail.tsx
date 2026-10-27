@@ -82,7 +82,10 @@ export default function AdminRoleDetail() {
 
   const apiCall = async (path: string, options: RequestInit = {}) => {
     const token = getToken();
-    if (!token) { navigate('/'); return null; }
+    if (!token) {
+      navigate('/');
+      return null;
+    }
     const response = await fetch(`${API_URL}${path}`, {
       ...options,
       headers: {
@@ -91,7 +94,11 @@ export default function AdminRoleDetail() {
         ...options.headers
       }
     });
-    if (response.status === 401) { clearAuth(); navigate('/'); return null; }
+    if (response.status === 401) {
+      clearAuth();
+      navigate('/');
+      return null;
+    }
     const data = await response.json().catch(() => ({}));
     return { response, data };
   };
@@ -142,20 +149,25 @@ export default function AdminRoleDetail() {
   );
 
   const lockedAdmin = systemCode === 'administrador';
-  const transferChecked = selected.includes('assignments.transfer') || inherited.includes('assignments.transfer');
+  const transferChecked =
+    selected.includes('assignments.transfer') || inherited.includes('assignments.transfer');
   const viewChecked = selected.includes('tickets.view') || inherited.includes('tickets.view');
 
-  const visibleModules = modules.map((mod) => ({
-    ...mod,
-    permissions: mod.permissions.filter((item) => {
-      const text = `${item.name} ${item.description || ''} ${mod.label}`.toLowerCase();
-      return text.includes(query.trim().toLowerCase());
-    })
-  })).filter((mod) => mod.permissions.length > 0);
+  const visibleModules = modules
+    .map((mod) => ({
+      ...mod,
+      permissions: mod.permissions.filter((item) => {
+        const text = `${item.name} ${item.description || ''} ${mod.label}`.toLowerCase();
+        return text.includes(query.trim().toLowerCase());
+      })
+    }))
+    .filter((mod) => mod.permissions.length > 0);
 
   const toggle = (code: string) => {
     if (lockedAdmin || inherited.includes(code)) return;
-    setSelected((current) => current.includes(code) ? current.filter((item) => item !== code) : [...current, code]);
+    setSelected((current) =>
+      current.includes(code) ? current.filter((item) => item !== code) : [...current, code]
+    );
   };
 
   const selectAll = () => {
@@ -205,7 +217,9 @@ export default function AdminRoleDetail() {
   if (loading) {
     return (
       <SupportShell title="Rol" backTo="/admin/roles">
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+          <CircularProgress />
+        </Box>
       </SupportShell>
     );
   }
@@ -217,8 +231,13 @@ export default function AdminRoleDetail() {
       backTo="/admin/roles"
     >
       <Stack spacing={2.5}>
-        <Paper elevation={0} sx={{ p: { xs: 2, md: 3 }, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-          <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 600 }}>General</Typography>
+        <Paper
+          elevation={0}
+          sx={{ p: { xs: 2, md: 3 }, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
+        >
+          <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 600 }}>
+            General
+          </Typography>
           <Stack spacing={2} sx={{ mt: 1.5 }}>
             <TextField
               label="Nombre"
@@ -245,19 +264,38 @@ export default function AdminRoleDetail() {
               helperText="El rol hijo suma los permisos del padre. No los restringe, salvo las exclusiones de grupo."
             >
               <MenuItem value="">Sin herencia</MenuItem>
-              {roles.filter((role) => String(role.id) !== String(id)).map((role) => (
-                <MenuItem key={role.id} value={role.id}>{role.name}</MenuItem>
-              ))}
+              {roles
+                .filter((role) => String(role.id) !== String(id))
+                .map((role) => (
+                  <MenuItem key={role.id} value={role.id}>
+                    {role.name}
+                  </MenuItem>
+                ))}
             </TextField>
           </Stack>
         </Paper>
 
-        <Paper elevation={0} sx={{ p: { xs: 2, md: 3 }, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ sm: 'center' }} sx={{ mb: 2 }}>
-            <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 600 }}>Permisos</Typography>
+        <Paper
+          elevation={0}
+          sx={{ p: { xs: 2, md: 3 }, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
+        >
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1.5}
+            justifyContent="space-between"
+            alignItems={{ sm: 'center' }}
+            sx={{ mb: 2 }}
+          >
+            <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 600 }}>
+              Permisos
+            </Typography>
             <Stack direction="row" spacing={1}>
-              <Button size="small" onClick={selectAll} disabled={lockedAdmin}>Seleccionar todos</Button>
-              <Button size="small" onClick={clearAll} disabled={lockedAdmin}>Deseleccionar todos</Button>
+              <Button size="small" onClick={selectAll} disabled={lockedAdmin}>
+                Seleccionar todos
+              </Button>
+              <Button size="small" onClick={clearAll} disabled={lockedAdmin}>
+                Deseleccionar todos
+              </Button>
             </Stack>
           </Stack>
           <TextField
@@ -269,7 +307,12 @@ export default function AdminRoleDetail() {
             sx={{ mb: 2 }}
           />
           {visibleModules.map((mod) => (
-            <Accordion key={mod.key} disableGutters elevation={0} sx={{ border: '1px solid', borderColor: 'divider', mb: 1, '&:before': { display: 'none' } }}>
+            <Accordion
+              key={mod.key}
+              disableGutters
+              elevation={0}
+              sx={{ border: '1px solid', borderColor: 'divider', mb: 1, '&:before': { display: 'none' } }}
+            >
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                 <Typography sx={{ fontWeight: 600 }}>{mod.label}</Typography>
               </AccordionSummary>
@@ -295,7 +338,9 @@ export default function AdminRoleDetail() {
                               {fromParent && <Chip label="Heredado" size="small" sx={{ ml: 1 }} />}
                             </Typography>
                             {item.description && (
-                              <Typography variant="caption" color="text.secondary">{item.description}</Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {item.description}
+                              </Typography>
                             )}
                           </Box>
                         }
@@ -309,9 +354,12 @@ export default function AdminRoleDetail() {
 
           {viewChecked && (
             <Box sx={{ mt: 2, p: 2, borderRadius: 2, bgcolor: 'action.hover' }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Alcance de visibilidad</Typography>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                Alcance de visibilidad
+              </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                Un usuario base con este permiso ve los tickets de esos grupos y las vistas públicas o compartidas con ellos. Crear, comentar o editar sigue dependiendo de los demás permisos.
+                Un usuario base con este permiso ve los tickets de esos grupos y las vistas públicas o
+                compartidas con ellos. Crear, comentar o editar sigue dependiendo de los demás permisos.
               </Typography>
               {inheritedViewAll && (
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -322,10 +370,30 @@ export default function AdminRoleDetail() {
                 value={viewMode}
                 onChange={(e) => setViewMode(e.target.value as 'none' | 'all' | 'allow' | 'deny')}
               >
-                <FormControlLabel value="none" control={<Radio />} label="Sin visibilidad sobre otros grupos" disabled={lockedAdmin} />
-                <FormControlLabel value="all" control={<Radio />} label="Ver todos los tickets" disabled={lockedAdmin} />
-                <FormControlLabel value="allow" control={<Radio />} label="Ver solo los grupos elegidos" disabled={lockedAdmin} />
-                <FormControlLabel value="deny" control={<Radio />} label="Ver todos excepto los grupos elegidos" disabled={lockedAdmin} />
+                <FormControlLabel
+                  value="none"
+                  control={<Radio />}
+                  label="Sin visibilidad sobre otros grupos"
+                  disabled={lockedAdmin}
+                />
+                <FormControlLabel
+                  value="all"
+                  control={<Radio />}
+                  label="Ver todos los tickets"
+                  disabled={lockedAdmin}
+                />
+                <FormControlLabel
+                  value="allow"
+                  control={<Radio />}
+                  label="Ver solo los grupos elegidos"
+                  disabled={lockedAdmin}
+                />
+                <FormControlLabel
+                  value="deny"
+                  control={<Radio />}
+                  label="Ver todos excepto los grupos elegidos"
+                  disabled={lockedAdmin}
+                />
               </RadioGroup>
               {(viewMode === 'allow' || viewMode === 'deny') && (
                 <FormControl fullWidth sx={{ mt: 1 }}>
@@ -336,7 +404,12 @@ export default function AdminRoleDetail() {
                     value={viewGroupIds}
                     onChange={(e) => setViewGroupIds(e.target.value as number[])}
                     input={<OutlinedInput label="Grupos" />}
-                    renderValue={(selectedIds) => groups.filter((group) => selectedIds.includes(group.id)).map((group) => group.name).join(', ')}
+                    renderValue={(selectedIds) =>
+                      groups
+                        .filter((group) => selectedIds.includes(group.id))
+                        .map((group) => group.name)
+                        .join(', ')
+                    }
                   >
                     {groups.map((group) => (
                       <MenuItem key={group.id} value={group.id}>
@@ -351,20 +424,47 @@ export default function AdminRoleDetail() {
           )}
 
           {transferChecked && (
-            <Box sx={{ mt: 2, p: 2, borderRadius: 2, bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider' }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Alcance de derivación</Typography>
+            <Box
+              sx={{
+                mt: 2,
+                p: 2,
+                borderRadius: 2,
+                bgcolor: 'action.hover',
+                border: '1px solid',
+                borderColor: 'divider'
+              }}
+            >
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                Alcance de derivación
+              </Typography>
               {inheritedTransferAll && (
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  Un rol padre permite derivar a todos los grupos. Las exclusiones de este rol igual se aplican.
+                  Un rol padre permite derivar a todos los grupos. Las exclusiones de este rol igual se
+                  aplican.
                 </Typography>
               )}
               <RadioGroup
                 value={transferMode}
                 onChange={(e) => setTransferMode(e.target.value as 'all' | 'allow' | 'deny')}
               >
-                <FormControlLabel value="all" control={<Radio />} label="Derivar a todos los grupos" disabled={lockedAdmin} />
-                <FormControlLabel value="allow" control={<Radio />} label="Derivar solo a los grupos elegidos" disabled={lockedAdmin} />
-                <FormControlLabel value="deny" control={<Radio />} label="Derivar a todos excepto los grupos elegidos" disabled={lockedAdmin} />
+                <FormControlLabel
+                  value="all"
+                  control={<Radio />}
+                  label="Derivar a todos los grupos"
+                  disabled={lockedAdmin}
+                />
+                <FormControlLabel
+                  value="allow"
+                  control={<Radio />}
+                  label="Derivar solo a los grupos elegidos"
+                  disabled={lockedAdmin}
+                />
+                <FormControlLabel
+                  value="deny"
+                  control={<Radio />}
+                  label="Derivar a todos excepto los grupos elegidos"
+                  disabled={lockedAdmin}
+                />
               </RadioGroup>
               {transferMode !== 'all' && (
                 <FormControl fullWidth sx={{ mt: 1 }}>
@@ -375,7 +475,12 @@ export default function AdminRoleDetail() {
                     value={groupIds}
                     onChange={(e) => setGroupIds(e.target.value as number[])}
                     input={<OutlinedInput label="Grupos" />}
-                    renderValue={(selectedIds) => groups.filter((group) => selectedIds.includes(group.id)).map((group) => group.name).join(', ')}
+                    renderValue={(selectedIds) =>
+                      groups
+                        .filter((group) => selectedIds.includes(group.id))
+                        .map((group) => group.name)
+                        .join(', ')
+                    }
                   >
                     {groups.map((group) => (
                       <MenuItem key={group.id} value={group.id}>

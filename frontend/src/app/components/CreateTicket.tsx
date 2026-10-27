@@ -42,16 +42,42 @@ interface ChoiceOption {
 }
 
 const priorityOptions: ChoiceOption[] = [
-  { value: 'low', label: 'Baja', hint: 'Consulta general', icon: <ArrowDownwardIcon />, tone: { color: '#0369A1', background: '#F0F9FF', border: '#BAE6FD' } },
-  { value: 'medium', label: 'Media', hint: 'Afecta tu trabajo', icon: <ArrowUpwardIcon />, tone: { color: '#A16207', background: '#FFFBEB', border: '#FDE68A' } },
-  { value: 'high', label: 'Alta', hint: 'Bloqueo crítico', icon: <KeyboardDoubleArrowUpIcon />, tone: { color: '#B91C1C', background: '#FEF2F2', border: '#FECACA' } }
+  {
+    value: 'low',
+    label: 'Baja',
+    hint: 'Consulta general',
+    icon: <ArrowDownwardIcon />,
+    tone: { color: '#0369A1', background: '#F0F9FF', border: '#BAE6FD' }
+  },
+  {
+    value: 'medium',
+    label: 'Media',
+    hint: 'Afecta tu trabajo',
+    icon: <ArrowUpwardIcon />,
+    tone: { color: '#A16207', background: '#FFFBEB', border: '#FDE68A' }
+  },
+  {
+    value: 'high',
+    label: 'Alta',
+    hint: 'Bloqueo crítico',
+    icon: <KeyboardDoubleArrowUpIcon />,
+    tone: { color: '#B91C1C', background: '#FEF2F2', border: '#FECACA' }
+  }
 ];
 
-const typeOptions: ChoiceOption[] = TICKET_TYPE_OPTIONS.map((option) => (
+const typeOptions: ChoiceOption[] = TICKET_TYPE_OPTIONS.map((option) =>
   option.value === 'incident'
-    ? { ...option, icon: <AssignmentLateOutlinedIcon />, tone: { color: '#B91C1C', background: '#FEF2F2', border: '#FECACA' } }
-    : { ...option, icon: <DescriptionOutlinedIcon />, tone: { color: '#1E3A8A', background: '#F8FAFC', border: '#DBEAFE' } }
-));
+    ? {
+        ...option,
+        icon: <AssignmentLateOutlinedIcon />,
+        tone: { color: '#B91C1C', background: '#FEF2F2', border: '#FECACA' }
+      }
+    : {
+        ...option,
+        icon: <DescriptionOutlinedIcon />,
+        tone: { color: '#1E3A8A', background: '#F8FAFC', border: '#DBEAFE' }
+      }
+);
 
 function choiceButtonSx(tone: ChoiceTone) {
   return {
@@ -178,7 +204,7 @@ export default function CreateTicket() {
         },
         body: JSON.stringify(
           admin
-                ? formData.type === 'incident'
+            ? formData.type === 'incident'
               ? { ...formData, description }
               : {
                   title: formData.title,
@@ -276,12 +302,27 @@ export default function CreateTicket() {
             overflow: 'hidden'
           }}
         >
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.25, mb: 1.5, flexShrink: 0 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: 1.25,
+              mb: 1.5,
+              flexShrink: 0
+            }}
+          >
             <ChoiceGroup
               label="Tipo"
               value={formData.type}
               options={typeOptions}
-              onChange={(type) => setFormData({ ...formData, type, priority: type === 'incident' ? formData.priority : 'medium' })}
+              onChange={(type) =>
+                setFormData({
+                  ...formData,
+                  type,
+                  priority: type === 'incident' ? formData.priority : 'medium'
+                })
+              }
             />
             {admin && formData.type === 'incident' && (
               <ChoiceGroup
@@ -318,10 +359,7 @@ export default function CreateTicket() {
           </Box>
 
           <Box sx={{ mt: 1.25, flexShrink: 0 }}>
-            <TicketAttachments
-              pendingFiles={pendingFiles}
-              onPendingFilesChange={setPendingFiles}
-            />
+            <TicketAttachments pendingFiles={pendingFiles} onPendingFilesChange={setPendingFiles} />
           </Box>
         </Paper>
         <Box

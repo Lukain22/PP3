@@ -30,10 +30,7 @@ const {
   updateUserRole
 } = require('../controllers/adminController');
 
-const {
-  getSlaPolicies,
-  updateSlaPolicies
-} = require('../controllers/slaController');
+const { getSlaPolicies, updateSlaPolicies } = require('../controllers/slaController');
 const {
   getGroups,
   getGroupById,
@@ -112,17 +109,22 @@ const canManageSolutions = requirePermission('kb.create', 'kb.edit', 'kb.delete'
 router.get('/solutions/groups', canManageSolutions, listSolutionGroups);
 router.get('/solutions', canManageSolutions, listSolutions);
 router.post('/solutions', requirePermission('kb.create'), createSolution);
-router.post('/solutions/:id/attachments', requirePermission('kb.create', 'kb.edit'), (req, res, next) => {
-  solutionUpload.single('file')(req, res, (err) => {
-    if (err) {
-      if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({ message: 'Archivo demasiado grande (máx. 4 MB)' });
+router.post(
+  '/solutions/:id/attachments',
+  requirePermission('kb.create', 'kb.edit'),
+  (req, res, next) => {
+    solutionUpload.single('file')(req, res, (err) => {
+      if (err) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ message: 'Archivo demasiado grande (máx. 4 MB)' });
+        }
+        return res.status(400).json({ message: err.message || 'Error al subir la imagen' });
       }
-      return res.status(400).json({ message: err.message || 'Error al subir la imagen' });
-    }
-    next();
-  });
-}, uploadSolutionImage);
+      next();
+    });
+  },
+  uploadSolutionImage
+);
 router.get('/solutions/:id/attachments/:attachmentId/download', canManageSolutions, downloadSolutionImage);
 router.get('/solutions/:id', canManageSolutions, getSolution);
 router.patch('/solutions/:id', requirePermission('kb.edit'), updateSolution);

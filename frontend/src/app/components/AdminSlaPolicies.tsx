@@ -39,7 +39,10 @@ export default function AdminSlaPolicies() {
 
   const apiCall = async (path: string, options: RequestInit = {}) => {
     const token = getToken();
-    if (!token) { navigate('/'); return null; }
+    if (!token) {
+      navigate('/');
+      return null;
+    }
 
     const response = await fetch(`${API_URL}${path}`, {
       ...options,
@@ -50,8 +53,15 @@ export default function AdminSlaPolicies() {
       }
     });
 
-    if (response.status === 401) { clearAuth(); navigate('/'); return null; }
-    if (response.status === 403) { navigate('/dashboard'); return null; }
+    if (response.status === 401) {
+      clearAuth();
+      navigate('/');
+      return null;
+    }
+    if (response.status === 403) {
+      navigate('/dashboard');
+      return null;
+    }
 
     const data = await response.json().catch(() => ({}));
     return { response, data };
@@ -64,19 +74,21 @@ export default function AdminSlaPolicies() {
     if (result.response.ok) {
       const rows = Array.isArray(result.data) ? result.data : [];
       setPolicies(
-        PRIORITY_ORDER.map((p) => rows.find((r: SlaPolicy) => r.priority === p)).filter(Boolean) as SlaPolicy[]
+        PRIORITY_ORDER.map((p) => rows.find((r: SlaPolicy) => r.priority === p)).filter(
+          Boolean
+        ) as SlaPolicy[]
       );
     }
     setLoading(false);
   };
 
-  useEffect(() => { loadPolicies(); }, []);
+  useEffect(() => {
+    loadPolicies();
+  }, []);
 
   const handleChange = (priority: string, field: 'response_hours' | 'resolution_hours', value: string) => {
     setPolicies((prev) =>
-      prev.map((p) =>
-        p.priority === priority ? { ...p, [field]: value === '' ? '' : Number(value) } : p
-      )
+      prev.map((p) => (p.priority === priority ? { ...p, [field]: value === '' ? '' : Number(value) } : p))
     );
   };
 
@@ -126,10 +138,13 @@ export default function AdminSlaPolicies() {
       subtitle="Tiempos de respuesta y resolución por prioridad (solo incidentes). Horas corridas 24/7."
       backTo="/admin"
     >
-      <Paper elevation={0} sx={{ p: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2, mb: 2 }}>
+      <Paper
+        elevation={0}
+        sx={{ p: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2, mb: 2 }}
+      >
         <Typography variant="body2" color="text.secondary">
-          Los cambios aplican a <strong>incidentes nuevos</strong> y cuando se modifica la prioridad de uno existente.
-          El estado <strong>En espera</strong> pausa el temporizador SLA hasta reanudar el ticket.
+          Los cambios aplican a <strong>incidentes nuevos</strong> y cuando se modifica la prioridad de uno
+          existente. El estado <strong>En espera</strong> pausa el temporizador SLA hasta reanudar el ticket.
         </Typography>
       </Paper>
 
@@ -138,7 +153,10 @@ export default function AdminSlaPolicies() {
           <CircularProgress />
         </Box>
       ) : (
-        <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
+        <Paper
+          elevation={0}
+          sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}
+        >
           <TableContainer>
             <Table>
               <TableHead>
@@ -180,7 +198,11 @@ export default function AdminSlaPolicies() {
             </Table>
           </TableContainer>
 
-          <Stack direction="row" spacing={1.5} sx={{ p: 2.5, borderTop: '1px solid', borderColor: 'divider' }}>
+          <Stack
+            direction="row"
+            spacing={1.5}
+            sx={{ p: 2.5, borderTop: '1px solid', borderColor: 'divider' }}
+          >
             <Button variant="contained" startIcon={<SaveIcon />} disabled={saving} onClick={handleSave}>
               {saving ? 'Guardando...' : 'Guardar políticas'}
             </Button>

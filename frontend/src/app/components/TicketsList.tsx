@@ -184,7 +184,11 @@ function exportColumnValue(column: TicketColumnKey, ticket: Ticket) {
 }
 
 function truncateDescription(text: string, max = 80): string {
-  const plain = (text || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
+  const plain = (text || '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
   if (!plain) return '—';
   return plain.length > max ? `${plain.slice(0, max)}…` : plain;
 }
@@ -286,8 +290,8 @@ export default function TicketsList() {
   const [listMode, setListMode] = useState<ListMode>(initialSelection.listMode);
   const [sortBy, setSortBy] = useState(initialSelection.sortBy);
   const [page, setPage] = useState(1);
-  const [columnFilters, setColumnFilters] = useState<StaffColumnFilters>(
-    () => staffColumnFiltersFromView(initialSelection.filters)
+  const [columnFilters, setColumnFilters] = useState<StaffColumnFilters>(() =>
+    staffColumnFiltersFromView(initialSelection.filters)
   );
   const [columnSort, setColumnSort] = useState<TicketSort>(() => sortFromViewSort(initialSelection.sortBy));
   const [sortEngaged, setSortEngaged] = useState(false);
@@ -305,7 +309,10 @@ export default function TicketsList() {
 
   const apiCall = async (path: string, options: RequestInit = {}) => {
     const token = getToken();
-    if (!token) { navigate('/'); return null; }
+    if (!token) {
+      navigate('/');
+      return null;
+    }
 
     const response = await fetch(`${API_URL}${path}`, {
       ...options,
@@ -316,7 +323,11 @@ export default function TicketsList() {
       }
     });
 
-    if (response.status === 401) { clearAuth(); navigate('/'); return null; }
+    if (response.status === 401) {
+      clearAuth();
+      navigate('/');
+      return null;
+    }
 
     const data = await response.json().catch(() => ({}));
     return { response, data };
@@ -457,20 +468,18 @@ export default function TicketsList() {
     };
 
     loadView();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [location.search, role]);
 
-  useEffect(() => { if (viewReady) loadGroups(listMode); }, [listMode, viewReady]);
+  useEffect(() => {
+    if (viewReady) loadGroups(listMode);
+  }, [listMode, viewReady]);
 
   useEffect(() => {
     if (!viewReady) return;
-    loadTickets(
-      page,
-      listFilters,
-      listMode,
-      columnSort,
-      isStaffTable ? columnFilters : undefined
-    );
+    loadTickets(page, listFilters, listMode, columnSort, isStaffTable ? columnFilters : undefined);
   }, [page, listFilters, listMode, viewReady, columnFilters, isStaffTable, columnSort]);
 
   const applySelection = (next: ActiveViewSelection) => {
@@ -513,7 +522,10 @@ export default function TicketsList() {
     tickets.forEach((ticket) => {
       if (ticket.group_id) ids.add(Number(ticket.group_id));
     });
-    return [...ids].filter((id) => id > 0).sort((a, b) => a - b).join(',');
+    return [...ids]
+      .filter((id) => id > 0)
+      .sort((a, b) => a - b)
+      .join(',');
   }, [groupChoices, tickets]);
 
   useEffect(() => {
@@ -533,7 +545,9 @@ export default function TicketsList() {
       if (!cancelled) setGroupTechnicians(Object.fromEntries(entries));
     };
     loadTechnicians();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [isStaffTable, assigneeGroupKey]);
 
   const displayTickets = useMemo(() => {
@@ -588,9 +602,9 @@ export default function TicketsList() {
 
   const handleColumnSort = (key: TicketSortKey) => {
     setSortEngaged(true);
-    setColumnSort((current) => (
+    setColumnSort((current) =>
       sortEngaged ? toggleColumnSort(current, key) : { key, direction: key === 'date' ? 'desc' : 'asc' }
-    ));
+    );
     setPage(1);
   };
 
@@ -633,7 +647,10 @@ export default function TicketsList() {
         body: JSON.stringify({ status: newStatus })
       });
       if (!result) return;
-      if (!result.response.ok) { toast.error(result.data.message || 'No se pudo actualizar'); return; }
+      if (!result.response.ok) {
+        toast.error(result.data.message || 'No se pudo actualizar');
+        return;
+      }
       toast.success('Estado actualizado');
       await reloadCurrentView(ticketId);
     } catch {
@@ -654,13 +671,14 @@ export default function TicketsList() {
       const result = await apiCall(patchPath(ticketId), {
         method: 'PATCH',
         body: JSON.stringify(
-          keepAssignee
-            ? { group_id: newGroupId }
-            : { group_id: newGroupId, technician_id: null }
+          keepAssignee ? { group_id: newGroupId } : { group_id: newGroupId, technician_id: null }
         )
       });
       if (!result) return;
-      if (!result.response.ok) { toast.error(result.data.message || 'No se pudo actualizar'); return; }
+      if (!result.response.ok) {
+        toast.error(result.data.message || 'No se pudo actualizar');
+        return;
+      }
       toast.success('Grupo actualizado');
       await reloadCurrentView(ticketId);
     } catch {
@@ -678,7 +696,10 @@ export default function TicketsList() {
         body: JSON.stringify({ technician_id: newTechnicianId })
       });
       if (!result) return;
-      if (!result.response.ok) { toast.error(result.data.message || 'No se pudo actualizar'); return; }
+      if (!result.response.ok) {
+        toast.error(result.data.message || 'No se pudo actualizar');
+        return;
+      }
       toast.success('Técnico actualizado');
       await reloadCurrentView(ticketId);
     } catch {
@@ -694,7 +715,10 @@ export default function TicketsList() {
     try {
       const result = await apiCall(`/admin/tickets/${ticketId}`, { method: 'DELETE' });
       if (!result) return;
-      if (!result.response.ok) { toast.error(result.data.message || 'No se pudo eliminar'); return; }
+      if (!result.response.ok) {
+        toast.error(result.data.message || 'No se pudo eliminar');
+        return;
+      }
       toast.success('Ticket eliminado');
       setSelectedIds((prev) => {
         if (!prev.has(ticketId)) return prev;
@@ -726,7 +750,7 @@ export default function TicketsList() {
       if (!result?.response.ok) {
         throw new Error(result?.data?.message || 'No se pudieron obtener las solicitudes');
       }
-      const batch = Array.isArray(result.data.data) ? result.data.data as Ticket[] : [];
+      const batch = Array.isArray(result.data.data) ? (result.data.data as Ticket[]) : [];
       collected.push(...batch);
       pages = Number(result.data.totalPages) || 1;
       if (batch.length === 0) break;
@@ -774,7 +798,11 @@ export default function TicketsList() {
   const renderColumnCell = (column: TicketColumnKey, ticket: Ticket, interactive: boolean) => {
     switch (column) {
       case 'id':
-        return <TableCell key={column} sx={{ color: 'text.secondary', fontWeight: 500 }}>{ticket.id}</TableCell>;
+        return (
+          <TableCell key={column} sx={{ color: 'text.secondary', fontWeight: 500 }}>
+            {ticket.id}
+          </TableCell>
+        );
       case 'title':
         return (
           <TableCell key={column} sx={{ minWidth: 200, maxWidth: 320 }}>
@@ -794,7 +822,12 @@ export default function TicketsList() {
       case 'description':
         return (
           <TableCell key={column} sx={{ maxWidth: 360 }}>
-            <Typography variant="caption" color="text.secondary" noWrap title={truncateDescription(ticket.description, 500)}>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              noWrap
+              title={truncateDescription(ticket.description, 500)}
+            >
               {truncateDescription(ticket.description)}
             </Typography>
           </TableCell>
@@ -825,7 +858,9 @@ export default function TicketsList() {
                   ? [{ id: ticket.group_id, name: ticket.group_name || 'Grupo actual' }, ...groupChoices]
                   : groupChoices
                 ).map((group) => (
-                  <MenuItem key={group.id} value={group.id}>{group.name}</MenuItem>
+                  <MenuItem key={group.id} value={group.id}>
+                    {group.name}
+                  </MenuItem>
                 ))}
               </InlineEditSelect>
             ) : (
@@ -848,14 +883,20 @@ export default function TicketsList() {
                       {ticket.technician_email}
                     </Typography>
                   ) : (
-                    <Typography variant="caption" fontWeight={700}>Sin asignar</Typography>
+                    <Typography variant="caption" fontWeight={700}>
+                      Sin asignar
+                    </Typography>
                   )
                 }
                 onChange={(val) => handleTechnicianChange(ticket.id, val ? Number(val) : null)}
               >
-                <MenuItem value=""><em>Sin asignar</em></MenuItem>
+                <MenuItem value="">
+                  <em>Sin asignar</em>
+                </MenuItem>
                 {(groupTechnicians[Number(ticket.group_id) || 0] || []).map((tech) => (
-                  <MenuItem key={tech.id} value={tech.id}>{tech.email}</MenuItem>
+                  <MenuItem key={tech.id} value={tech.id}>
+                    {tech.email}
+                  </MenuItem>
                 ))}
               </InlineEditSelect>
             ) : (
@@ -882,7 +923,9 @@ export default function TicketsList() {
                 onChange={(val) => handleStatusChange(ticket.id, val)}
               >
                 {TICKET_STATUS_OPTIONS.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
                 ))}
               </InlineEditSelect>
             ) : (
@@ -896,7 +939,9 @@ export default function TicketsList() {
             {isIncident(ticket.type) ? (
               <StatusBadge kind="priority" value={ticket.priority || ''} />
             ) : (
-              <Typography variant="caption" color="text.disabled">—</Typography>
+              <Typography variant="caption" color="text.disabled">
+                —
+              </Typography>
             )}
           </TableCell>
         );
@@ -911,13 +956,21 @@ export default function TicketsList() {
       case 'subcategory':
         return (
           <TableCell key={column}>
-            <Typography variant="caption" color={ticket.subcategory ? 'text.secondary' : 'text.disabled'} sx={{ lineHeight: 1.3 }}>
+            <Typography
+              variant="caption"
+              color={ticket.subcategory ? 'text.secondary' : 'text.disabled'}
+              sx={{ lineHeight: 1.3 }}
+            >
               {ticket.subcategory || '—'}
             </Typography>
           </TableCell>
         );
       case 'created':
-        return <TableCell key={column} sx={{ whiteSpace: 'nowrap' }}>{formatDate(ticket.created_at)}</TableCell>;
+        return (
+          <TableCell key={column} sx={{ whiteSpace: 'nowrap' }}>
+            {formatDate(ticket.created_at)}
+          </TableCell>
+        );
       case 'due':
         return (
           <TableCell key={column} sx={{ whiteSpace: 'nowrap' }}>
@@ -927,8 +980,12 @@ export default function TicketsList() {
       case 'sla_status':
         return (
           <TableCell key={column}>
-            {ticket.sla_status ? <StatusBadge kind="sla" value={ticket.sla_status} /> : (
-              <Typography variant="caption" color="text.disabled">—</Typography>
+            {ticket.sla_status ? (
+              <StatusBadge kind="sla" value={ticket.sla_status} />
+            ) : (
+              <Typography variant="caption" color="text.disabled">
+                —
+              </Typography>
             )}
           </TableCell>
         );
@@ -942,9 +999,7 @@ export default function TicketsList() {
     selection.kind === 'custom' ||
     listFilters.type ||
     listFilters.priority ||
-    (isStaffTable
-      ? hasActiveStaffColumnFilters(columnFilters)
-      : listFilters.group_id || listFilters.status);
+    (isStaffTable ? hasActiveStaffColumnFilters(columnFilters) : listFilters.group_id || listFilters.status);
 
   const emptyMessage = isStaffTable
     ? hasActiveFilters
@@ -971,14 +1026,16 @@ export default function TicketsList() {
       title="Solicitudes"
       headerActionGrow
       headerAction={
-        <Box sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1.5,
-          width: '100%',
-          minWidth: 0,
-          '& .MuiInputBase-root': { minHeight: 30 }
-        }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            width: '100%',
+            minWidth: 0,
+            '& .MuiInputBase-root': { minHeight: 30 }
+          }}
+        >
           <TicketViewSelect
             inline
             role={role}
@@ -1039,177 +1096,199 @@ export default function TicketsList() {
       }
     >
       <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-      {isStaffTable && selectedIds.size > 0 && (
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 0.75, px: 0.5, flexShrink: 0 }}>
-          <Typography variant="body2" color="text.secondary">
-            {selectedIds.size} seleccionado{selectedIds.size === 1 ? '' : 's'}
-          </Typography>
-          <Button size="small" onClick={() => setSelectedIds(new Set())}>
-            Quitar selección
-          </Button>
-        </Box>
-      )}
+        {isStaffTable && selectedIds.size > 0 && (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 2,
+              mb: 0.75,
+              px: 0.5,
+              flexShrink: 0
+            }}
+          >
+            <Typography variant="body2" color="text.secondary">
+              {selectedIds.size} seleccionado{selectedIds.size === 1 ? '' : 's'}
+            </Typography>
+            <Button size="small" onClick={() => setSelectedIds(new Set())}>
+              Quitar selección
+            </Button>
+          </Box>
+        )}
 
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
-      ) : isStaffTable ? (
-        <Paper
-          elevation={0}
-          sx={{
-            flex: 1,
-            minHeight: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            border: '1px solid',
-            borderColor: 'divider',
-            borderRadius: 2,
-            bgcolor: 'background.paper',
-            boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)',
-            overflow: 'hidden'
-          }}
-        >
-          <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-          <Table stickyHeader size="small" sx={{ minWidth: Math.max(480, 160 + visibleColumns.length * 150), ...denseTableSx }}>
-            <TableHead>
-              <StaffTableHeadRow
-                columns={visibleColumns}
-                canEditAll={canEditAll}
-                sort={columnSort}
-                highlightSort={sortEngaged}
-                onSort={handleColumnSort}
-                filters={columnFilters}
-                filterRowOpen={filterRowOpen}
-                focusColumn={focusColumn}
-                onFilterToggle={handleFilterToggle}
-                onCloseFilterRow={() => setFilterRowOpen(false)}
-                onApply={applyColumnFilters}
-                onClear={clearColumnFilters}
-                allSelected={allVisibleSelected}
-                indeterminate={someVisibleSelected}
-                onToggleAll={toggleVisibleSelection}
-                visibleCount={visibleIds.length}
-              />
-            </TableHead>
-            <TableBody>
-              {displayTickets.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={staffTableColSpan} sx={{ py: 4, textAlign: 'center' }}>
-                    <Typography color="text.secondary">{emptyMessage}</Typography>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                displayTickets.map((ticket) => (
-                <TableRow
-                  key={ticket.id}
-                  hover
-                  selected={selectedIds.has(ticket.id)}
-                  sx={{ '&:last-child td': { border: 0 }, cursor: 'pointer' }}
-                  onClick={() => navigate(`/tickets/${ticket.id}`)}
-                >
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Checkbox
-                      size="small"
-                      checked={selectedIds.has(ticket.id)}
-                      onChange={() => toggleRowSelection(ticket.id)}
-                      inputProps={{ 'aria-label': `Seleccionar ticket ${ticket.id}` }}
-                      sx={{ p: 0.5 }}
-                    />
-                  </TableCell>
-                  {visibleColumns.map((column) => renderColumnCell(column, ticket, listMode !== 'watch'))}
-                  {canEditAll && can('tickets.delete') && (
-                    <TableCell align="center" onClick={(e) => e.stopPropagation()}>
-                      <Tooltip title="Eliminar">
-                        <span>
-                          <IconButton
-                            color="error"
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+            <CircularProgress />
+          </Box>
+        ) : isStaffTable ? (
+          <Paper
+            elevation={0}
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 2,
+              bgcolor: 'background.paper',
+              boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)',
+              overflow: 'hidden'
+            }}
+          >
+            <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+              <Table
+                stickyHeader
+                size="small"
+                sx={{ minWidth: Math.max(480, 160 + visibleColumns.length * 150), ...denseTableSx }}
+              >
+                <TableHead>
+                  <StaffTableHeadRow
+                    columns={visibleColumns}
+                    canEditAll={canEditAll}
+                    sort={columnSort}
+                    highlightSort={sortEngaged}
+                    onSort={handleColumnSort}
+                    filters={columnFilters}
+                    filterRowOpen={filterRowOpen}
+                    focusColumn={focusColumn}
+                    onFilterToggle={handleFilterToggle}
+                    onCloseFilterRow={() => setFilterRowOpen(false)}
+                    onApply={applyColumnFilters}
+                    onClear={clearColumnFilters}
+                    allSelected={allVisibleSelected}
+                    indeterminate={someVisibleSelected}
+                    onToggleAll={toggleVisibleSelection}
+                    visibleCount={visibleIds.length}
+                  />
+                </TableHead>
+                <TableBody>
+                  {displayTickets.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={staffTableColSpan} sx={{ py: 4, textAlign: 'center' }}>
+                        <Typography color="text.secondary">{emptyMessage}</Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    displayTickets.map((ticket) => (
+                      <TableRow
+                        key={ticket.id}
+                        hover
+                        selected={selectedIds.has(ticket.id)}
+                        sx={{ '&:last-child td': { border: 0 }, cursor: 'pointer' }}
+                        onClick={() => navigate(`/tickets/${ticket.id}`)}
+                      >
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
                             size="small"
-                            disabled={busyId === ticket.id}
-                            onClick={() => handleDelete(ticket.id, ticket.title)}
-                          >
-                            <DeleteOutlineIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    </TableCell>
+                            checked={selectedIds.has(ticket.id)}
+                            onChange={() => toggleRowSelection(ticket.id)}
+                            inputProps={{ 'aria-label': `Seleccionar ticket ${ticket.id}` }}
+                            sx={{ p: 0.5 }}
+                          />
+                        </TableCell>
+                        {visibleColumns.map((column) =>
+                          renderColumnCell(column, ticket, listMode !== 'watch')
+                        )}
+                        {canEditAll && can('tickets.delete') && (
+                          <TableCell align="center" onClick={(e) => e.stopPropagation()}>
+                            <Tooltip title="Eliminar">
+                              <span>
+                                <IconButton
+                                  color="error"
+                                  size="small"
+                                  disabled={busyId === ticket.id}
+                                  onClick={() => handleDelete(ticket.id, ticket.title)}
+                                >
+                                  <DeleteOutlineIcon fontSize="small" />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))
                   )}
-                </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-          </TableContainer>
-          <TicketsTableFooter
-            total={total}
-            page={page}
-            totalPages={totalPages}
-            onPageChange={handlePageChange}
-          />
-        </Paper>
-      ) : displayTickets.length === 0 ? (
-        <Paper sx={{ p: 5, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
-          <Typography color="text.secondary">{emptyMessage}</Typography>
-        </Paper>
-      ) : (
-        <Paper
-          elevation={0}
-          sx={{
-            flex: 1,
-            minHeight: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            border: '1px solid',
-            borderColor: 'divider',
-            borderRadius: 2,
-            bgcolor: 'background.paper',
-            boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)',
-            overflow: 'hidden'
-          }}
-        >
-          <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-          <Table stickyHeader size="small" sx={{ minWidth: Math.max(480, visibleColumns.length * 150), ...denseTableSx }}>
-            <TableHead>
-              <TableRow>
-                {visibleColumns.map((column) => {
-                  const meta = ticketColumnMeta(column);
-                  return (
-                    <SortableHeaderCell
-                      key={column}
-                      label={meta.label}
-                      sortKey={meta.sortKey}
-                      sort={columnSort}
-                      highlightSort={sortEngaged}
-                      onSort={handleColumnSort}
-                      minWidth={meta.minWidth}
-                      width={column === 'id' ? 72 : undefined}
-                    />
-                  );
-                })}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {displayTickets.map((ticket) => (
-                <TableRow
-                  key={ticket.id}
-                  hover
-                  sx={{ '&:last-child td': { border: 0 }, cursor: 'pointer' }}
-                  onClick={() => navigate(`/tickets/${ticket.id}`)}
-                >
-                  {visibleColumns.map((column) => renderColumnCell(column, ticket, false))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          </TableContainer>
-          <TicketsTableFooter
-            total={total}
-            page={page}
-            totalPages={totalPages}
-            onPageChange={handlePageChange}
-          />
-        </Paper>
-      )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            <TicketsTableFooter
+              total={total}
+              page={page}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+            />
+          </Paper>
+        ) : displayTickets.length === 0 ? (
+          <Paper
+            sx={{ p: 5, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}
+          >
+            <Typography color="text.secondary">{emptyMessage}</Typography>
+          </Paper>
+        ) : (
+          <Paper
+            elevation={0}
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 2,
+              bgcolor: 'background.paper',
+              boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)',
+              overflow: 'hidden'
+            }}
+          >
+            <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+              <Table
+                stickyHeader
+                size="small"
+                sx={{ minWidth: Math.max(480, visibleColumns.length * 150), ...denseTableSx }}
+              >
+                <TableHead>
+                  <TableRow>
+                    {visibleColumns.map((column) => {
+                      const meta = ticketColumnMeta(column);
+                      return (
+                        <SortableHeaderCell
+                          key={column}
+                          label={meta.label}
+                          sortKey={meta.sortKey}
+                          sort={columnSort}
+                          highlightSort={sortEngaged}
+                          onSort={handleColumnSort}
+                          minWidth={meta.minWidth}
+                          width={column === 'id' ? 72 : undefined}
+                        />
+                      );
+                    })}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {displayTickets.map((ticket) => (
+                    <TableRow
+                      key={ticket.id}
+                      hover
+                      sx={{ '&:last-child td': { border: 0 }, cursor: 'pointer' }}
+                      onClick={() => navigate(`/tickets/${ticket.id}`)}
+                    >
+                      {visibleColumns.map((column) => renderColumnCell(column, ticket, false))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            <TicketsTableFooter
+              total={total}
+              page={page}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+            />
+          </Paper>
+        )}
       </Box>
       <ResolveTicketDialog
         open={Boolean(resolveTicket)}

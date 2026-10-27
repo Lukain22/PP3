@@ -2,7 +2,7 @@
 
 :root {
   --font-size: 16px;
-  --font-sans: "Inter", "Segoe UI", sans-serif;
+  --font-sans: 'Inter', 'Segoe UI', sans-serif;
   --background: #ffffff;
   --foreground: oklch(0.145 0 0);
   --card: #ffffff;
@@ -110,7 +110,7 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --font-sans: "Inter", "Segoe UI", sans-serif;
+  --font-sans: 'Inter', 'Segoe UI', sans-serif;
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);

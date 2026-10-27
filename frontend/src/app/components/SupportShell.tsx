@@ -75,16 +75,18 @@ export default function SupportShell({
   });
 
   return (
-    <Box sx={{
-      minHeight: '100vh',
-      bgcolor: 'background.default',
-      ...(compact && {
-        height: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden'
-      })
-    }}>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        bgcolor: 'background.default',
+        ...(compact && {
+          height: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        })
+      }}
+    >
       <AppBar
         position="static"
         elevation={0}
@@ -133,7 +135,12 @@ export default function SupportShell({
 
           {can('admin.access') && (
             <Tooltip title={t('nav.admin')}>
-              <IconButton onClick={() => navigate('/admin')} size="small" color="primary" sx={{ flexShrink: 0 }}>
+              <IconButton
+                onClick={() => navigate('/admin')}
+                size="small"
+                color="primary"
+                sx={{ flexShrink: 0 }}
+              >
                 <AdminPanelSettingsIcon fontSize="small" />
               </IconButton>
             </Tooltip>
@@ -158,7 +165,12 @@ export default function SupportShell({
                 color="primary"
                 size="small"
                 onClick={() => navigate('/create-ticket')}
-                sx={{ display: { xs: 'inline-flex', sm: 'none' }, bgcolor: 'primary.main', color: '#fff', '&:hover': { bgcolor: 'primary.dark' } }}
+                sx={{
+                  display: { xs: 'inline-flex', sm: 'none' },
+                  bgcolor: 'primary.main',
+                  color: '#fff',
+                  '&:hover': { bgcolor: 'primary.dark' }
+                }}
               >
                 <AddIcon fontSize="small" />
               </IconButton>
@@ -175,7 +187,12 @@ export default function SupportShell({
         sx={{
           py: compact || matchList ? 1.25 : 3,
           ...(compactTitle && !compact && !matchList ? { pt: 1.25 } : {}),
-          px: maxWidth === false ? (compact || matchList ? { xs: 1.5, sm: 2 } : { xs: 2, sm: 3, md: 4, xl: 5 }) : undefined,
+          px:
+            maxWidth === false
+              ? compact || matchList
+                ? { xs: 1.5, sm: 2 }
+                : { xs: 2, sm: 3, md: 4, xl: 5 }
+              : undefined,
           width: '100%',
           ...(compact && {
             flex: 1,
@@ -208,7 +225,15 @@ export default function SupportShell({
           </Breadcrumbs>
         )}
 
-        <Box sx={{ mb: compact || compactTitle ? 1 : 2.5, display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
+        <Box
+          sx={{
+            mb: compact || compactTitle ? 1 : 2.5,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            flexShrink: 0
+          }}
+        >
           {backTo && (
             <Tooltip title={t('nav.back')}>
               <IconButton
@@ -257,9 +282,7 @@ export default function SupportShell({
                 {title}
               </Typography>
               {headerActionGrow ? (
-                <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
-                  {headerAction}
-                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>{headerAction}</Box>
               ) : (
                 headerAction
               )}

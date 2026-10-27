@@ -87,7 +87,10 @@ export default function TechnicianPanel() {
 
   const apiCall = async (path: string, options: RequestInit = {}) => {
     const token = getToken();
-    if (!token) { navigate('/'); return null; }
+    if (!token) {
+      navigate('/');
+      return null;
+    }
 
     const response = await fetch(`${API_URL}${path}`, {
       ...options,
@@ -98,8 +101,15 @@ export default function TechnicianPanel() {
       }
     });
 
-    if (response.status === 401) { clearAuth(); navigate('/'); return null; }
-    if (response.status === 403) { navigate('/dashboard'); return null; }
+    if (response.status === 401) {
+      clearAuth();
+      navigate('/');
+      return null;
+    }
+    if (response.status === 403) {
+      navigate('/dashboard');
+      return null;
+    }
 
     const data = await response.json().catch(() => ({}));
     return { response, data };
@@ -127,7 +137,9 @@ export default function TechnicianPanel() {
     setLoading(false);
   };
 
-  useEffect(() => { loadData(page, listFilters); }, [page, listFilters]);
+  useEffect(() => {
+    loadData(page, listFilters);
+  }, [page, listFilters]);
 
   const handleApplyView = (view: TicketView | null, filters: TicketListFilters) => {
     setActiveViewId(view?.id ?? null);
@@ -157,7 +169,11 @@ export default function TechnicianPanel() {
     loadTechnicians();
   }, [groups]);
 
-  const handleTechnicianChange = async (ticketId: number, newTechnicianId: number | null, groupId: number | null) => {
+  const handleTechnicianChange = async (
+    ticketId: number,
+    newTechnicianId: number | null,
+    groupId: number | null
+  ) => {
     setBusyId(ticketId);
     try {
       const result = await apiCall(`/tickets/${ticketId}`, {
@@ -165,7 +181,10 @@ export default function TechnicianPanel() {
         body: JSON.stringify({ technician_id: newTechnicianId })
       });
       if (!result) return;
-      if (!result.response.ok) { toast.error(result.data.message || 'No se pudo actualizar'); return; }
+      if (!result.response.ok) {
+        toast.error(result.data.message || 'No se pudo actualizar');
+        return;
+      }
       const technicianEmail = newTechnicianId
         ? (groupTechnicians[groupId || 0] || []).find((tech) => tech.id === newTechnicianId)?.email || ''
         : '';
@@ -209,7 +228,18 @@ export default function TechnicianPanel() {
           : `${total} ticket${total === 1 ? '' : 's'} en tus grupos${groups.length ? ` · ${groups.map((g) => g.name).join(', ')}` : ''}`
       }
     >
-      <Paper elevation={0} sx={{ p: 2, mb: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: 'background.paper', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)' }}>
+      <Paper
+        elevation={0}
+        sx={{
+          p: 2,
+          mb: 2.5,
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 2,
+          bgcolor: 'background.paper',
+          boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)'
+        }}
+      >
         <TicketViewsBar
           scope="technician"
           groups={groups}
@@ -226,7 +256,12 @@ export default function TechnicianPanel() {
             size="small"
             label="Tipo"
             value={listFilters.type}
-            onChange={(e) => updateFilters({ type: e.target.value, priority: e.target.value === 'requirement' ? '' : listFilters.priority })}
+            onChange={(e) =>
+              updateFilters({
+                type: e.target.value,
+                priority: e.target.value === 'requirement' ? '' : listFilters.priority
+              })
+            }
             sx={{ minWidth: 150 }}
           >
             <MenuItem value="">Todos</MenuItem>
@@ -243,7 +278,9 @@ export default function TechnicianPanel() {
           >
             <MenuItem value="">Todos mis grupos</MenuItem>
             {groups.map((g) => (
-              <MenuItem key={g.id} value={String(g.id)}>{g.name}</MenuItem>
+              <MenuItem key={g.id} value={String(g.id)}>
+                {g.name}
+              </MenuItem>
             ))}
           </TextField>
           <TextField
@@ -283,9 +320,17 @@ export default function TechnicianPanel() {
               label={f.label}
               size="small"
               onClick={() => updateFilters({ status: f.value })}
-              color={!listFilters.status.includes(',') && listFilters.status === f.value ? 'primary' : 'default'}
-              variant={!listFilters.status.includes(',') && listFilters.status === f.value ? 'filled' : 'outlined'}
-              sx={{ height: 24, borderRadius: '999px', '& .MuiChip-label': { px: 1.25, fontSize: 12, fontWeight: 600 } }}
+              color={
+                !listFilters.status.includes(',') && listFilters.status === f.value ? 'primary' : 'default'
+              }
+              variant={
+                !listFilters.status.includes(',') && listFilters.status === f.value ? 'filled' : 'outlined'
+              }
+              sx={{
+                height: 24,
+                borderRadius: '999px',
+                '& .MuiChip-label': { px: 1.25, fontSize: 12, fontWeight: 600 }
+              }}
             />
           ))}
         </Stack>
@@ -296,11 +341,18 @@ export default function TechnicianPanel() {
           <CircularProgress />
         </Box>
       ) : displayTickets.length === 0 ? (
-        <Paper sx={{ p: 5, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
+        <Paper
+          sx={{ p: 5, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}
+        >
           <Typography color="text.secondary">
             {groups.length === 0
               ? 'No tenés grupos asignados. Contactá a un administrador.'
-              : search || activeViewId || listFilters.type || listFilters.group_id || listFilters.status || listFilters.priority
+              : search ||
+                  activeViewId ||
+                  listFilters.type ||
+                  listFilters.group_id ||
+                  listFilters.status ||
+                  listFilters.priority
                 ? 'Sin resultados para esa búsqueda.'
                 : 'No hay tickets en tus grupos.'}
           </Typography>
@@ -309,7 +361,14 @@ export default function TechnicianPanel() {
         <TableContainer
           component={Paper}
           elevation={0}
-          sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: 'background.paper', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)', overflowX: 'auto' }}
+          sx={{
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 2,
+            bgcolor: 'background.paper',
+            boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)',
+            overflowX: 'auto'
+          }}
         >
           <Table sx={{ minWidth: 1280 }}>
             <TableHead>
@@ -336,7 +395,9 @@ export default function TechnicianPanel() {
                 >
                   <TableCell sx={{ color: 'text.secondary', fontWeight: 500 }}>{ticket.id}</TableCell>
                   <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{ticket.title}</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {ticket.title}
+                    </Typography>
                   </TableCell>
                   <TableCell>
                     <StatusBadge kind="type" value={ticket.type} />
@@ -350,7 +411,11 @@ export default function TechnicianPanel() {
                       disabled={busyId === ticket.id || !ticket.group_id}
                       display={
                         ticket.technician_email ? (
-                          <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ wordBreak: 'break-all' }}
+                          >
                             {ticket.technician_email}
                           </Typography>
                         ) : (
@@ -363,9 +428,13 @@ export default function TechnicianPanel() {
                         handleTechnicianChange(ticket.id, val ? Number(val) : null, ticket.group_id)
                       }
                     >
-                      <MenuItem value=""><em>Sin asignar</em></MenuItem>
+                      <MenuItem value="">
+                        <em>Sin asignar</em>
+                      </MenuItem>
                       {(groupTechnicians[ticket.group_id || 0] || []).map((tech) => (
-                        <MenuItem key={tech.id} value={tech.id}>{tech.email}</MenuItem>
+                        <MenuItem key={tech.id} value={tech.id}>
+                          {tech.email}
+                        </MenuItem>
                       ))}
                     </InlineEditSelect>
                   </TableCell>
@@ -381,14 +450,18 @@ export default function TechnicianPanel() {
                     {isIncident(ticket.type) ? (
                       <StatusBadge kind="priority" value={ticket.priority} />
                     ) : (
-                      <Typography variant="caption" color="text.disabled">—</Typography>
+                      <Typography variant="caption" color="text.disabled">
+                        —
+                      </Typography>
                     )}
                   </TableCell>
                   <TableCell>
                     {isIncident(ticket.type) && ticket.sla_status ? (
                       <StatusBadge kind="sla" value={ticket.sla_status} />
                     ) : (
-                      <Typography variant="caption" color="text.disabled">—</Typography>
+                      <Typography variant="caption" color="text.disabled">
+                        —
+                      </Typography>
                     )}
                   </TableCell>
                   <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(ticket.created_at)}</TableCell>
@@ -404,7 +477,10 @@ export default function TechnicianPanel() {
           <Pagination
             count={totalPages}
             page={page}
-            onChange={(_, val) => { setPage(val); setSearch(''); }}
+            onChange={(_, val) => {
+              setPage(val);
+              setSearch('');
+            }}
             color="primary"
             shape="rounded"
             showFirstButton

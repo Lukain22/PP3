@@ -31,17 +31,20 @@ import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import { toast } from 'sonner';
 import StatusBadge from './StatusBadge';
 import SupportShell from './SupportShell';
-import { getToken, clearAuth, isAdmin, isTechnician, getEmail, getHomePath, getUserId, can, canActOnOthers } from '../../lib/auth';
+import {
+  getToken,
+  clearAuth,
+  isAdmin,
+  isTechnician,
+  getEmail,
+  getHomePath,
+  getUserId,
+  can,
+  canActOnOthers
+} from '../../lib/auth';
 import { CATEGORIES, SUBCATEGORIES, type Category } from '../../lib/categories';
-import {
-  TICKET_TYPE_OPTIONS,
-  HISTORY_FIELD_LABELS,
-  formatHistoryValue
-} from '../../lib/ticketTypes';
-import {
-  formatSlaDeadline,
-  isIncident
-} from '../../lib/sla';
+import { TICKET_TYPE_OPTIONS, HISTORY_FIELD_LABELS, formatHistoryValue } from '../../lib/ticketTypes';
+import { formatSlaDeadline, isIncident } from '../../lib/sla';
 import { TICKET_STATUS_OPTIONS } from '../../lib/ticketStatus';
 import TicketAttachments from './TicketAttachments';
 import InlineEditSelect from './InlineEditSelect';
@@ -202,10 +205,19 @@ function HistoryGroupCard({
           '&:hover': { bgcolor: 'action.hover' }
         }}
       >
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: expanded ? 0.75 : 0 }}>
-          <Box component="span" sx={{ fontWeight: 700 }}>Por:</Box> {group.email}
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ display: 'block', mb: expanded ? 0.75 : 0 }}
+        >
+          <Box component="span" sx={{ fontWeight: 700 }}>
+            Por:
+          </Box>{' '}
+          {group.email}
           {' · '}
-          <Box component="span" sx={{ fontWeight: 700 }}>{formatDateTime(group.created_at)}</Box>
+          <Box component="span" sx={{ fontWeight: 700 }}>
+            {formatDateTime(group.created_at)}
+          </Box>
         </Typography>
       </Box>
       {expanded && (
@@ -274,9 +286,14 @@ function CommentCard({
             color="text.secondary"
             sx={{ display: 'block', mb: showContent ? 0.75 : 0 }}
           >
-            <Box component="span" sx={{ fontWeight: 700 }}>Por:</Box> {comment.email}
+            <Box component="span" sx={{ fontWeight: 700 }}>
+              Por:
+            </Box>{' '}
+            {comment.email}
             {' · '}
-            <Box component="span" sx={{ fontWeight: 700 }}>{formatDateTime(comment.created_at)}</Box>
+            <Box component="span" sx={{ fontWeight: 700 }}>
+              {formatDateTime(comment.created_at)}
+            </Box>
           </Typography>
         </Box>
         {admin && !isEditing && showContent && (
@@ -294,8 +311,8 @@ function CommentCard({
           </Stack>
         )}
       </Box>
-      {showContent && (
-        isEditing ? (
+      {showContent &&
+        (isEditing ? (
           <Stack spacing={1}>
             <RichTextEditor
               value={editingText}
@@ -307,7 +324,12 @@ function CommentCard({
             />
             <TicketAttachments ticketId={ticketId} scope="comment" commentId={comment.id} />
             <Stack direction="row" spacing={1}>
-              <Button size="small" variant="contained" disabled={busy || isDescriptionEmpty(editingText)} onClick={onSaveEdit}>
+              <Button
+                size="small"
+                variant="contained"
+                disabled={busy || isDescriptionEmpty(editingText)}
+                onClick={onSaveEdit}
+              >
                 Guardar
               </Button>
               <Button size="small" variant="text" onClick={onCancelEdit}>
@@ -325,8 +347,7 @@ function CommentCard({
               hideWhenEmpty={!canAttach}
             />
           </Stack>
-        )
-      )}
+        ))}
     </Box>
   );
 }
@@ -403,7 +424,10 @@ export default function TicketDetail() {
 
   const apiCall = async (path: string, options: RequestInit = {}) => {
     const token = getToken();
-    if (!token) { navigate('/'); return null; }
+    if (!token) {
+      navigate('/');
+      return null;
+    }
 
     const response = await fetch(`${API_URL}${path}`, {
       ...options,
@@ -414,7 +438,11 @@ export default function TicketDetail() {
       }
     });
 
-    if (response.status === 401) { clearAuth(); navigate('/'); return null; }
+    if (response.status === 401) {
+      clearAuth();
+      navigate('/');
+      return null;
+    }
 
     const data = await response.json().catch(() => ({}));
     return { response, data };
@@ -458,8 +486,13 @@ export default function TicketDetail() {
   };
 
   useEffect(() => {
-    if (!getToken()) { navigate('/'); return; }
-    Promise.all([loadTicket(), loadComments(), loadHistory(), loadResolution()]).finally(() => setLoading(false));
+    if (!getToken()) {
+      navigate('/');
+      return;
+    }
+    Promise.all([loadTicket(), loadComments(), loadHistory(), loadResolution()]).finally(() =>
+      setLoading(false)
+    );
   }, [id]);
 
   useEffect(() => {
@@ -484,12 +517,18 @@ export default function TicketDetail() {
       if (cancelled || !result?.response.ok) return;
       setGroupTechnicians(Array.isArray(result.data) ? result.data : []);
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [canAssign, editing, formData.group_id, ticket?.group_id]);
 
   const formatDateTime = (date: string) =>
     new Date(date).toLocaleString('es-ES', {
-      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
 
   const formatHistoryEntry = (entry: HistoryEntry) => {
@@ -625,7 +664,10 @@ export default function TicketDetail() {
         body: JSON.stringify({ content: editingCommentText })
       });
       if (!result) return;
-      if (!result.response.ok) { toast.error(result.data.message || 'No se pudo editar'); return; }
+      if (!result.response.ok) {
+        toast.error(result.data.message || 'No se pudo editar');
+        return;
+      }
       toast.success('Comentario actualizado');
       setEditingCommentId(null);
       await loadComments();
@@ -642,7 +684,10 @@ export default function TicketDetail() {
     try {
       const result = await apiCall(`/admin/comments/${commentId}`, { method: 'DELETE' });
       if (!result) return;
-      if (!result.response.ok) { toast.error(result.data.message || 'No se pudo eliminar'); return; }
+      if (!result.response.ok) {
+        toast.error(result.data.message || 'No se pudo eliminar');
+        return;
+      }
       toast.success('Comentario eliminado');
       await loadComments();
     } catch {
@@ -732,7 +777,10 @@ export default function TicketDetail() {
         body: JSON.stringify({ content })
       });
       if (!result) return;
-      if (!result.response.ok) { toast.error(result.data.message || 'No se pudo agregar el comentario'); return; }
+      if (!result.response.ok) {
+        toast.error(result.data.message || 'No se pudo agregar el comentario');
+        return;
+      }
 
       const commentId = Number(result.data.id);
       if (commentFiles.length > 0 && commentId) {
@@ -774,12 +822,10 @@ export default function TicketDetail() {
   if (!ticket) return null;
 
   const availableSubcategories = formData.category
-    ? SUBCATEGORIES[formData.category as Category] ?? []
+    ? (SUBCATEGORIES[formData.category as Category] ?? [])
     : [];
 
-  const ticketSubcategories = ticket.category
-    ? SUBCATEGORIES[ticket.category as Category] ?? []
-    : [];
+  const ticketSubcategories = ticket.category ? (SUBCATEGORIES[ticket.category as Category] ?? []) : [];
 
   const statusOptions = TICKET_STATUS_OPTIONS.filter((option) => {
     if (!ticket || option.value === ticket.status) return true;
@@ -791,7 +837,7 @@ export default function TicketDetail() {
 
   const inlineDisabled = Boolean(fieldBusy || saving);
 
-  const authorEmail = staff ? (ticket.user_email || '—') : getEmail();
+  const authorEmail = staff ? ticket.user_email || '—' : getEmail();
 
   const metaIconSx = { fontSize: 15, opacity: 0.85 };
 
@@ -827,7 +873,7 @@ export default function TicketDetail() {
     </Box>
   );
 
-  const headerType = editing ? formData.type : (ticket.type || 'incident');
+  const headerType = editing ? formData.type : ticket.type || 'incident';
   const headerStatus = editing ? formData.status : ticket.status;
   const headerPriority = editing ? formData.priority : ticket.priority;
   const headerIsIncident = isIncident(headerType);
@@ -872,9 +918,7 @@ export default function TicketDetail() {
       >
         <StatusBadge kind="status" value={headerStatus} />
       </Box>
-      {headerSla && (
-        <StatusBadge kind="sla" value={headerSla} />
-      )}
+      {headerSla && <StatusBadge kind="sla" value={headerSla} />}
     </Box>
   );
 
@@ -971,9 +1015,10 @@ export default function TicketDetail() {
                 '& .rich-text-content': { padding: 0, minHeight: 0 },
                 '& .rich-text-content p:first-of-type': { marginTop: 0 },
                 '& .rich-text-content p:last-of-type': { marginBottom: 0 },
-                '& .rich-text-content, & .rich-text-content p, & .rich-text-content h1, & .rich-text-content h2, & .rich-text-content h3, & .rich-text-content li': {
-                  textAlign: 'left !important'
-                }
+                '& .rich-text-content, & .rich-text-content p, & .rich-text-content h1, & .rich-text-content h2, & .rich-text-content h3, & .rich-text-content li':
+                  {
+                    textAlign: 'left !important'
+                  }
               }}
             >
               <RichTextView value={ticket.description} ticketId={ticket.id} />
@@ -996,331 +1041,337 @@ export default function TicketDetail() {
         </Typography>
 
         <>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                    Tipo
-                  </Typography>
-                  {editing && admin ? (
-                    <SearchableSelect
-                      compact
-                      label="Tipo"
-                      autoFocus={editFocus === 'type'}
-                      value={formData.type}
-                      options={TICKET_TYPE_OPTIONS.map((t) => ({ value: t.value, label: t.label }))}
-                      onChange={(nextType) => {
-                        setFormData({
-                          ...formData,
-                          type: nextType,
-                          priority: isIncident(nextType) ? (formData.priority || 'medium') : 'medium'
-                        });
-                      }}
-                    />
-                  ) : admin ? (
-                    <InlineEditSelect
-                      value={ticket.type || 'incident'}
-                      disabled={inlineDisabled}
-                      requestEdit={() => beginEdit('type')}
-                      display={<StatusBadge kind="type" value={ticket.type} />}
-                      onChange={() => undefined}
-                    >
-                      {TICKET_TYPE_OPTIONS.map((t) => (
-                        <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>
-                      ))}
-                    </InlineEditSelect>
-                  ) : (
-                    <StatusBadge kind="type" value={ticket.type} />
-                  )}
-                </Box>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                    Estado
-                  </Typography>
-                  {editing && canChangeStatus ? (
-                    <SearchableSelect
-                      compact
-                      label="Estado"
-                      autoFocus={editFocus === 'status'}
-                      value={formData.status}
-                      options={statusOptions.map((s) => ({ value: s.value, label: s.label }))}
-                      onChange={(status) => {
-                        if (status === 'resolved' && ticket.status !== 'resolved') {
-                          void openResolveDialog();
-                          return;
-                        }
-                        setFormData({ ...formData, status });
-                      }}
-                    />
-                  ) : canChangeStatus ? (
-                    <InlineEditSelect
-                      value={ticket.status}
-                      disabled={inlineDisabled}
-                      requestEdit={() => beginEdit('status')}
-                      display={<StatusBadge kind="status" value={ticket.status} />}
-                      onChange={() => undefined}
-                    >
-                      {statusOptions.map((s) => (
-                        <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
-                      ))}
-                    </InlineEditSelect>
-                  ) : (
-                    <StatusBadge kind="status" value={ticket.status} />
-                  )}
-                </Box>
-              </Stack>
-              {isIncident(editing ? formData.type : ticket.type) && (
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 1.5 }}>
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                      Prioridad
-                    </Typography>
-                    {editing && staff ? (
-                      <SearchableSelect
-                        compact
-                        label="Prioridad"
-                        autoFocus={editFocus === 'priority'}
-                        value={formData.priority}
-                        options={[
-                          { value: 'low', label: 'Baja' },
-                          { value: 'medium', label: 'Media' },
-                          { value: 'high', label: 'Alta' }
-                        ]}
-                        onChange={(priority) => setFormData({ ...formData, priority })}
-                      />
-                    ) : canEditTickets ? (
-                      <InlineEditSelect
-                        value={ticket.priority || 'medium'}
-                        disabled={inlineDisabled}
-                        requestEdit={() => beginEdit('priority')}
-                        display={<StatusBadge kind="priority" value={ticket.priority} />}
-                        onChange={() => undefined}
-                      >
-                        <MenuItem value="low">Baja</MenuItem>
-                        <MenuItem value="medium">Media</MenuItem>
-                        <MenuItem value="high">Alta</MenuItem>
-                      </InlineEditSelect>
-                    ) : (
-                      <StatusBadge kind="priority" value={ticket.priority} />
-                    )}
-                  </Box>
-                  {ticket.sla_status ? (
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                        Vencimiento
-                      </Typography>
-                      <StatusBadge kind="sla" value={ticket.sla_status} />
-                    </Box>
-                  ) : (
-                    <Box sx={{ flex: 1 }} />
-                  )}
-                </Stack>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                Tipo
+              </Typography>
+              {editing && admin ? (
+                <SearchableSelect
+                  compact
+                  label="Tipo"
+                  autoFocus={editFocus === 'type'}
+                  value={formData.type}
+                  options={TICKET_TYPE_OPTIONS.map((t) => ({ value: t.value, label: t.label }))}
+                  onChange={(nextType) => {
+                    setFormData({
+                      ...formData,
+                      type: nextType,
+                      priority: isIncident(nextType) ? formData.priority || 'medium' : 'medium'
+                    });
+                  }}
+                />
+              ) : admin ? (
+                <InlineEditSelect
+                  value={ticket.type || 'incident'}
+                  disabled={inlineDisabled}
+                  requestEdit={() => beginEdit('type')}
+                  display={<StatusBadge kind="type" value={ticket.type} />}
+                  onChange={() => undefined}
+                >
+                  {TICKET_TYPE_OPTIONS.map((t) => (
+                    <MenuItem key={t.value} value={t.value}>
+                      {t.label}
+                    </MenuItem>
+                  ))}
+                </InlineEditSelect>
+              ) : (
+                <StatusBadge kind="type" value={ticket.type} />
               )}
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 1.5 }}>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                    Categoría
-                  </Typography>
-                  {editing && staff ? (
-                    <SearchableSelect
-                      compact
-                      label="Categoría"
-                      autoFocus={editFocus === 'category'}
-                      value={formData.category}
-                      options={[
-                        { value: '', label: 'Sin categoría' },
-                        ...CATEGORIES.map((c) => ({ value: c, label: c }))
-                      ]}
-                      onChange={(category) => setFormData({ ...formData, category, subcategory: '' })}
-                    />
-                  ) : canEditTickets ? (
-                    <InlineEditSelect
-                      value={ticket.category || ''}
-                      disabled={inlineDisabled}
-                      requestEdit={() => beginEdit('category')}
-                      display={
-                        <Typography variant="body2">{ticket.category || '—'}</Typography>
-                      }
-                      onChange={(val) =>
-                        handleInlineFieldUpdate(
-                          { category: val || null, subcategory: null },
-                          'category'
-                        )
-                      }
-                    >
-                      <MenuItem value=""><em>Sin categoría</em></MenuItem>
-                      {CATEGORIES.map((c) => (
-                        <MenuItem key={c} value={c}>{c}</MenuItem>
-                      ))}
-                    </InlineEditSelect>
-                  ) : (
-                    <Typography variant="body2">{ticket.category || '—'}</Typography>
-                  )}
-                </Box>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                    Subcategoría
-                  </Typography>
-                  {editing && staff ? (
-                    <SearchableSelect
-                      compact
-                      label="Subcategoría"
-                      autoFocus={editFocus === 'subcategory'}
-                      value={formData.subcategory}
-                      disabled={!formData.category}
-                      options={[
-                        { value: '', label: 'Sin subcategoría' },
-                        ...availableSubcategories.map((s) => ({ value: s, label: s }))
-                      ]}
-                      onChange={(subcategory) => setFormData({ ...formData, subcategory })}
-                    />
-                  ) : canEditTickets ? (
-                    <InlineEditSelect
-                      value={ticket.subcategory || ''}
-                      disabled={inlineDisabled || !ticket.category}
-                      requestEdit={() => beginEdit('subcategory')}
-                      display={
-                        <Typography variant="body2">{ticket.subcategory || '—'}</Typography>
-                      }
-                      onChange={(val) =>
-                        handleInlineFieldUpdate({ subcategory: val || null }, 'subcategory')
-                      }
-                    >
-                      <MenuItem value=""><em>Sin subcategoría</em></MenuItem>
-                      {ticketSubcategories.map((s) => (
-                        <MenuItem key={s} value={s}>{s}</MenuItem>
-                      ))}
-                    </InlineEditSelect>
-                  ) : (
-                    <Typography variant="body2">{ticket.subcategory || '—'}</Typography>
-                  )}
-                </Box>
-              </Stack>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 1.5 }}>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                    Grupo
-                  </Typography>
-                  {editing && (admin || canTransfer) ? (
-                    <SearchableSelect
-                      compact
-                      label="Grupo"
-                      autoFocus={editFocus === 'group'}
-                      value={formData.group_id}
-                      options={[
-                        { value: '', label: 'Sin grupo' },
-                        ...groups.map((g) => ({ value: g.id, label: g.name }))
-                      ]}
-                      onChange={(nextGroup) => {
-                        setFormData({
-                          ...formData,
-                          group_id: nextGroup ? Number(nextGroup) : '',
-                          technician_id: ''
-                        });
-                      }}
-                    />
-                  ) : canTransfer ? (
-                    <InlineEditSelect
-                      value={ticket.group_id ?? ''}
-                      disabled={inlineDisabled}
-                      requestEdit={() => beginEdit('group')}
-                      display={
-                        <Typography variant="body2">{ticket.group_name || '—'}</Typography>
-                      }
-                      onChange={(val) =>
-                        handleInlineFieldUpdate(
-                          {
-                            group_id: val ? Number(val) : null,
-                            technician_id: null
-                          },
-                          'group'
-                        )
-                      }
-                    >
-                      <MenuItem value=""><em>Sin grupo</em></MenuItem>
-                      {groups.map((g) => (
-                        <MenuItem key={g.id} value={g.id}>{g.name}</MenuItem>
-                      ))}
-                    </InlineEditSelect>
-                  ) : (
-                    <Typography variant="body2">{ticket.group_name || '—'}</Typography>
-                  )}
-                </Box>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                    Técnico
-                  </Typography>
-                  {editing && (admin || canAssign) ? (
-                    <SearchableSelect
-                      compact
-                      label="Técnico"
-                      autoFocus={editFocus === 'technician'}
-                      value={formData.technician_id}
-                      disabled={!formData.group_id}
-                      options={[
-                        { value: '', label: 'Sin asignar' },
-                        ...groupTechnicians.map((tech) => ({ value: tech.id, label: tech.email }))
-                      ]}
-                      onChange={(nextTechnician) => setFormData({
-                        ...formData,
-                        technician_id: nextTechnician ? Number(nextTechnician) : ''
-                      })}
-                    />
-                  ) : canAssign ? (
-                    <InlineEditSelect
-                      value={ticket.technician_id ?? ''}
-                      disabled={inlineDisabled || !ticket.group_id}
-                      requestEdit={() => beginEdit('technician')}
-                      display={
-                        <Typography variant="body2">{ticket.technician_email || '—'}</Typography>
-                      }
-                      onChange={(val) =>
-                        handleInlineFieldUpdate(
-                          { technician_id: val ? Number(val) : null },
-                          'technician'
-                        )
-                      }
-                    >
-                      <MenuItem value=""><em>Sin asignar</em></MenuItem>
-                      {groupTechnicians.map((tech) => (
-                        <MenuItem key={tech.id} value={tech.id}>{tech.email}</MenuItem>
-                      ))}
-                    </InlineEditSelect>
-                  ) : (
-                    <Typography variant="body2">{ticket.technician_email || '—'}</Typography>
-                  )}
-                </Box>
-              </Stack>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 1.5 }}>
-                {isIncident(ticket.type) && (
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                      SLA
-                    </Typography>
-                    {ticket.status === 'on-hold' && (
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                        Temporizador pausado mientras el ticket está en espera.
-                      </Typography>
-                    )}
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                      <Typography variant="body2">
-                        <strong>Respuesta:</strong> {formatSlaDeadline(ticket.sla_response_due)}
-                      </Typography>
-                      <Typography variant="body2">
-                        <strong>Resolución:</strong> {formatSlaDeadline(ticket.sla_resolution_due)}
-                      </Typography>
-                    </Stack>
-                  </Box>
+            </Box>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                Estado
+              </Typography>
+              {editing && canChangeStatus ? (
+                <SearchableSelect
+                  compact
+                  label="Estado"
+                  autoFocus={editFocus === 'status'}
+                  value={formData.status}
+                  options={statusOptions.map((s) => ({ value: s.value, label: s.label }))}
+                  onChange={(status) => {
+                    if (status === 'resolved' && ticket.status !== 'resolved') {
+                      void openResolveDialog();
+                      return;
+                    }
+                    setFormData({ ...formData, status });
+                  }}
+                />
+              ) : canChangeStatus ? (
+                <InlineEditSelect
+                  value={ticket.status}
+                  disabled={inlineDisabled}
+                  requestEdit={() => beginEdit('status')}
+                  display={<StatusBadge kind="status" value={ticket.status} />}
+                  onChange={() => undefined}
+                >
+                  {statusOptions.map((s) => (
+                    <MenuItem key={s.value} value={s.value}>
+                      {s.label}
+                    </MenuItem>
+                  ))}
+                </InlineEditSelect>
+              ) : (
+                <StatusBadge kind="status" value={ticket.status} />
+              )}
+            </Box>
+          </Stack>
+          {isIncident(editing ? formData.type : ticket.type) && (
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 1.5 }}>
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                  Prioridad
+                </Typography>
+                {editing && staff ? (
+                  <SearchableSelect
+                    compact
+                    label="Prioridad"
+                    autoFocus={editFocus === 'priority'}
+                    value={formData.priority}
+                    options={[
+                      { value: 'low', label: 'Baja' },
+                      { value: 'medium', label: 'Media' },
+                      { value: 'high', label: 'Alta' }
+                    ]}
+                    onChange={(priority) => setFormData({ ...formData, priority })}
+                  />
+                ) : canEditTickets ? (
+                  <InlineEditSelect
+                    value={ticket.priority || 'medium'}
+                    disabled={inlineDisabled}
+                    requestEdit={() => beginEdit('priority')}
+                    display={<StatusBadge kind="priority" value={ticket.priority} />}
+                    onChange={() => undefined}
+                  >
+                    <MenuItem value="low">Baja</MenuItem>
+                    <MenuItem value="medium">Media</MenuItem>
+                    <MenuItem value="high">Alta</MenuItem>
+                  </InlineEditSelect>
+                ) : (
+                  <StatusBadge kind="priority" value={ticket.priority} />
                 )}
-                {ticket.updated_at && ticket.updated_at !== ticket.created_at && (
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                      Actualizado
-                    </Typography>
-                    <Typography variant="body2">{formatDateTime(ticket.updated_at)}</Typography>
-                  </Box>
+              </Box>
+              {ticket.sla_status ? (
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                    Vencimiento
+                  </Typography>
+                  <StatusBadge kind="sla" value={ticket.sla_status} />
+                </Box>
+              ) : (
+                <Box sx={{ flex: 1 }} />
+              )}
+            </Stack>
+          )}
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 1.5 }}>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                Categoría
+              </Typography>
+              {editing && staff ? (
+                <SearchableSelect
+                  compact
+                  label="Categoría"
+                  autoFocus={editFocus === 'category'}
+                  value={formData.category}
+                  options={[
+                    { value: '', label: 'Sin categoría' },
+                    ...CATEGORIES.map((c) => ({ value: c, label: c }))
+                  ]}
+                  onChange={(category) => setFormData({ ...formData, category, subcategory: '' })}
+                />
+              ) : canEditTickets ? (
+                <InlineEditSelect
+                  value={ticket.category || ''}
+                  disabled={inlineDisabled}
+                  requestEdit={() => beginEdit('category')}
+                  display={<Typography variant="body2">{ticket.category || '—'}</Typography>}
+                  onChange={(val) =>
+                    handleInlineFieldUpdate({ category: val || null, subcategory: null }, 'category')
+                  }
+                >
+                  <MenuItem value="">
+                    <em>Sin categoría</em>
+                  </MenuItem>
+                  {CATEGORIES.map((c) => (
+                    <MenuItem key={c} value={c}>
+                      {c}
+                    </MenuItem>
+                  ))}
+                </InlineEditSelect>
+              ) : (
+                <Typography variant="body2">{ticket.category || '—'}</Typography>
+              )}
+            </Box>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                Subcategoría
+              </Typography>
+              {editing && staff ? (
+                <SearchableSelect
+                  compact
+                  label="Subcategoría"
+                  autoFocus={editFocus === 'subcategory'}
+                  value={formData.subcategory}
+                  disabled={!formData.category}
+                  options={[
+                    { value: '', label: 'Sin subcategoría' },
+                    ...availableSubcategories.map((s) => ({ value: s, label: s }))
+                  ]}
+                  onChange={(subcategory) => setFormData({ ...formData, subcategory })}
+                />
+              ) : canEditTickets ? (
+                <InlineEditSelect
+                  value={ticket.subcategory || ''}
+                  disabled={inlineDisabled || !ticket.category}
+                  requestEdit={() => beginEdit('subcategory')}
+                  display={<Typography variant="body2">{ticket.subcategory || '—'}</Typography>}
+                  onChange={(val) => handleInlineFieldUpdate({ subcategory: val || null }, 'subcategory')}
+                >
+                  <MenuItem value="">
+                    <em>Sin subcategoría</em>
+                  </MenuItem>
+                  {ticketSubcategories.map((s) => (
+                    <MenuItem key={s} value={s}>
+                      {s}
+                    </MenuItem>
+                  ))}
+                </InlineEditSelect>
+              ) : (
+                <Typography variant="body2">{ticket.subcategory || '—'}</Typography>
+              )}
+            </Box>
+          </Stack>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 1.5 }}>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                Grupo
+              </Typography>
+              {editing && (admin || canTransfer) ? (
+                <SearchableSelect
+                  compact
+                  label="Grupo"
+                  autoFocus={editFocus === 'group'}
+                  value={formData.group_id}
+                  options={[
+                    { value: '', label: 'Sin grupo' },
+                    ...groups.map((g) => ({ value: g.id, label: g.name }))
+                  ]}
+                  onChange={(nextGroup) => {
+                    setFormData({
+                      ...formData,
+                      group_id: nextGroup ? Number(nextGroup) : '',
+                      technician_id: ''
+                    });
+                  }}
+                />
+              ) : canTransfer ? (
+                <InlineEditSelect
+                  value={ticket.group_id ?? ''}
+                  disabled={inlineDisabled}
+                  requestEdit={() => beginEdit('group')}
+                  display={<Typography variant="body2">{ticket.group_name || '—'}</Typography>}
+                  onChange={(val) =>
+                    handleInlineFieldUpdate(
+                      {
+                        group_id: val ? Number(val) : null,
+                        technician_id: null
+                      },
+                      'group'
+                    )
+                  }
+                >
+                  <MenuItem value="">
+                    <em>Sin grupo</em>
+                  </MenuItem>
+                  {groups.map((g) => (
+                    <MenuItem key={g.id} value={g.id}>
+                      {g.name}
+                    </MenuItem>
+                  ))}
+                </InlineEditSelect>
+              ) : (
+                <Typography variant="body2">{ticket.group_name || '—'}</Typography>
+              )}
+            </Box>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                Técnico
+              </Typography>
+              {editing && (admin || canAssign) ? (
+                <SearchableSelect
+                  compact
+                  label="Técnico"
+                  autoFocus={editFocus === 'technician'}
+                  value={formData.technician_id}
+                  disabled={!formData.group_id}
+                  options={[
+                    { value: '', label: 'Sin asignar' },
+                    ...groupTechnicians.map((tech) => ({ value: tech.id, label: tech.email }))
+                  ]}
+                  onChange={(nextTechnician) =>
+                    setFormData({
+                      ...formData,
+                      technician_id: nextTechnician ? Number(nextTechnician) : ''
+                    })
+                  }
+                />
+              ) : canAssign ? (
+                <InlineEditSelect
+                  value={ticket.technician_id ?? ''}
+                  disabled={inlineDisabled || !ticket.group_id}
+                  requestEdit={() => beginEdit('technician')}
+                  display={<Typography variant="body2">{ticket.technician_email || '—'}</Typography>}
+                  onChange={(val) =>
+                    handleInlineFieldUpdate({ technician_id: val ? Number(val) : null }, 'technician')
+                  }
+                >
+                  <MenuItem value="">
+                    <em>Sin asignar</em>
+                  </MenuItem>
+                  {groupTechnicians.map((tech) => (
+                    <MenuItem key={tech.id} value={tech.id}>
+                      {tech.email}
+                    </MenuItem>
+                  ))}
+                </InlineEditSelect>
+              ) : (
+                <Typography variant="body2">{ticket.technician_email || '—'}</Typography>
+              )}
+            </Box>
+          </Stack>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 1.5 }}>
+            {isIncident(ticket.type) && (
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                  SLA
+                </Typography>
+                {ticket.status === 'on-hold' && (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                    Temporizador pausado mientras el ticket está en espera.
+                  </Typography>
                 )}
-              </Stack>
-            </>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                  <Typography variant="body2">
+                    <strong>Respuesta:</strong> {formatSlaDeadline(ticket.sla_response_due)}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Resolución:</strong> {formatSlaDeadline(ticket.sla_resolution_due)}
+                  </Typography>
+                </Stack>
+              </Box>
+            )}
+            {ticket.updated_at && ticket.updated_at !== ticket.created_at && (
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                  Actualizado
+                </Typography>
+                <Typography variant="body2">{formatDateTime(ticket.updated_at)}</Typography>
+              </Box>
+            )}
+          </Stack>
+        </>
       </Paper>
 
       <Paper elevation={0} sx={{ ...sectionPaperSx, mb: 0 }}>
@@ -1329,14 +1380,14 @@ export default function TicketDetail() {
             Comentarios
           </Typography>
           {canCommentHere && (
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<SendIcon />}
-            onClick={() => setCommentDialogOpen(true)}
-          >
-            Agregar comentario
-          </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<SendIcon />}
+              onClick={() => setCommentDialogOpen(true)}
+            >
+              Agregar comentario
+            </Button>
           )}
         </Box>
 
@@ -1382,10 +1433,7 @@ export default function TicketDetail() {
               placeholder="Escribí una nota. Podés pegar capturas con Ctrl + V."
             />
             <Box sx={{ mt: 1.5 }}>
-              <TicketAttachments
-                pendingFiles={commentFiles}
-                onPendingFilesChange={setCommentFiles}
-              />
+              <TicketAttachments pendingFiles={commentFiles} onPendingFilesChange={setCommentFiles} />
             </Box>
           </DialogContent>
           <DialogActions>
@@ -1433,12 +1481,29 @@ export default function TicketDetail() {
     <Stack spacing={2}>
       {isResolved && resolution ? (
         <>
-          <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+          <Box
+            sx={{
+              p: 2,
+              bgcolor: 'action.hover',
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: 'divider'
+            }}
+          >
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-              <Box component="span" sx={{ fontWeight: 700 }}>Resuelto por</Box>{' '}
-              {resolution.resolved_by_email} · {formatDateTime(resolution.updated_at || resolution.created_at)}
+              <Box component="span" sx={{ fontWeight: 700 }}>
+                Resuelto por
+              </Box>{' '}
+              {resolution.resolved_by_email} ·{' '}
+              {formatDateTime(resolution.updated_at || resolution.created_at)}
             </Typography>
-            <Box sx={{ maxHeight: 'clamp(160px, calc(100vh - 460px), 320px)', overflowY: 'auto', overflowX: 'hidden' }}>
+            <Box
+              sx={{
+                maxHeight: 'clamp(160px, calc(100vh - 460px), 320px)',
+                overflowY: 'auto',
+                overflowX: 'hidden'
+              }}
+            >
               <RichTextView value={resolution.content} ticketId={ticket.id} emptyLabel="Sin resolución" />
             </Box>
             <Box sx={{ mt: 1.5 }}>
@@ -1452,15 +1517,22 @@ export default function TicketDetail() {
           </Box>
           <Box>
             {canReopen && (
-            <Button variant="contained" disabled={reopening} onClick={handleReopen}>
-              {reopening ? 'Reabriendo...' : 'Reabrir solicitud'}
-            </Button>
+              <Button variant="contained" disabled={reopening} onClick={handleReopen}>
+                {reopening ? 'Reabriendo...' : 'Reabrir solicitud'}
+              </Button>
             )}
           </Box>
         </>
       ) : canResolve ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          <Box sx={{ height: 'clamp(220px, calc(100vh - 460px), 340px)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <Box
+            sx={{
+              height: 'clamp(220px, calc(100vh - 460px), 340px)',
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: 0
+            }}
+          >
             <RichTextEditor
               ref={resolutionEditorRef}
               bounded
@@ -1475,7 +1547,12 @@ export default function TicketDetail() {
             <TicketAttachments ticketId={id} scope="resolution" />
           </Box>
           <Box sx={{ flexShrink: 0, pt: 1.5 }}>
-            <Button variant="contained" onClick={() => { void openResolveDialog(); }}>
+            <Button
+              variant="contained"
+              onClick={() => {
+                void openResolveDialog();
+              }}
+            >
               Registrar resolución
             </Button>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
@@ -1492,10 +1569,14 @@ export default function TicketDetail() {
   ) : isResolved && resolution ? (
     <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-        <Box component="span" sx={{ fontWeight: 700 }}>Resuelto por</Box>{' '}
+        <Box component="span" sx={{ fontWeight: 700 }}>
+          Resuelto por
+        </Box>{' '}
         {resolution.resolved_by_email} · {formatDateTime(resolution.updated_at || resolution.created_at)}
       </Typography>
-      <Box sx={{ maxHeight: 'clamp(160px, calc(100vh - 460px), 320px)', overflowY: 'auto', overflowX: 'hidden' }}>
+      <Box
+        sx={{ maxHeight: 'clamp(160px, calc(100vh - 460px), 320px)', overflowY: 'auto', overflowX: 'hidden' }}
+      >
         <RichTextView value={resolution.content} ticketId={ticket.id} emptyLabel="Sin resolución" />
       </Box>
       <Box sx={{ mt: 1.5 }}>
@@ -1554,7 +1635,7 @@ export default function TicketDetail() {
             <Tab label={`Historial (${history.length})`} />
             <Tab label="Resolución" />
           </Tabs>
-          {(canResolve && !isResolved || canCommentHere) && (
+          {((canResolve && !isResolved) || canCommentHere) && (
             <>
               <Tooltip title="Acciones">
                 <IconButton
@@ -1573,12 +1654,22 @@ export default function TicketDetail() {
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
               >
                 {canResolve && !isResolved && (
-                  <MenuItem onClick={() => { setActionsAnchor(null); void openResolveDialog(); }}>
+                  <MenuItem
+                    onClick={() => {
+                      setActionsAnchor(null);
+                      void openResolveDialog();
+                    }}
+                  >
                     Resolver ticket
                   </MenuItem>
                 )}
                 {canCommentHere && (
-                  <MenuItem onClick={() => { setActionsAnchor(null); setCommentDialogOpen(true); }}>
+                  <MenuItem
+                    onClick={() => {
+                      setActionsAnchor(null);
+                      setCommentDialogOpen(true);
+                    }}
+                  >
                     Agregar nota
                   </MenuItem>
                 )}
@@ -1587,11 +1678,7 @@ export default function TicketDetail() {
           )}
           {(admin || technician || canEditThis) && !editing && (
             <Tooltip title={staff ? 'Editar ticket' : 'Editar asunto y descripción'}>
-              <IconButton
-                size="small"
-                aria-label="Editar"
-                onClick={() => beginEdit()}
-              >
+              <IconButton size="small" aria-label="Editar" onClick={() => beginEdit()}>
                 <EditIcon fontSize="small" />
               </IconButton>
             </Tooltip>
@@ -1601,65 +1688,85 @@ export default function TicketDetail() {
         <Box sx={{ pt: 1.5, bgcolor: 'transparent', ...(editing ? { pb: 8 } : {}) }}>
           {activeTab === 0 && detailPanel}
           {activeTab === 1 && historyPanel}
-          {activeTab === 2 && (staff ? (
-            <Stack spacing={2}>
-              <Tabs
-                value={resolutionSection}
-                onChange={(_, value) => setResolutionSection(value)}
-                sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36, textTransform: 'none', fontWeight: 600 } }}
-              >
-                <Tab value="resolution" label="Resolución" />
-                <Tab value="solutions" label="Soluciones" />
-              </Tabs>
-              {resolutionSection === 'resolution' ? resolutionPanel : canResolve ? (
-                <TicketSolutions
-                  ticketId={String(id)}
-                  canApply={!isResolved}
-                  onApply={(value) => {
-                    setResolutionText((prev) => (
-                      isRichHtml(value) ? appendRichHtml(prev, value) : appendPlainTextToHtml(prev, value)
-                    ));
-                    setResolutionSection('resolution');
-                    toast.success('Solución aplicada correctamente.');
+          {activeTab === 2 &&
+            (staff ? (
+              <Stack spacing={2}>
+                <Tabs
+                  value={resolutionSection}
+                  onChange={(_, value) => setResolutionSection(value)}
+                  sx={{
+                    minHeight: 36,
+                    '& .MuiTab-root': { minHeight: 36, textTransform: 'none', fontWeight: 600 }
                   }}
-                />
-              ) : (
-                <Typography variant="body2" color="text.secondary">
-                  No tenés permiso para consultar soluciones.
-                </Typography>
-              )}
-            </Stack>
-          ) : resolutionPanel)}
+                >
+                  <Tab value="resolution" label="Resolución" />
+                  <Tab value="solutions" label="Soluciones" />
+                </Tabs>
+                {resolutionSection === 'resolution' ? (
+                  resolutionPanel
+                ) : canResolve ? (
+                  <TicketSolutions
+                    ticketId={String(id)}
+                    canApply={!isResolved}
+                    onApply={(value) => {
+                      setResolutionText((prev) =>
+                        isRichHtml(value) ? appendRichHtml(prev, value) : appendPlainTextToHtml(prev, value)
+                      );
+                      setResolutionSection('resolution');
+                      toast.success('Solución aplicada correctamente.');
+                    }}
+                  />
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    No tenés permiso para consultar soluciones.
+                  </Typography>
+                )}
+              </Stack>
+            ) : (
+              resolutionPanel
+            ))}
         </Box>
       </Box>
       <ResolveTicketDialog
         open={resolveOpen}
-        ticket={ticket ? {
-          id: ticket.id,
-          title: editing ? formData.title : ticket.title,
-          type: editing ? formData.type : ticket.type,
-          priority: editing ? formData.priority : ticket.priority,
-          category: (editing ? formData.category : ticket.category) || null,
-          subcategory: (editing ? formData.subcategory : ticket.subcategory) || null,
-          group_id: editing
-            ? (formData.group_id === '' ? null : formData.group_id)
-            : (ticket.group_id ?? null),
-          group_name: ticket.group_name,
-          technician_id: editing
-            ? (formData.technician_id === '' ? null : formData.technician_id)
-            : (ticket.technician_id ?? null),
-          technician_email: ticket.technician_email,
-          sla_status: ticket.sla_status
-        } : null}
-        saved={ticket ? {
-          id: ticket.id,
-          type: ticket.type,
-          priority: ticket.priority,
-          category: ticket.category || null,
-          subcategory: ticket.subcategory || null,
-          group_id: ticket.group_id ?? null,
-          technician_id: ticket.technician_id ?? null
-        } : null}
+        ticket={
+          ticket
+            ? {
+                id: ticket.id,
+                title: editing ? formData.title : ticket.title,
+                type: editing ? formData.type : ticket.type,
+                priority: editing ? formData.priority : ticket.priority,
+                category: (editing ? formData.category : ticket.category) || null,
+                subcategory: (editing ? formData.subcategory : ticket.subcategory) || null,
+                group_id: editing
+                  ? formData.group_id === ''
+                    ? null
+                    : formData.group_id
+                  : (ticket.group_id ?? null),
+                group_name: ticket.group_name,
+                technician_id: editing
+                  ? formData.technician_id === ''
+                    ? null
+                    : formData.technician_id
+                  : (ticket.technician_id ?? null),
+                technician_email: ticket.technician_email,
+                sla_status: ticket.sla_status
+              }
+            : null
+        }
+        saved={
+          ticket
+            ? {
+                id: ticket.id,
+                type: ticket.type,
+                priority: ticket.priority,
+                category: ticket.category || null,
+                subcategory: ticket.subcategory || null,
+                group_id: ticket.group_id ?? null,
+                technician_id: ticket.technician_id ?? null
+              }
+            : null
+        }
         initialContent={resolveInitial}
         onClose={() => setResolveOpen(false)}
         onBeforeResolve={prepareResolveExtra}
@@ -1720,7 +1827,9 @@ export default function TicketDetail() {
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setCancelEditPrompt(false)}>Volver</Button>
-          <Button variant="contained" onClick={handleCancelEdit}>Cerrar</Button>
+          <Button variant="contained" onClick={handleCancelEdit}>
+            Cerrar
+          </Button>
         </DialogActions>
       </Dialog>
     </SupportShell>

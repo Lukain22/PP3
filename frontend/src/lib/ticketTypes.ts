@@ -1,6 +1,6 @@
 export const TICKET_TYPES = ['incident', 'requirement'] as const;
 
-export type TicketType = typeof TICKET_TYPES[number];
+export type TicketType = (typeof TICKET_TYPES)[number];
 
 export const TICKET_TYPE_LABELS: Record<TicketType, string> = {
   incident: 'Incidente',
@@ -63,11 +63,19 @@ export function formatHistoryValue(field: string | null, value: string | null): 
     return HISTORY_VALUE_LABELS[field][value];
   }
   if (field === 'description') {
-    const text = value.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
+    const text = value
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
     return text.length > 80 ? `${text.slice(0, 80)}…` : text || '—';
   }
   if (field === 'resolution') {
-    const text = value.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
+    const text = value
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
     return text.length > 120 ? `${text.slice(0, 120)}…` : text || '—';
   }
   return value;

@@ -80,14 +80,13 @@ const getDefaultGroupId = (callback) => {
 };
 
 const getUserGroupIds = (userId, callback) => {
-  db.query(
-    'SELECT group_id FROM user_groups WHERE user_id = ?',
-    [userId],
-    (err, rows) => {
-      if (err) return callback(err);
-      callback(null, rows.map((r) => r.group_id));
-    }
-  );
+  db.query('SELECT group_id FROM user_groups WHERE user_id = ?', [userId], (err, rows) => {
+    if (err) return callback(err);
+    callback(
+      null,
+      rows.map((r) => r.group_id)
+    );
+  });
 };
 
 const userCanAccessTicket = (user, ticket, userGroupIds) => {

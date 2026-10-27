@@ -194,7 +194,8 @@ function OptionMenu({
               mt: 0.5,
               width: Math.max(anchor?.clientWidth || 0, 260),
               borderRadius: 1.5,
-              border: '1px solid', borderColor: 'divider'
+              border: '1px solid',
+              borderColor: 'divider'
             }
           }
         }}
@@ -313,16 +314,26 @@ function DateRangeField({
   return (
     <>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
-        <DateBound label={formatDay(from, 'Desde')} active={Boolean(anchor) && bound === 'from'} onClick={(event) => openBound(event.currentTarget, 'from')} />
+        <DateBound
+          label={formatDay(from, 'Desde')}
+          active={Boolean(anchor) && bound === 'from'}
+          onClick={(event) => openBound(event.currentTarget, 'from')}
+        />
         <Typography sx={{ color: 'text.secondary', flexShrink: 0 }}>→</Typography>
-        <DateBound label={formatDay(to, 'Hasta')} active={Boolean(anchor) && bound === 'to'} onClick={(event) => openBound(event.currentTarget, 'to')} />
+        <DateBound
+          label={formatDay(to, 'Hasta')}
+          active={Boolean(anchor) && bound === 'to'}
+          onClick={(event) => openBound(event.currentTarget, 'to')}
+        />
       </Stack>
       <Popover
         open={Boolean(anchor)}
         anchorEl={anchor}
         onClose={() => setAnchor(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        slotProps={{ paper: { sx: { mt: 0.5, borderRadius: 1.5, border: '1px solid', borderColor: 'divider' } } }}
+        slotProps={{
+          paper: { sx: { mt: 0.5, borderRadius: 1.5, border: '1px solid', borderColor: 'divider' } }
+        }}
       >
         <Stack direction="row" sx={{ alignItems: 'stretch' }}>
           <Stack spacing={0.25} sx={{ p: 1, width: 168, borderRight: '1px solid', borderColor: 'divider' }}>
@@ -330,13 +341,24 @@ function DateRangeField({
               <Button
                 key={preset.label}
                 onClick={preset.run}
-                sx={{ justifyContent: 'flex-start', textTransform: 'none', color: 'text.primary', fontWeight: 500, px: 1 }}
+                sx={{
+                  justifyContent: 'flex-start',
+                  textTransform: 'none',
+                  color: 'text.primary',
+                  fontWeight: 500,
+                  px: 1
+                }}
               >
                 {preset.label}
               </Button>
             ))}
           </Stack>
-          <Box sx={{ p: 1, '& .rdp': { margin: 0, '--rdp-accent-color': '#1976d2', '--rdp-background-color': '#e3f2fd' } }}>
+          <Box
+            sx={{
+              p: 1,
+              '& .rdp': { margin: 0, '--rdp-accent-color': '#1976d2', '--rdp-background-color': '#e3f2fd' }
+            }}
+          >
             <DayPicker
               key={`${bound}-${activeValue || 'empty'}`}
               mode="single"
@@ -395,7 +417,13 @@ function DateBound({
         '&:hover': { borderColor: 'text.secondary' }
       }}
     >
-      <Typography noWrap sx={{ fontSize: 14, color: label === 'Desde' || label === 'Hasta' ? 'text.secondary' : 'text.primary' }}>
+      <Typography
+        noWrap
+        sx={{
+          fontSize: 14,
+          color: label === 'Desde' || label === 'Hasta' ? 'text.secondary' : 'text.primary'
+        }}
+      >
         {label}
       </Typography>
     </Box>
@@ -416,14 +444,20 @@ export default function ViewEditorDialog({
   const [name, setName] = useState(initial.name);
   const [visibility, setVisibility] = useState<'personal' | 'group' | 'public'>(
     adminMode
-      ? (initial.visibility === 'public' ? 'public' : 'personal')
-      : (initial.visibility === 'public' ? 'personal' : initial.visibility)
+      ? initial.visibility === 'public'
+        ? 'public'
+        : 'personal'
+      : initial.visibility === 'public'
+        ? 'personal'
+        : initial.visibility
   );
   const [shareGroupId, setShareGroupId] = useState<number | ''>(initial.share_group_id);
   const [shareGroupIds, setShareGroupIds] = useState<string[]>(
     (initial.share_group_ids?.length
       ? initial.share_group_ids
-      : (initial.share_group_id ? [initial.share_group_id] : [])
+      : initial.share_group_id
+        ? [initial.share_group_id]
+        : []
     ).map(String)
   );
   const [rows, setRows] = useState<ViewFilterRow[]>(initial.rows);
@@ -452,9 +486,9 @@ export default function ViewEditorDialog({
     const ids = groupKey ? groupKey.split(',') : [];
     if (!ids.length) {
       setAssignees([]);
-      setRows((current) => current.map((row) => (
-        row.field === 'technician' && row.values.length ? { ...row, values: [] } : row
-      )));
+      setRows((current) =>
+        current.map((row) => (row.field === 'technician' && row.values.length ? { ...row, values: [] } : row))
+      );
       return;
     }
 
@@ -471,11 +505,13 @@ export default function ViewEditorDialog({
       const list = [...people.values()].sort((a, b) => a.email.localeCompare(b.email, 'es'));
       setAssignees(list);
       const allowed = new Set(list.map((person) => String(person.id)));
-      setRows((current) => current.map((row) => {
-        if (row.field !== 'technician') return row;
-        const next = row.values.filter((value) => allowed.has(value));
-        return next.length === row.values.length ? row : { ...row, values: next };
-      }));
+      setRows((current) =>
+        current.map((row) => {
+          if (row.field !== 'technician') return row;
+          const next = row.values.filter((value) => allowed.has(value));
+          return next.length === row.values.length ? row : { ...row, values: next };
+        })
+      );
     });
 
     return () => {
@@ -490,12 +526,16 @@ export default function ViewEditorDialog({
   const categoryKey = categoryValues.join(',');
 
   useEffect(() => {
-    const allowed = new Set(subcategoryOptions(categoryKey ? categoryKey.split(',') : []).map((option) => option.value));
-    setRows((current) => current.map((row) => {
-      if (row.field !== 'subcategory') return row;
-      const next = row.values.filter((value) => allowed.has(value));
-      return next.length === row.values.length ? row : { ...row, values: next };
-    }));
+    const allowed = new Set(
+      subcategoryOptions(categoryKey ? categoryKey.split(',') : []).map((option) => option.value)
+    );
+    setRows((current) =>
+      current.map((row) => {
+        if (row.field !== 'subcategory') return row;
+        const next = row.values.filter((value) => allowed.has(value));
+        return next.length === row.values.length ? row : { ...row, values: next };
+      })
+    );
   }, [categoryKey]);
 
   const updateRow = (id: string, patch: Partial<ViewFilterRow>) => {
@@ -533,11 +573,14 @@ export default function ViewEditorDialog({
   };
 
   const choicesFor = (row: ViewFilterRow): Choice[] => {
-    if (row.field === 'type') return TICKET_TYPE_OPTIONS.map((option) => ({ value: option.value, label: option.label }));
-    if (row.field === 'status') return TICKET_STATUS_OPTIONS.map((option) => ({ value: option.value, label: option.label }));
+    if (row.field === 'type')
+      return TICKET_TYPE_OPTIONS.map((option) => ({ value: option.value, label: option.label }));
+    if (row.field === 'status')
+      return TICKET_STATUS_OPTIONS.map((option) => ({ value: option.value, label: option.label }));
     if (row.field === 'priority') return PRIORITY_OPTIONS;
     if (row.field === 'group') return groups.map((group) => ({ value: String(group.id), label: group.name }));
-    if (row.field === 'technician') return assignees.map((person) => ({ value: String(person.id), label: person.email }));
+    if (row.field === 'technician')
+      return assignees.map((person) => ({ value: String(person.id), label: person.email }));
     if (row.field === 'category') return CATEGORIES.map((category) => ({ value: category, label: category }));
     if (row.field === 'subcategory') return subcategoryOptions(categoryValues);
     return [];
@@ -566,11 +609,19 @@ export default function ViewEditorDialog({
     onSubmit({
       name: name.trim(),
       visibility: adminMode
-        ? (visibility === 'public' ? 'public' : (groupIds.length ? 'group' : 'personal'))
+        ? visibility === 'public'
+          ? 'public'
+          : groupIds.length
+            ? 'group'
+            : 'personal'
         : visibility,
       share_group_id: adminMode
-        ? (visibility === 'public' ? '' : (groupIds[0] ?? ''))
-        : (visibility === 'group' ? shareGroupId : ''),
+        ? visibility === 'public'
+          ? ''
+          : (groupIds[0] ?? '')
+        : visibility === 'group'
+          ? shareGroupId
+          : '',
       share_group_ids: adminMode && visibility !== 'public' ? groupIds : undefined,
       rows,
       columns,
@@ -633,7 +684,8 @@ export default function ViewEditorDialog({
                   display: 'flex',
                   p: '3px',
                   gap: '3px',
-                  border: '1px solid', borderColor: 'divider',
+                  border: '1px solid',
+                  borderColor: 'divider',
                   borderRadius: 1,
                   bgcolor: 'action.hover'
                 }}
@@ -685,7 +737,7 @@ export default function ViewEditorDialog({
                 <OptionMenu
                   multiple={adminMode}
                   options={groups.map((group) => ({ value: String(group.id), label: group.name }))}
-                  selected={adminMode ? shareGroupIds : (shareGroupId ? [String(shareGroupId)] : [])}
+                  selected={adminMode ? shareGroupIds : shareGroupId ? [String(shareGroupId)] : []}
                   placeholder={adminMode ? 'Sin grupos' : 'Seleccionar grupo'}
                   error={!adminMode && showIssues && !shareGroupId}
                   onChange={(values) => {
@@ -694,9 +746,11 @@ export default function ViewEditorDialog({
                   }}
                 />
                 {adminMode && (
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                    
-                  </Typography>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ display: 'block', mt: 0.5 }}
+                  ></Typography>
                 )}
               </Box>
             )}
@@ -705,12 +759,8 @@ export default function ViewEditorDialog({
           <Divider />
 
           <Box>
-            <Typography sx={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.2 }}>
-              Columnas
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1.25 }}>
-              
-            </Typography>
+            <Typography sx={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.2 }}>Columnas</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1.25 }}></Typography>
             <Stack spacing={0.75}>
               {columns.map((key, index) => {
                 const label = TICKET_COLUMNS.find((column) => column.key === key)?.label || key;
@@ -737,7 +787,8 @@ export default function ViewEditorDialog({
                       py: 0.5,
                       borderRadius: 1.5,
                       bgcolor: columnDragOver === index ? 'action.selected' : 'action.hover',
-                      border: '1px solid', borderColor: 'divider'
+                      border: '1px solid',
+                      borderColor: 'divider'
                     }}
                   >
                     <Tooltip title="Arrastrá para reordenar">
@@ -749,20 +800,39 @@ export default function ViewEditorDialog({
                           event.dataTransfer.effectAllowed = 'move';
                         }}
                         onDragEnd={() => setColumnDragOver(null)}
-                        sx={{ display: 'flex', cursor: 'grab', color: 'text.disabled', '&:hover': { color: 'text.secondary' } }}
+                        sx={{
+                          display: 'flex',
+                          cursor: 'grab',
+                          color: 'text.disabled',
+                          '&:hover': { color: 'text.secondary' }
+                        }}
                       >
                         <DragIndicatorIcon fontSize="small" />
                       </Box>
                     </Tooltip>
-                    <IconButton size="small" aria-label="Subir columna" disabled={index === 0} onClick={() => moveColumn(index, index - 1)}>
+                    <IconButton
+                      size="small"
+                      aria-label="Subir columna"
+                      disabled={index === 0}
+                      onClick={() => moveColumn(index, index - 1)}
+                    >
                       <ArrowUpwardIcon sx={{ fontSize: 16 }} />
                     </IconButton>
-                    <IconButton size="small" aria-label="Bajar columna" disabled={index === columns.length - 1} onClick={() => moveColumn(index, index + 1)}>
+                    <IconButton
+                      size="small"
+                      aria-label="Bajar columna"
+                      disabled={index === columns.length - 1}
+                      onClick={() => moveColumn(index, index + 1)}
+                    >
                       <ArrowDownwardIcon sx={{ fontSize: 16 }} />
                     </IconButton>
                     <Typography sx={{ flex: 1, fontSize: 14, fontWeight: 600 }}>{label}</Typography>
                     <Tooltip title="Quitar columna">
-                      <IconButton size="small" aria-label={`Quitar ${label}`} onClick={() => setColumns((current) => current.filter((item) => item !== key))}>
+                      <IconButton
+                        size="small"
+                        aria-label={`Quitar ${label}`}
+                        onClick={() => setColumns((current) => current.filter((item) => item !== key))}
+                      >
                         <DeleteOutlineIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
@@ -778,7 +848,8 @@ export default function ViewEditorDialog({
                 mt: 1.5,
                 px: 1.5,
                 minHeight: 40,
-                border: '1px dashed', borderColor: 'divider',
+                border: '1px dashed',
+                borderColor: 'divider',
                 borderRadius: 1.5,
                 textTransform: 'none',
                 fontWeight: 600,
@@ -789,7 +860,11 @@ export default function ViewEditorDialog({
             </Button>
             <Menu anchorEl={columnAnchor} open={Boolean(columnAnchor)} onClose={() => setColumnAnchor(null)}>
               {availableColumns.map((column) => (
-                <MenuItem key={column.key} onClick={() => addColumn(column.key)} sx={{ minHeight: 40, fontSize: 14 }}>
+                <MenuItem
+                  key={column.key}
+                  onClick={() => addColumn(column.key)}
+                  sx={{ minHeight: 40, fontSize: 14 }}
+                >
                   {column.label}
                 </MenuItem>
               ))}
@@ -800,10 +875,19 @@ export default function ViewEditorDialog({
             <Typography sx={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.2, mb: 0.5 }}>
               Filtros
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.25 }}>
-            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.25 }}></Typography>
             {rows.length === 0 && (
-              <Box sx={{ px: 1.5, py: 1.75, mb: 1.25, borderRadius: 1.5, bgcolor: 'action.hover', border: '1px dashed', borderColor: 'divider' }}>
+              <Box
+                sx={{
+                  px: 1.5,
+                  py: 1.75,
+                  mb: 1.25,
+                  borderRadius: 1.5,
+                  bgcolor: 'action.hover',
+                  border: '1px dashed',
+                  borderColor: 'divider'
+                }}
+              >
                 <Typography variant="body2" color="text.secondary">
                   Todavía no hay filtros. La vista incluye todos los tickets que podés ver.
                 </Typography>
@@ -811,16 +895,18 @@ export default function ViewEditorDialog({
             )}
             <Stack spacing={1}>
               {rows.map((row, index) => {
-                const issue = showIssues ? viewFilterIssue(row, rows) : null
-                const fieldChoices = VIEW_FILTER_FIELDS
-                  .filter((item) => item.field === row.field || !usedFields.has(item.field))
-                  .map((item) => ({ value: item.field, label: item.label }));
+                const issue = showIssues ? viewFilterIssue(row, rows) : null;
+                const fieldChoices = VIEW_FILTER_FIELDS.filter(
+                  (item) => item.field === row.field || !usedFields.has(item.field)
+                ).map((item) => ({ value: item.field, label: item.label }));
                 const technicianLocked = row.field === 'technician' && !groupKey;
                 const priorityLocked = row.field === 'priority' && !priorityApplies(rows);
                 return (
                   <Box key={row.id}>
                     {index > 0 && (
-                      <Typography sx={{ pl: 0.5, py: 0.25, fontSize: 12, fontWeight: 700, color: 'text.secondary' }}>
+                      <Typography
+                        sx={{ pl: 0.5, py: 0.25, fontSize: 12, fontWeight: 700, color: 'text.secondary' }}
+                      >
                         y
                       </Typography>
                     )}
@@ -842,7 +928,8 @@ export default function ViewEditorDialog({
                         p: 1,
                         borderRadius: 1.5,
                         bgcolor: dragOver === index ? 'action.selected' : 'action.hover',
-                        border: '1px solid', borderColor: 'divider'
+                        border: '1px solid',
+                        borderColor: 'divider'
                       }}
                     >
                       <Tooltip title="Arrastrá para reordenar">
@@ -854,16 +941,32 @@ export default function ViewEditorDialog({
                             event.dataTransfer.effectAllowed = 'move';
                           }}
                           onDragEnd={() => setDragOver(null)}
-                          sx={{ mt: 2.75, display: 'flex', cursor: 'grab', color: 'text.disabled', '&:hover': { color: 'text.secondary' } }}
+                          sx={{
+                            mt: 2.75,
+                            display: 'flex',
+                            cursor: 'grab',
+                            color: 'text.disabled',
+                            '&:hover': { color: 'text.secondary' }
+                          }}
                         >
                           <DragIndicatorIcon fontSize="small" />
                         </Box>
                       </Tooltip>
                       <Stack spacing={0.25} sx={{ mt: 2.15 }}>
-                        <IconButton size="small" aria-label="Subir filtro" disabled={index === 0} onClick={() => moveRow(index, index - 1)}>
+                        <IconButton
+                          size="small"
+                          aria-label="Subir filtro"
+                          disabled={index === 0}
+                          onClick={() => moveRow(index, index - 1)}
+                        >
                           <ArrowUpwardIcon sx={{ fontSize: 16 }} />
                         </IconButton>
-                        <IconButton size="small" aria-label="Bajar filtro" disabled={index === rows.length - 1} onClick={() => moveRow(index, index + 1)}>
+                        <IconButton
+                          size="small"
+                          aria-label="Bajar filtro"
+                          disabled={index === rows.length - 1}
+                          onClick={() => moveRow(index, index + 1)}
+                        >
                           <ArrowDownwardIcon sx={{ fontSize: 16 }} />
                         </IconButton>
                       </Stack>
@@ -936,7 +1039,8 @@ export default function ViewEditorDialog({
                 mt: 1.5,
                 px: 1.5,
                 minHeight: 40,
-                border: '1px dashed', borderColor: 'divider',
+                border: '1px dashed',
+                borderColor: 'divider',
                 borderRadius: 1.5,
                 textTransform: 'none',
                 fontWeight: 600,
@@ -947,7 +1051,11 @@ export default function ViewEditorDialog({
             </Button>
             <Menu anchorEl={addAnchor} open={Boolean(addAnchor)} onClose={() => setAddAnchor(null)}>
               {availableFields.map((item) => (
-                <MenuItem key={item.field} onClick={() => addField(item.field)} sx={{ minHeight: 40, fontSize: 14 }}>
+                <MenuItem
+                  key={item.field}
+                  onClick={() => addField(item.field)}
+                  sx={{ minHeight: 40, fontSize: 14 }}
+                >
                   {item.label}
                 </MenuItem>
               ))}
@@ -956,7 +1064,9 @@ export default function ViewEditorDialog({
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, py: 2 }}>
-        <Button onClick={requestClose} disabled={saving}>Cancelar</Button>
+        <Button onClick={requestClose} disabled={saving}>
+          Cancelar
+        </Button>
         <Button variant="contained" onClick={handleSubmit} disabled={saving}>
           {saving ? 'Guardando...' : 'Guardar'}
         </Button>
@@ -970,7 +1080,13 @@ export default function ViewEditorDialog({
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setClosePrompt(false)}>Volver</Button>
-          <Button variant="contained" onClick={() => { setClosePrompt(false); onClose(); }}>
+          <Button
+            variant="contained"
+            onClick={() => {
+              setClosePrompt(false);
+              onClose();
+            }}
+          >
             Cerrar
           </Button>
         </DialogActions>

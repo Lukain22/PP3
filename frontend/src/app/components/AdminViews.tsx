@@ -125,7 +125,11 @@ export default function AdminViews() {
       else if (viewsResult) toast.error(viewsResult.data.message || 'No se pudieron cargar las vistas');
       if (groupsResult?.response.ok) {
         const list = Array.isArray(groupsResult.data) ? groupsResult.data : groupsResult.data.groups;
-        setGroups(Array.isArray(list) ? list.map((group: { id: number; name: string }) => ({ id: group.id, name: group.name })) : []);
+        setGroups(
+          Array.isArray(list)
+            ? list.map((group: { id: number; name: string }) => ({ id: group.id, name: group.name }))
+            : []
+        );
       }
       setLoading(false);
     })();
@@ -139,10 +143,7 @@ export default function AdminViews() {
     if (!needle) return views;
     return views.filter((view) => {
       const groupsText = (view.share_groups || []).map((group) => group.name || '').join(' ');
-      return [view.name, view.creator_email || '', groupsText]
-        .join(' ')
-        .toLocaleLowerCase()
-        .includes(needle);
+      return [view.name, view.creator_email || '', groupsText].join(' ').toLocaleLowerCase().includes(needle);
     });
   }, [views, search]);
 
@@ -154,10 +155,11 @@ export default function AdminViews() {
   };
 
   const openEdit = (view: TicketView) => {
-    const groupIds = (view.share_groups?.length
+    const groupIds = view.share_groups?.length
       ? view.share_groups.map((group) => group.id)
-      : (view.share_group_id ? [view.share_group_id] : [])
-    );
+      : view.share_group_id
+        ? [view.share_group_id]
+        : [];
     setEditing(view);
     setDraft({
       name: view.name,
@@ -175,7 +177,10 @@ export default function AdminViews() {
   const handleSave = async (values: ViewEditorValues) => {
     const listFilters = rowsToListFilters(values.rows);
     const filters = attachViewColumns(
-      viewFiltersToPayload(listFilters, values.rows.map((row) => row.field)),
+      viewFiltersToPayload(
+        listFilters,
+        values.rows.map((row) => row.field)
+      ),
       values.columns
     );
     setSaving(true);
@@ -253,10 +258,10 @@ export default function AdminViews() {
   return (
     <SupportShell
       title="Vistas"
-      
+
       backTo="/admin"
       breadcrumbs={[{ label: 'Administración', to: '/admin' }, { label: 'Vistas' }]}
-      headerAction={(
+      headerAction={
         <Stack direction="row" spacing={1} alignItems="center">
           <TextField
             size="small"
@@ -274,11 +279,17 @@ export default function AdminViews() {
             }}
             sx={{ width: 220, '& .MuiInputBase-root': { height: 30 } }}
           />
-          <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={openCreate} sx={{ height: 30 }}>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={openCreate}
+            sx={{ height: 30 }}
+          >
             Nueva vista
           </Button>
         </Stack>
-      )}
+      }
     >
       <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {loading ? (
@@ -309,7 +320,9 @@ export default function AdminViews() {
                     <TableCell sx={{ width: 110 }}>Visibilidad</TableCell>
                     <TableCell>Grupos</TableCell>
                     <TableCell sx={{ width: 100 }}>Estado</TableCell>
-                    <TableCell sx={{ width: 120 }} align="right">Acciones</TableCell>
+                    <TableCell sx={{ width: 120 }} align="right">
+                      Acciones
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -321,86 +334,113 @@ export default function AdminViews() {
                         </Typography>
                       </TableCell>
                     </TableRow>
-                  ) : visibleViews.map((view) => {
-                    const groupNames = (view.share_groups || [])
-                      .map((group) => group.name)
-                      .filter(Boolean)
-                      .join(', ');
-                    return (
-                      <TableRow key={view.id} hover sx={{ opacity: view.hidden ? 0.55 : 1 }}>
-                        <TableCell sx={{ fontWeight: 600, maxWidth: 240 }}>
-                          <Typography variant="body2" noWrap title={view.name} sx={{ fontWeight: 600 }}>
-                            {view.name}
-                          </Typography>
-                        </TableCell>
-                        <TableCell sx={{ maxWidth: 220 }}>
-                          <Typography variant="body2" color="text.secondary" noWrap title={view.creator_email || ''}>
-                            {view.creator_email || '—'}
-                          </Typography>
-                        </TableCell>
-                        <TableCell sx={{ whiteSpace: 'nowrap' }}>{view.created_at ? formatDate(view.created_at) : '—'}</TableCell>
-                        <TableCell>
-                          <Chip
-                            size="small"
-                            label={view.visibility === 'public' ? 'Pública' : 'Privada'}
-                            color={view.visibility === 'public' ? 'primary' : 'default'}
-                            variant={view.visibility === 'public' ? 'filled' : 'outlined'}
-                          />
-                        </TableCell>
-                        <TableCell sx={{ maxWidth: 260 }}>
-                          <Typography variant="body2" color="text.secondary" noWrap title={groupNames}>
-                            {groupNames || '—'}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            size="small"
-                            label={view.hidden ? 'Oculta' : 'Visible'}
-                            color={view.hidden ? 'warning' : 'success'}
-                            variant="outlined"
-                          />
-                        </TableCell>
-                        <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                          <Tooltip title={view.hidden ? 'Mostrar' : 'Ocultar'}>
-                            <span>
-                              <IconButton
-                                size="small"
-                                aria-label={view.hidden ? 'Mostrar vista' : 'Ocultar vista'}
-                                disabled={busyId === view.id}
-                                onClick={() => toggleHidden(view)}
-                              >
-                                {view.hidden ? <VisibilityOutlinedIcon fontSize="small" /> : <VisibilityOffOutlinedIcon fontSize="small" />}
-                              </IconButton>
-                            </span>
-                          </Tooltip>
-                          <Tooltip title="Editar">
-                            <span>
-                              <IconButton size="small" aria-label="Editar vista" disabled={busyId === view.id} onClick={() => openEdit(view)}>
-                                <EditOutlinedIcon fontSize="small" />
-                              </IconButton>
-                            </span>
-                          </Tooltip>
-                          <Tooltip title="Eliminar">
-                            <span>
-                              <IconButton
-                                size="small"
-                                color="error"
-                                aria-label="Eliminar vista"
-                                disabled={busyId === view.id}
-                                onClick={() => handleDelete(view)}
-                              >
-                                <DeleteOutlineIcon fontSize="small" />
-                              </IconButton>
-                            </span>
-                          </Tooltip>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                  ) : (
+                    visibleViews.map((view) => {
+                      const groupNames = (view.share_groups || [])
+                        .map((group) => group.name)
+                        .filter(Boolean)
+                        .join(', ');
+                      return (
+                        <TableRow key={view.id} hover sx={{ opacity: view.hidden ? 0.55 : 1 }}>
+                          <TableCell sx={{ fontWeight: 600, maxWidth: 240 }}>
+                            <Typography variant="body2" noWrap title={view.name} sx={{ fontWeight: 600 }}>
+                              {view.name}
+                            </Typography>
+                          </TableCell>
+                          <TableCell sx={{ maxWidth: 220 }}>
+                            <Typography
+                              variant="body2"
+                              color="text.secondary"
+                              noWrap
+                              title={view.creator_email || ''}
+                            >
+                              {view.creator_email || '—'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                            {view.created_at ? formatDate(view.created_at) : '—'}
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              size="small"
+                              label={view.visibility === 'public' ? 'Pública' : 'Privada'}
+                              color={view.visibility === 'public' ? 'primary' : 'default'}
+                              variant={view.visibility === 'public' ? 'filled' : 'outlined'}
+                            />
+                          </TableCell>
+                          <TableCell sx={{ maxWidth: 260 }}>
+                            <Typography variant="body2" color="text.secondary" noWrap title={groupNames}>
+                              {groupNames || '—'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              size="small"
+                              label={view.hidden ? 'Oculta' : 'Visible'}
+                              color={view.hidden ? 'warning' : 'success'}
+                              variant="outlined"
+                            />
+                          </TableCell>
+                          <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                            <Tooltip title={view.hidden ? 'Mostrar' : 'Ocultar'}>
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  aria-label={view.hidden ? 'Mostrar vista' : 'Ocultar vista'}
+                                  disabled={busyId === view.id}
+                                  onClick={() => toggleHidden(view)}
+                                >
+                                  {view.hidden ? (
+                                    <VisibilityOutlinedIcon fontSize="small" />
+                                  ) : (
+                                    <VisibilityOffOutlinedIcon fontSize="small" />
+                                  )}
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                            <Tooltip title="Editar">
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  aria-label="Editar vista"
+                                  disabled={busyId === view.id}
+                                  onClick={() => openEdit(view)}
+                                >
+                                  <EditOutlinedIcon fontSize="small" />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                            <Tooltip title="Eliminar">
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  aria-label="Eliminar vista"
+                                  disabled={busyId === view.id}
+                                  onClick={() => handleDelete(view)}
+                                >
+                                  <DeleteOutlineIcon fontSize="small" />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
                 </TableBody>
               </Table>
             </TableContainer>
-            <Box sx={{ flexShrink: 0, px: 1.5, py: 0.5, borderTop: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
+            <Box
+              sx={{
+                flexShrink: 0,
+                px: 1.5,
+                py: 0.5,
+                borderTop: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'action.hover'
+              }}
+            >
               <Typography variant="body2" color="text.secondary">
                 {search.trim() && visibleViews.length !== views.length
                   ? `${visibleViews.length} de ${views.length} vistas`

@@ -32,7 +32,14 @@ function filename(at: Date) {
   return `Tablero_${stamp}.pdf`;
 }
 
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number
+) {
   ctx.beginPath();
   ctx.moveTo(x + radius, y);
   ctx.arcTo(x + width, y, x + width, y + height, radius);
@@ -51,7 +58,13 @@ function fitText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) 
   return `${next}…`;
 }
 
-function drawPie(ctx: CanvasRenderingContext2D, cx: number, cy: number, radius: number, data: DashboardPdfSlice[]) {
+function drawPie(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  radius: number,
+  data: DashboardPdfSlice[]
+) {
   const total = data.reduce((sum, slice) => sum + slice.value, 0);
   let angle = -Math.PI / 2;
   data.forEach((slice) => {
@@ -114,12 +127,7 @@ function drawChartCard(
   });
 }
 
-function paintPage(
-  charts: DashboardPdfChart[],
-  options: PdfOptions,
-  at: Date,
-  showHeader: boolean
-) {
+function paintPage(charts: DashboardPdfChart[], options: PdfOptions, at: Date, showHeader: boolean) {
   const columns = charts.length > 1 ? 2 : 1;
   const cardWidth = (PAGE_W - MARGIN * 2 - GAP * (columns - 1)) / columns;
   const rows: DashboardPdfChart[][] = [];

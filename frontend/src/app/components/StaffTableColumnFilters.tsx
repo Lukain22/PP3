@@ -8,11 +8,7 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import { STAFF_DEFAULT_COLUMNS, ticketColumnMeta, type TicketColumnKey } from '../../lib/ticketColumns';
 import type { StaffColumnFilters } from '../../lib/ticketViews';
 import { emptyStaffColumnFilters, hasActiveStaffColumnFilters } from '../../lib/ticketViews';
-import {
-  type TicketSort,
-  type TicketSortKey,
-  isColumnFilterActive
-} from '../../lib/ticketTable';
+import { type TicketSort, type TicketSortKey, isColumnFilterActive } from '../../lib/ticketTable';
 
 export type { StaffColumnFilters };
 export { hasActiveStaffColumnFilters };
@@ -90,10 +86,15 @@ export function SortableHeaderCell({
   width?: number;
 }) {
   const active = highlightSort && sort.key === sortKey;
-  const nextDirection = !active ? (sortKey === 'date' ? 'desc' : 'asc') : sort.direction === 'asc' ? 'desc' : 'asc';
-  const sortLabel = nextDirection === 'asc'
-    ? `Ordenar ${label} de menor a mayor`
-    : `Ordenar ${label} de mayor a menor`;
+  const nextDirection = !active
+    ? sortKey === 'date'
+      ? 'desc'
+      : 'asc'
+    : sort.direction === 'asc'
+      ? 'desc'
+      : 'asc';
+  const sortLabel =
+    nextDirection === 'asc' ? `Ordenar ${label} de menor a mayor` : `Ordenar ${label} de mayor a menor`;
 
   return (
     <TableCell
@@ -104,8 +105,7 @@ export function SortableHeaderCell({
         minWidth,
         width,
         color: active || filterActive ? 'primary.main' : 'inherit',
-        boxShadow: (theme) =>
-          filterActive ? `inset 0 -2px 0 ${theme.palette.primary.main}` : 'none'
+        boxShadow: (theme) => (filterActive ? `inset 0 -2px 0 ${theme.palette.primary.main}` : 'none')
       }}
     >
       <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25, maxWidth: '100%' }}>
@@ -199,7 +199,15 @@ function FilterField({
 }
 
 const FILTERABLE_COLUMNS = new Set<TicketColumnKey>([
-  'id', 'title', 'user', 'group', 'assignee', 'status', 'category', 'subcategory', 'created'
+  'id',
+  'title',
+  'user',
+  'group',
+  'assignee',
+  'status',
+  'category',
+  'subcategory',
+  'created'
 ]);
 
 function ColumnFilterField({
@@ -211,7 +219,12 @@ function ColumnFilterField({
   draft: StaffColumnFilters;
   onChange: (next: StaffColumnFilters) => void;
 }) {
-  const field = (placeholder: string, value: string, patch: (value: string) => StaffColumnFilters, extra?: { type?: string; inputMode?: 'numeric' | 'text' }) => (
+  const field = (
+    placeholder: string,
+    value: string,
+    patch: (value: string) => StaffColumnFilters,
+    extra?: { type?: string; inputMode?: 'numeric' | 'text' }
+  ) => (
     <FilterField
       id={`ticket-filter-${ticketColumnMeta(column).sortKey}`}
       value={value}
@@ -224,7 +237,12 @@ function ColumnFilterField({
 
   switch (column) {
     case 'id':
-      return field('Filtrar ID', draft.ticketId, (value) => ({ ...draft, ticketId: value.replace(/\D/g, '') }), { inputMode: 'numeric' });
+      return field(
+        'Filtrar ID',
+        draft.ticketId,
+        (value) => ({ ...draft, ticketId: value.replace(/\D/g, '') }),
+        { inputMode: 'numeric' }
+      );
     case 'title':
       return field('Filtrar ticket', draft.title, (value) => ({ ...draft, title: value }));
     case 'user':

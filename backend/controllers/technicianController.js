@@ -88,7 +88,8 @@ exports.getTechnicianTickets = (req, res) => {
 
     const whereClause = `WHERE ${conditions.join(' AND ')}`;
     const orderBy = resolveTicketOrderBy(sort, 'staff');
-    const joinClause = 'JOIN users u ON u.id = t.user_id LEFT JOIN `groups` g ON g.id = t.group_id LEFT JOIN users tech ON tech.id = t.technician_id';
+    const joinClause =
+      'JOIN users u ON u.id = t.user_id LEFT JOIN `groups` g ON g.id = t.group_id LEFT JOIN users tech ON tech.id = t.technician_id';
 
     db.query(
       `SELECT COUNT(*) AS total FROM tickets t ${joinClause} ${whereClause}`,

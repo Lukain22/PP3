@@ -93,70 +93,86 @@ export default function TicketSolutions({ ticketId, canApply, onApply }: TicketS
           <Typography variant="body2" color="text.secondary">
             No hay soluciones disponibles para tus grupos.
           </Typography>
-        ) : items.map((item) => (
-          <Box
-            key={item.id}
-            sx={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: 1.25,
-              px: 1.25,
-              py: 1,
-              borderRadius: 1.5,
-              border: '1px solid',
-              borderColor: 'divider',
-              transition: 'background-color 160ms ease, border-color 160ms ease',
-              '&:hover': { bgcolor: 'action.hover', borderColor: 'primary.light' },
-              '& .use-solution': {
-                opacity: 0,
-                maxHeight: 0,
-                overflow: 'hidden',
-                pointerEvents: 'none',
-                transition: 'opacity 160ms ease'
-              },
-              '&:hover .use-solution, &:focus-within .use-solution': {
-                opacity: 1,
-                maxHeight: 28,
-                mt: 0.25,
-                pointerEvents: 'auto'
-              }
-            }}
-          >
-            <Box sx={{ color: 'text.secondary', mt: 0.25 }} title={item.share_all ? 'Visible para todos los grupos' : 'Restringida por grupos'}>
-              {item.share_all ? <PublicIcon sx={{ fontSize: 18 }} /> : <LockOutlinedIcon sx={{ fontSize: 18 }} />}
-            </Box>
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                {item.title}
-              </Typography>
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{
-                  display: '-webkit-box',
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden'
-                }}
+        ) : (
+          items.map((item) => (
+            <Box
+              key={item.id}
+              sx={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 1.25,
+                px: 1.25,
+                py: 1,
+                borderRadius: 1.5,
+                border: '1px solid',
+                borderColor: 'divider',
+                transition: 'background-color 160ms ease, border-color 160ms ease',
+                '&:hover': { bgcolor: 'action.hover', borderColor: 'primary.light' },
+                '& .use-solution': {
+                  opacity: 0,
+                  maxHeight: 0,
+                  overflow: 'hidden',
+                  pointerEvents: 'none',
+                  transition: 'opacity 160ms ease'
+                },
+                '&:hover .use-solution, &:focus-within .use-solution': {
+                  opacity: 1,
+                  maxHeight: 28,
+                  mt: 0.25,
+                  pointerEvents: 'auto'
+                }
+              }}
+            >
+              <Box
+                sx={{ color: 'text.secondary', mt: 0.25 }}
+                title={item.share_all ? 'Visible para todos los grupos' : 'Restringida por grupos'}
               >
-                {solutionSummary(item.content)}
-              </Typography>
-              {canApply && (
-                <Link
-                  component="button"
-                  type="button"
-                  className="use-solution"
-                  underline="hover"
-                  disabled={applyingId === item.id}
-                  onClick={() => apply(item)}
-                  sx={{ fontSize: '0.8125rem', border: 0, bgcolor: 'transparent', cursor: 'pointer', p: 0, display: 'inline-block' }}
+                {item.share_all ? (
+                  <PublicIcon sx={{ fontSize: 18 }} />
+                ) : (
+                  <LockOutlinedIcon sx={{ fontSize: 18 }} />
+                )}
+              </Box>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                  {item.title}
+                </Typography>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden'
+                  }}
                 >
-                  {applyingId === item.id ? 'Aplicando...' : 'Usar como resolución'}
-                </Link>
-              )}
+                  {solutionSummary(item.content)}
+                </Typography>
+                {canApply && (
+                  <Link
+                    component="button"
+                    type="button"
+                    className="use-solution"
+                    underline="hover"
+                    disabled={applyingId === item.id}
+                    onClick={() => apply(item)}
+                    sx={{
+                      fontSize: '0.8125rem',
+                      border: 0,
+                      bgcolor: 'transparent',
+                      cursor: 'pointer',
+                      p: 0,
+                      display: 'inline-block'
+                    }}
+                  >
+                    {applyingId === item.id ? 'Aplicando...' : 'Usar como resolución'}
+                  </Link>
+                )}
+              </Box>
             </Box>
-          </Box>
-        ))}
+          ))
+        )}
       </Box>
     </Box>
   );

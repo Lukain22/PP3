@@ -12,7 +12,12 @@ const {
   formatDateForDb
 } = require('../utils/sla');
 const { getDefaultGroupId, getUserGroupIds, userCanAccessTicket } = require('../utils/groups');
-const { appendExtendedListFilters, resolveTicketOrderBy, VALID_CATEGORIES, VALID_SUBCATEGORIES } = require('../utils/ticketFilters');
+const {
+  appendExtendedListFilters,
+  resolveTicketOrderBy,
+  VALID_CATEGORIES,
+  VALID_SUBCATEGORIES
+} = require('../utils/ticketFilters');
 const {
   notifyTicketCreatorOnChanges,
   notifyTicketCreatorOnResolution,
@@ -137,14 +142,25 @@ const initCommentsTable = () => {
 };
 
 exports.getTickets = (req, res) => {
-  const page  = Math.max(1, parseInt(req.query.page)  || 1);
+  const page = Math.max(1, parseInt(req.query.page) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
   const offset = (page - 1) * limit;
   const {
-    status, type, priority, sort,
-    group_id, group_ids, technician_ids,
-    categories, subcategories,
-    date_from, date_to, due_from, due_to, resolved_from, resolved_to
+    status,
+    type,
+    priority,
+    sort,
+    group_id,
+    group_ids,
+    technician_ids,
+    categories,
+    subcategories,
+    date_from,
+    date_to,
+    due_from,
+    due_to,
+    resolved_from,
+    resolved_to
   } = req.query;
   const orderBy = resolveTicketOrderBy(sort, 'user');
 
@@ -152,43 +168,49 @@ exports.getTickets = (req, res) => {
   const baseParams = [req.user.id];
 
   appendExtendedListFilters(conditions, baseParams, {
-    status, type, priority,
-    group_id, group_ids, technician_ids,
-    categories, subcategories,
-    date_from, date_to, due_from, due_to, resolved_from, resolved_to
+    status,
+    type,
+    priority,
+    group_id,
+    group_ids,
+    technician_ids,
+    categories,
+    subcategories,
+    date_from,
+    date_to,
+    due_from,
+    due_to,
+    resolved_from,
+    resolved_to
   });
 
   const whereClause = `WHERE ${conditions.join(' AND ')}`;
 
-  db.query(
-    `SELECT COUNT(*) AS total FROM tickets t ${whereClause}`,
-    baseParams,
-    (err, countResult) => {
-      if (err) return res.status(500).json({ message: 'Error al obtener tickets' });
+  db.query(`SELECT COUNT(*) AS total FROM tickets t ${whereClause}`, baseParams, (err, countResult) => {
+    if (err) return res.status(500).json({ message: 'Error al obtener tickets' });
 
-      const total = countResult[0].total;
+    const total = countResult[0].total;
 
-      db.query(
-        `SELECT id, title, description, status, priority, type, category, subcategory, group_id, ${SLA_SELECT}, created_at, user_id,
+    db.query(
+      `SELECT id, title, description, status, priority, type, category, subcategory, group_id, ${SLA_SELECT}, created_at, user_id,
                 ${SEEN_SELECT}
          FROM tickets t
          ${whereClause}
          ORDER BY ${orderBy}
          LIMIT ? OFFSET ?`,
-        [req.user.id, ...baseParams, limit, offset],
-        (err2, results) => {
-          if (err2) return res.status(500).json({ message: 'Error al obtener tickets' });
-          res.json({
-            data: enrichTickets(results),
-            total,
-            page,
-            limit,
-            totalPages: Math.ceil(total / limit)
-          });
-        }
-      );
-    }
-  );
+      [req.user.id, ...baseParams, limit, offset],
+      (err2, results) => {
+        if (err2) return res.status(500).json({ message: 'Error al obtener tickets' });
+        res.json({
+          data: enrichTickets(results),
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit)
+        });
+      }
+    );
+  });
 };
 
 exports.getTicketById = (req, res) => {
@@ -262,13 +284,13 @@ const runCreateTicket = (req, res) => {
   }
 
   const ticketType = type && VALID_TYPES.includes(type) ? type : 'incident';
-  const ticketStatus = isAdmin ? (status || 'open') : 'open';
+  const ticketStatus = isAdmin ? status || 'open' : 'open';
 
   if (ticketType === 'requirement' && priority !== undefined) {
     return res.status(400).json({ message: 'Los requerimientos no tienen prioridad' });
   }
 
-    loadPolicies((policyErr, policies) => {
+  loadPolicies((policyErr, policies) => {
     if (policyErr) {
       return res.status(500).json({ message: 'Error al cargar políticas SLA' });
     }
@@ -278,61 +300,61 @@ const runCreateTicket = (req, res) => {
         return res.status(500).json({ message: 'Error al obtener grupo principal' });
       }
 
-    let ticketPriority = null;
-    let slaFields = clearSlaFields();
+      let ticketPriority = null;
+      let slaFields = clearSlaFields();
 
-    if (ticketType === 'incident') {
-      ticketPriority = isAdmin ? (priority || 'medium') : 'medium';
-      if (!VALID_PRIORITIES.includes(ticketPriority)) ticketPriority = 'medium';
-      const sla = buildIncidentSla(
-        { type: 'incident', priority: ticketPriority, created_at: new Date(), status: ticketStatus },
-        policies
-      );
-      slaFields = {
-        sla_response_due: formatDateForDb(sla.sla_response_due),
-        sla_resolution_due: formatDateForDb(sla.sla_resolution_due),
-        sla_status: sla.sla_status
-      };
-    }
-
-    db.query(
-      `INSERT INTO tickets (title, description, status, priority, type, group_id, sla_response_due, sla_resolution_due, sla_status, user_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        title,
-        cleanDescription,
-        ticketStatus,
-        ticketPriority,
-        ticketType,
-        defaultGroupId,
-        slaFields.sla_response_due,
-        slaFields.sla_resolution_due,
-        slaFields.sla_status,
-        req.user.id
-      ],
-      (err, result) => {
-        if (err) {
-          return res.status(500).json({ message: 'Error al crear ticket' });
-        }
-
-        const ticketId = result.insertId;
-        const createdLog = {
-          type: ticketType,
-          status: ticketStatus,
-          title: String(title).trim()
+      if (ticketType === 'incident') {
+        ticketPriority = isAdmin ? priority || 'medium' : 'medium';
+        if (!VALID_PRIORITIES.includes(ticketPriority)) ticketPriority = 'medium';
+        const sla = buildIncidentSla(
+          { type: 'incident', priority: ticketPriority, created_at: new Date(), status: ticketStatus },
+          policies
+        );
+        slaFields = {
+          sla_response_due: formatDateForDb(sla.sla_response_due),
+          sla_resolution_due: formatDateForDb(sla.sla_resolution_due),
+          sla_status: sla.sla_status
         };
-        if (ticketType === 'incident') {
-          createdLog.priority = ticketPriority;
-        }
-        logTicketCreated(ticketId, req.user.id, createdLog);
-        markTicketRead(req.user.id, ticketId, () => {
-          res.status(201).json({
-            message: 'Ticket creado',
-            id: ticketId
-          });
-        });
       }
-    );
+
+      db.query(
+        `INSERT INTO tickets (title, description, status, priority, type, group_id, sla_response_due, sla_resolution_due, sla_status, user_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          title,
+          cleanDescription,
+          ticketStatus,
+          ticketPriority,
+          ticketType,
+          defaultGroupId,
+          slaFields.sla_response_due,
+          slaFields.sla_resolution_due,
+          slaFields.sla_status,
+          req.user.id
+        ],
+        (err, result) => {
+          if (err) {
+            return res.status(500).json({ message: 'Error al crear ticket' });
+          }
+
+          const ticketId = result.insertId;
+          const createdLog = {
+            type: ticketType,
+            status: ticketStatus,
+            title: String(title).trim()
+          };
+          if (ticketType === 'incident') {
+            createdLog.priority = ticketPriority;
+          }
+          logTicketCreated(ticketId, req.user.id, createdLog);
+          markTicketRead(req.user.id, ticketId, () => {
+            res.status(201).json({
+              message: 'Ticket creado',
+              id: ticketId
+            });
+          });
+        }
+      );
     });
   });
 };
@@ -357,33 +379,37 @@ exports.updateTicketStatus = (req, res) => {
       const blocked = rejectDirectResolve(oldStatus, status);
       if (blocked) return res.status(400).json({ message: blocked });
 
-    loadPolicies((policyErr, policies) => {
-      if (policyErr) {
-        return res.status(500).json({ message: 'Error al cargar políticas SLA' });
-      }
+      loadPolicies((policyErr, policies) => {
+        if (policyErr) {
+          return res.status(500).json({ message: 'Error al cargar políticas SLA' });
+        }
 
-      const fields = ['status = ?'];
-      const values = [status];
-      const updates = { status };
+        const fields = ['status = ?'];
+        const values = [status];
+        const updates = { status };
 
-      if (oldTicket.type === 'incident') {
-        const slaFields = applySlaFieldsToUpdate(oldTicket, { status }, policies);
-        appendSlaToFields(fields, values, updates, slaFields);
-      }
+        if (oldTicket.type === 'incident') {
+          const slaFields = applySlaFieldsToUpdate(oldTicket, { status }, policies);
+          appendSlaToFields(fields, values, updates, slaFields);
+        }
 
-      values.push(id);
+        values.push(id);
 
-      db.query(
-        `UPDATE tickets SET ${fields.join(', ')} WHERE id = ?`,
-        values,
-        (err, result) => {
+        db.query(`UPDATE tickets SET ${fields.join(', ')} WHERE id = ?`, values, (err, result) => {
           if (err) return res.status(500).json({ message: 'Error al actualizar ticket' });
           if (result.affectedRows === 0) return res.status(404).json({ message: 'Ticket no encontrado' });
           if (oldStatus !== status) {
             logTicketHistory(id, req.user.id, 'updated', 'status', oldStatus, status);
           }
           if (updates.sla_status && updates.sla_status !== oldTicket.sla_status) {
-            logTicketHistory(id, req.user.id, 'updated', 'sla_status', oldTicket.sla_status, updates.sla_status);
+            logTicketHistory(
+              id,
+              req.user.id,
+              'updated',
+              'sla_status',
+              oldTicket.sla_status,
+              updates.sla_status
+            );
           }
           clearResolutionOnReopen(id, oldStatus, status, (clearErr) => {
             if (clearErr) return res.status(500).json({ message: 'Error al limpiar resolución' });
@@ -392,16 +418,16 @@ exports.updateTicketStatus = (req, res) => {
             }
             res.json({ message: 'Estado actualizado' });
           });
-        }
-      );
-    });
+        });
+      });
     });
   });
 };
 
 exports.updateTicket = (req, res) => {
   const { id } = req.params;
-  const { title, description, status, priority, category, subcategory, type, technician_id, group_id } = req.body;
+  const { title, description, status, priority, category, subcategory, type, technician_id, group_id } =
+    req.body;
 
   if (title !== undefined && !String(title).trim()) {
     return res.status(400).json({ message: 'El título no puede estar vacío' });
@@ -426,7 +452,12 @@ exports.updateTicket = (req, res) => {
   if (priority !== undefined && priority !== null && !VALID_PRIORITIES.includes(priority)) {
     return res.status(400).json({ message: 'Prioridad inválida' });
   }
-  if (category !== undefined && category !== null && category !== '' && !VALID_CATEGORIES.includes(category)) {
+  if (
+    category !== undefined &&
+    category !== null &&
+    category !== '' &&
+    !VALID_CATEGORIES.includes(category)
+  ) {
     return res.status(400).json({ message: 'Categoría inválida' });
   }
 
@@ -440,7 +471,7 @@ exports.updateTicket = (req, res) => {
       return res.status(400).json({ message: 'Los requerimientos no tienen prioridad' });
     }
 
-    const nextCategory = category !== undefined ? (category || null) : oldTicket.category;
+    const nextCategory = category !== undefined ? category || null : oldTicket.category;
     if (subcategory !== undefined && subcategory) {
       const allowedSubs = VALID_SUBCATEGORIES[nextCategory] || [];
       if (!allowedSubs.includes(subcategory)) {
@@ -451,84 +482,81 @@ exports.updateTicket = (req, res) => {
     assertTicketMutation(req, res, oldTicket, req.body).then((allowed) => {
       if (!allowed) return;
 
-    const applyUpdate = () => {
-      const blocked = rejectDirectResolve(oldTicket.status, status);
-      if (blocked) return res.status(400).json({ message: blocked });
+      const applyUpdate = () => {
+        const blocked = rejectDirectResolve(oldTicket.status, status);
+        if (blocked) return res.status(400).json({ message: blocked });
 
-      loadPolicies((policyErr, policies) => {
-        if (policyErr) {
-          return res.status(500).json({ message: 'Error al cargar políticas SLA' });
-        }
+        loadPolicies((policyErr, policies) => {
+          if (policyErr) {
+            return res.status(500).json({ message: 'Error al cargar políticas SLA' });
+          }
 
-        const fields = [];
-        const values = [];
-        const updates = {};
+          const fields = [];
+          const values = [];
+          const updates = {};
 
-        if (title !== undefined) {
-          fields.push('title = ?');
-          values.push(String(title).trim());
-          updates.title = String(title).trim();
-        }
-        if (cleanDescription !== undefined) {
-          fields.push('description = ?');
-          values.push(cleanDescription);
-          updates.description = cleanDescription;
-        }
-        if (status !== undefined) {
-          fields.push('status = ?');
-          values.push(status);
-          updates.status = status;
-        }
-        if (priority !== undefined) {
-          fields.push('priority = ?');
-          values.push(priority);
-          updates.priority = priority;
-        }
-        if (type !== undefined) {
-          fields.push('type = ?');
-          values.push(type);
-          updates.type = type;
-        }
-        if (category !== undefined) {
-          fields.push('category = ?');
-          values.push(category || null);
-          updates.category = category || null;
-        }
-        if (subcategory !== undefined) {
-          fields.push('subcategory = ?');
-          values.push(subcategory || null);
-          updates.subcategory = subcategory || null;
-        }
-        if (group_id !== undefined) {
-          fields.push('group_id = ?');
-          values.push(group_id || null);
-          updates.group_id = group_id || null;
-        }
-        if (technician_id !== undefined) {
-          fields.push('technician_id = ?');
-          values.push(technician_id || null);
-          updates.technician_id = technician_id || null;
-        }
+          if (title !== undefined) {
+            fields.push('title = ?');
+            values.push(String(title).trim());
+            updates.title = String(title).trim();
+          }
+          if (cleanDescription !== undefined) {
+            fields.push('description = ?');
+            values.push(cleanDescription);
+            updates.description = cleanDescription;
+          }
+          if (status !== undefined) {
+            fields.push('status = ?');
+            values.push(status);
+            updates.status = status;
+          }
+          if (priority !== undefined) {
+            fields.push('priority = ?');
+            values.push(priority);
+            updates.priority = priority;
+          }
+          if (type !== undefined) {
+            fields.push('type = ?');
+            values.push(type);
+            updates.type = type;
+          }
+          if (category !== undefined) {
+            fields.push('category = ?');
+            values.push(category || null);
+            updates.category = category || null;
+          }
+          if (subcategory !== undefined) {
+            fields.push('subcategory = ?');
+            values.push(subcategory || null);
+            updates.subcategory = subcategory || null;
+          }
+          if (group_id !== undefined) {
+            fields.push('group_id = ?');
+            values.push(group_id || null);
+            updates.group_id = group_id || null;
+          }
+          if (technician_id !== undefined) {
+            fields.push('technician_id = ?');
+            values.push(technician_id || null);
+            updates.technician_id = technician_id || null;
+          }
 
-        if (fields.length === 0) {
-          return res.status(400).json({ message: 'No hay campos para actualizar' });
-        }
+          if (fields.length === 0) {
+            return res.status(400).json({ message: 'No hay campos para actualizar' });
+          }
 
-        const mergedType = type !== undefined ? type : oldTicket.type;
-        const mergedUpdates = { ...updates };
-        if (mergedType === 'requirement') {
-          mergedUpdates.priority = null;
-        }
+          const mergedType = type !== undefined ? type : oldTicket.type;
+          const mergedUpdates = { ...updates };
+          if (mergedType === 'requirement') {
+            mergedUpdates.priority = null;
+          }
 
-        const slaFields = applySlaFieldsToUpdate(oldTicket, mergedUpdates, policies);
-        appendSlaToFields(fields, values, updates, slaFields);
+          const slaFields = applySlaFieldsToUpdate(oldTicket, mergedUpdates, policies);
+          appendSlaToFields(fields, values, updates, slaFields);
 
-        values.push(id);
+          values.push(id);
 
-        db.query(
-          `UPDATE tickets SET ${fields.join(', ')} WHERE id = ?`,
-          values,
-          (err, result) => {
+          db.query(`UPDATE tickets SET ${fields.join(', ')} WHERE id = ?`, values, (err, result) => {
             if (err) return res.status(500).json({ message: 'Error al actualizar ticket' });
             if (result.affectedRows === 0) return res.status(404).json({ message: 'Ticket no encontrado' });
             logFieldChanges(id, req.user.id, oldTicket, updates);
@@ -538,54 +566,53 @@ exports.updateTicket = (req, res) => {
               notifyTicketCreatorOnChanges(oldTicket, req.user.id, oldTicket, updates);
               res.json({ message: 'Ticket actualizado' });
             });
-          }
-        );
-      });
-    };
+          });
+        });
+      };
 
-    const applyAssignment = () => {
-      if (technician_id === undefined) return applyUpdate();
+      const applyAssignment = () => {
+        if (technician_id === undefined) return applyUpdate();
 
-      const nextTechnicianId = technician_id || null;
-      const effectiveGroupId = group_id !== undefined ? group_id : oldTicket.group_id;
+        const nextTechnicianId = technician_id || null;
+        const effectiveGroupId = group_id !== undefined ? group_id : oldTicket.group_id;
 
-      if (!nextTechnicianId) return applyUpdate();
+        if (!nextTechnicianId) return applyUpdate();
 
-      const parsedTechnicianId = parseInt(nextTechnicianId, 10);
-      if (!parsedTechnicianId) {
-        return res.status(400).json({ message: 'Técnico inválido' });
-      }
+        const parsedTechnicianId = parseInt(nextTechnicianId, 10);
+        if (!parsedTechnicianId) {
+          return res.status(400).json({ message: 'Técnico inválido' });
+        }
 
-      if (!effectiveGroupId) {
-        return res.status(400).json({ message: 'Asigná un grupo antes de seleccionar un técnico' });
-      }
+        if (!effectiveGroupId) {
+          return res.status(400).json({ message: 'Asigná un grupo antes de seleccionar un técnico' });
+        }
 
-      db.query(
-        `SELECT u.id
+        db.query(
+          `SELECT u.id
          FROM users u
          JOIN user_groups ug ON ug.user_id = u.id
          WHERE u.id = ? AND u.role = 'technician' AND ug.group_id = ?`,
-        [parsedTechnicianId, effectiveGroupId],
-        (techErr, techRows) => {
-          if (techErr) return res.status(500).json({ message: 'Error al verificar técnico' });
-          if (techRows.length === 0) {
-            return res.status(400).json({ message: 'El técnico no pertenece al grupo del ticket' });
+          [parsedTechnicianId, effectiveGroupId],
+          (techErr, techRows) => {
+            if (techErr) return res.status(500).json({ message: 'Error al verificar técnico' });
+            if (techRows.length === 0) {
+              return res.status(400).json({ message: 'El técnico no pertenece al grupo del ticket' });
+            }
+            applyUpdate();
           }
-          applyUpdate();
-        }
-      );
-    };
+        );
+      };
 
-    if (group_id) {
-      db.query('SELECT id FROM `groups` WHERE id = ?', [group_id], (gErr, gRows) => {
-        if (gErr) return res.status(500).json({ message: 'Error al verificar grupo' });
-        if (gRows.length === 0) return res.status(400).json({ message: 'Grupo inválido' });
-        applyAssignment();
-      });
-      return;
-    }
+      if (group_id) {
+        db.query('SELECT id FROM `groups` WHERE id = ?', [group_id], (gErr, gRows) => {
+          if (gErr) return res.status(500).json({ message: 'Error al verificar grupo' });
+          if (gRows.length === 0) return res.status(400).json({ message: 'Grupo inválido' });
+          applyAssignment();
+        });
+        return;
+      }
 
-    applyAssignment();
+      applyAssignment();
     });
   });
 };
@@ -734,21 +761,17 @@ const runSaveTicketResolution = (req, res) => {
 
           values.push(id);
 
-          db.query(
-            `UPDATE tickets SET ${fields.join(', ')} WHERE id = ?`,
-            values,
-            (updErr) => {
-              if (updErr) return res.status(500).json({ message: 'Error al marcar ticket como resuelto' });
-              if (oldStatus !== 'resolved') {
-                logTicketHistory(id, req.user.id, 'updated', 'status', oldStatus, 'resolved');
-              }
-              if (String(oldContent ?? '') !== trimmed) {
-                logTicketHistory(id, req.user.id, 'updated', 'resolution', oldContent, trimmed);
-              }
-              notifyTicketCreatorOnResolution(ticket, req.user.id, existing.length > 0);
-              res.json({ message: existing.length > 0 ? 'Resolución actualizada' : 'Resolución registrada' });
+          db.query(`UPDATE tickets SET ${fields.join(', ')} WHERE id = ?`, values, (updErr) => {
+            if (updErr) return res.status(500).json({ message: 'Error al marcar ticket como resuelto' });
+            if (oldStatus !== 'resolved') {
+              logTicketHistory(id, req.user.id, 'updated', 'status', oldStatus, 'resolved');
             }
-          );
+            if (String(oldContent ?? '') !== trimmed) {
+              logTicketHistory(id, req.user.id, 'updated', 'resolution', oldContent, trimmed);
+            }
+            notifyTicketCreatorOnResolution(ticket, req.user.id, existing.length > 0);
+            res.json({ message: existing.length > 0 ? 'Resolución actualizada' : 'Resolución registrada' });
+          });
         });
       };
 
@@ -819,9 +842,8 @@ const appendGrantCondition = (grant, conditions, params, requestedGroupIds) => {
   }
 
   if (requestedGroupIds.length) {
-    const ids = grant.mode === 'deny'
-      ? requestedGroupIds.filter((id) => !grant.ids.includes(id))
-      : requestedGroupIds;
+    const ids =
+      grant.mode === 'deny' ? requestedGroupIds.filter((id) => !grant.ids.includes(id)) : requestedGroupIds;
     if (!ids.length) return false;
     conditions.push(`t.group_id IN (${ids.map(() => '?').join(', ')})`);
     params.push(...ids);
@@ -835,46 +857,88 @@ exports.listWatchedTickets = (req, res) => {
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
   const offset = (page - 1) * limit;
 
-  getRequestAccess(req).then((access) => {
-    const grant = resolveTicketViewGrant(access);
-    if (!grant) return res.status(403).json({ message: 'No tenés permiso para ver tickets de otros grupos' });
-    if (grant.mode === 'allow' && grant.ids.length === 0) return emptyTicketPage(res, page, limit);
+  getRequestAccess(req)
+    .then((access) => {
+      const grant = resolveTicketViewGrant(access);
+      if (!grant)
+        return res.status(403).json({ message: 'No tenés permiso para ver tickets de otros grupos' });
+      if (grant.mode === 'allow' && grant.ids.length === 0) return emptyTicketPage(res, page, limit);
 
-    const requestedGroupIds = String(req.query.group_ids || req.query.group_id || '')
-      .split(',')
-      .map((part) => parseInt(part.trim(), 10))
-      .filter((id) => Number.isInteger(id) && id > 0);
+      const requestedGroupIds = String(req.query.group_ids || req.query.group_id || '')
+        .split(',')
+        .map((part) => parseInt(part.trim(), 10))
+        .filter((id) => Number.isInteger(id) && id > 0);
 
-    const conditions = [];
-    const params = [];
-    if (!appendGrantCondition(grant, conditions, params, requestedGroupIds)) {
-      return emptyTicketPage(res, page, limit);
-    }
+      const conditions = [];
+      const params = [];
+      if (!appendGrantCondition(grant, conditions, params, requestedGroupIds)) {
+        return emptyTicketPage(res, page, limit);
+      }
 
-    const {
-      status, group_id, group_ids, type, priority, ticket_id, title, user_email, technician_ids,
-      categories, subcategories, date_from, date_to, due_from, due_to, resolved_from, resolved_to,
-      group_name, assignee, status_q, category_q, subcategory, date_on, sort
-    } = req.query;
+      const {
+        status,
+        group_id,
+        group_ids,
+        type,
+        priority,
+        ticket_id,
+        title,
+        user_email,
+        technician_ids,
+        categories,
+        subcategories,
+        date_from,
+        date_to,
+        due_from,
+        due_to,
+        resolved_from,
+        resolved_to,
+        group_name,
+        assignee,
+        status_q,
+        category_q,
+        subcategory,
+        date_on,
+        sort
+      } = req.query;
 
-    appendExtendedListFilters(conditions, params, {
-      status, type, priority, ticket_id, title, user_email, technician_ids,
-      categories, subcategories, date_from, date_to, due_from, due_to, resolved_from, resolved_to,
-      group_name, assignee, status_q, category_q, subcategory, date_on
-    });
+      appendExtendedListFilters(conditions, params, {
+        status,
+        type,
+        priority,
+        ticket_id,
+        title,
+        user_email,
+        technician_ids,
+        categories,
+        subcategories,
+        date_from,
+        date_to,
+        due_from,
+        due_to,
+        resolved_from,
+        resolved_to,
+        group_name,
+        assignee,
+        status_q,
+        category_q,
+        subcategory,
+        date_on
+      });
 
-    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-    const orderBy = resolveTicketOrderBy(sort, 'staff');
-    const joinClause = 'JOIN users u ON u.id = t.user_id LEFT JOIN `groups` g ON g.id = t.group_id LEFT JOIN users tech ON tech.id = t.technician_id';
+      const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+      const orderBy = resolveTicketOrderBy(sort, 'staff');
+      const joinClause =
+        'JOIN users u ON u.id = t.user_id LEFT JOIN `groups` g ON g.id = t.group_id LEFT JOIN users tech ON tech.id = t.technician_id';
 
-    db.query(
-      `SELECT COUNT(*) AS total FROM tickets t ${joinClause} ${whereClause}`,
-      params,
-      (err, countResult) => {
-        if (err) return res.status(500).json({ message: 'Error al obtener tickets' });
-        const total = countResult[0].total;
-        db.query(
-          `SELECT t.id, t.title, t.description, t.status, t.priority, t.type,
+      db.query(
+        `SELECT COUNT(*) AS total FROM tickets t ${joinClause} ${whereClause}`,
+        params,
+        (err, countResult) => {
+          if (err) return res.status(500).json({ message: 'Error al obtener tickets' });
+          const total = countResult[0].total;
+          db.query(
+            `SELECT t.id, t.title, t.description, t.status, t.priority, t.type,
                   t.category, t.subcategory, t.group_id, g.name AS group_name,
                   t.technician_id, tech.email AS technician_email,
                   t.sla_response_due, t.sla_resolution_due, t.sla_status,
@@ -885,51 +949,55 @@ exports.listWatchedTickets = (req, res) => {
            ${whereClause}
            ORDER BY ${orderBy}
            LIMIT ? OFFSET ?`,
-          [req.user.id, ...params, limit, offset],
-          (err2, results) => {
-            if (err2) return res.status(500).json({ message: 'Error al obtener tickets' });
-            res.json({
-              data: enrichTickets(results),
-              total,
-              page,
-              limit,
-              totalPages: Math.ceil(total / limit)
-            });
-          }
-        );
-      }
-    );
-  }).catch((err) => {
-    console.error('Error en listWatchedTickets:', err.code || err.message);
-    res.status(500).json({ message: 'Error al obtener tickets' });
-  });
+            [req.user.id, ...params, limit, offset],
+            (err2, results) => {
+              if (err2) return res.status(500).json({ message: 'Error al obtener tickets' });
+              res.json({
+                data: enrichTickets(results),
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+              });
+            }
+          );
+        }
+      );
+    })
+    .catch((err) => {
+      console.error('Error en listWatchedTickets:', err.code || err.message);
+      res.status(500).json({ message: 'Error al obtener tickets' });
+    });
 };
 
 exports.listVisibleGroups = (req, res) => {
-  getRequestAccess(req).then((access) => {
-    const grant = resolveTicketViewGrant(access);
-    if (!grant) return res.status(403).json({ message: 'No tenés permiso para ver tickets de otros grupos' });
+  getRequestAccess(req)
+    .then((access) => {
+      const grant = resolveTicketViewGrant(access);
+      if (!grant)
+        return res.status(403).json({ message: 'No tenés permiso para ver tickets de otros grupos' });
 
-    let sql = 'SELECT id, name, description, is_default FROM `groups`';
-    const params = [];
-    if (grant.mode === 'allow') {
-      if (!grant.ids.length) return res.json([]);
-      sql += ` WHERE id IN (${grant.ids.map(() => '?').join(', ')})`;
-      params.push(...grant.ids);
-    } else if (grant.mode === 'deny' && grant.ids.length) {
-      sql += ` WHERE id NOT IN (${grant.ids.map(() => '?').join(', ')})`;
-      params.push(...grant.ids);
-    }
-    sql += ' ORDER BY name ASC';
+      let sql = 'SELECT id, name, description, is_default FROM `groups`';
+      const params = [];
+      if (grant.mode === 'allow') {
+        if (!grant.ids.length) return res.json([]);
+        sql += ` WHERE id IN (${grant.ids.map(() => '?').join(', ')})`;
+        params.push(...grant.ids);
+      } else if (grant.mode === 'deny' && grant.ids.length) {
+        sql += ` WHERE id NOT IN (${grant.ids.map(() => '?').join(', ')})`;
+        params.push(...grant.ids);
+      }
+      sql += ' ORDER BY name ASC';
 
-    db.query(sql, params, (err, rows) => {
-      if (err) return res.status(500).json({ message: 'Error al obtener grupos' });
-      res.json(rows);
+      db.query(sql, params, (err, rows) => {
+        if (err) return res.status(500).json({ message: 'Error al obtener grupos' });
+        res.json(rows);
+      });
+    })
+    .catch((err) => {
+      console.error('Error en listVisibleGroups:', err.code || err.message);
+      res.status(500).json({ message: 'Error al obtener grupos' });
     });
-  }).catch((err) => {
-    console.error('Error en listVisibleGroups:', err.code || err.message);
-    res.status(500).json({ message: 'Error al obtener grupos' });
-  });
 };
 
 exports.listTransferGroups = async (req, res) => {
@@ -950,24 +1018,26 @@ exports.listAssigneesByGroup = (req, res) => {
   const groupId = Number(req.query.group_id);
   if (!groupId) return res.json([]);
 
-  getRequestAccess(req).then((access) => {
-    if (!access.has('assignments.self') && !access.has('assignments.others')) return res.json([]);
-    if (access.has('assignments.transfer') && !access.canTransferTo(groupId)) return res.json([]);
+  getRequestAccess(req)
+    .then((access) => {
+      if (!access.has('assignments.self') && !access.has('assignments.others')) return res.json([]);
+      if (access.has('assignments.transfer') && !access.canTransferTo(groupId)) return res.json([]);
 
-    db.query(
-      `SELECT u.id, u.email
+      db.query(
+        `SELECT u.id, u.email
        FROM user_groups ug
        JOIN users u ON u.id = ug.user_id
        WHERE ug.group_id = ? AND u.role = 'technician'
        ORDER BY u.email ASC`,
-      [groupId],
-      (techErr, rows) => {
-        if (techErr) return res.status(500).json({ message: 'Error al obtener técnicos' });
-        const list = access.has('assignments.others')
-          ? rows
-          : rows.filter((row) => Number(row.id) === Number(req.user.id));
-        res.json(list);
-      }
-    );
-  }).catch(() => res.status(500).json({ message: 'Error al validar permisos' }));
+        [groupId],
+        (techErr, rows) => {
+          if (techErr) return res.status(500).json({ message: 'Error al obtener técnicos' });
+          const list = access.has('assignments.others')
+            ? rows
+            : rows.filter((row) => Number(row.id) === Number(req.user.id));
+          res.json(list);
+        }
+      );
+    })
+    .catch(() => res.status(500).json({ message: 'Error al validar permisos' }));
 };

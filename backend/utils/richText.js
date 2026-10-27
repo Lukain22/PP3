@@ -16,10 +16,34 @@ const withLineHeight = (tagName, attribs) => {
 
 const sanitizeOptions = {
   allowedTags: [
-    'p', 'br', 'strong', 'em', 'u', 's', 'h1', 'h2', 'h3',
-    'ul', 'ol', 'li', 'a', 'img', 'span', 'mark', 'blockquote',
-    'pre', 'code', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
-    'label', 'input', 'div'
+    'p',
+    'br',
+    'strong',
+    'em',
+    'u',
+    's',
+    'h1',
+    'h2',
+    'h3',
+    'ul',
+    'ol',
+    'li',
+    'a',
+    'img',
+    'span',
+    'mark',
+    'blockquote',
+    'pre',
+    'code',
+    'table',
+    'thead',
+    'tbody',
+    'tr',
+    'th',
+    'td',
+    'label',
+    'input',
+    'div'
   ],
   allowedAttributes: {
     a: ['href', 'target', 'rel'],

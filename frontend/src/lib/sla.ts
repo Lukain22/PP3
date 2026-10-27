@@ -21,7 +21,9 @@ export function getSlaStatusLabel(status: string | null | undefined): string {
   return SLA_STATUS_LABELS[status as SlaStatus] || status;
 }
 
-export function getSlaStatusColor(status: string | null | undefined): 'success' | 'warning' | 'error' | 'info' | 'default' {
+export function getSlaStatusColor(
+  status: string | null | undefined
+): 'success' | 'warning' | 'error' | 'info' | 'default' {
   if (!status) return 'default';
   return SLA_STATUS_COLORS[status as SlaStatus] || 'default';
 }

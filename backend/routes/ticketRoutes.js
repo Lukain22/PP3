@@ -36,20 +36,25 @@ router.get('/:id/comments', authMiddleware, getTicketComments);
 router.get('/:id/history', authMiddleware, getTicketHistory);
 router.get('/:id/resolution', authMiddleware, getTicketResolution);
 router.get('/:id/attachments', authMiddleware, getTicketAttachments);
-router.post('/:id/attachments', authMiddleware, (req, res, next) => {
-  upload.array('files', 5)(req, res, (err) => {
-    if (err) {
-      if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({ message: 'Archivo demasiado grande (máx. 4 MB)' });
+router.post(
+  '/:id/attachments',
+  authMiddleware,
+  (req, res, next) => {
+    upload.array('files', 5)(req, res, (err) => {
+      if (err) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ message: 'Archivo demasiado grande (máx. 4 MB)' });
+        }
+        if (err.code === 'LIMIT_FILE_COUNT') {
+          return res.status(400).json({ message: 'Máximo 5 archivos por vez' });
+        }
+        return res.status(400).json({ message: err.message || 'Error al subir archivos' });
       }
-      if (err.code === 'LIMIT_FILE_COUNT') {
-        return res.status(400).json({ message: 'Máximo 5 archivos por vez' });
-      }
-      return res.status(400).json({ message: err.message || 'Error al subir archivos' });
-    }
-    next();
-  });
-}, uploadTicketAttachments);
+      next();
+    });
+  },
+  uploadTicketAttachments
+);
 router.get('/:id/attachments/:attachmentId/download', authMiddleware, downloadTicketAttachment);
 router.delete('/:id/attachments/:attachmentId', authMiddleware, deleteTicketAttachment);
 router.post('/:id/resolution', authMiddleware, saveTicketResolution);

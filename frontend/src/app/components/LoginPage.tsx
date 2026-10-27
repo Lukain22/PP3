@@ -1,16 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import {
-  TextField,
-  Button,
-  Card,
-  CardContent,
-  Typography,
-  Box,
-  Container,
-  Tabs,
-  Tab
-} from '@mui/material';
+import { TextField, Button, Card, CardContent, Typography, Box, Container, Tabs, Tab } from '@mui/material';
 import { toast } from 'sonner';
 import { setAuth, getHomePath, refreshAccess, type UserRole } from '../../lib/auth';
 import { usePreferences } from '../PreferencesProvider';
@@ -81,10 +71,7 @@ export default function LoginPage() {
 
       if (!response.ok) {
         const message =
-          data.message ||
-          (data.code === 'ER_DUP_ENTRY'
-            ? t('login.duplicate')
-            : t('login.registerFail'));
+          data.message || (data.code === 'ER_DUP_ENTRY' ? t('login.duplicate') : t('login.registerFail'));
         toast.error(message);
         return;
       }
@@ -102,7 +89,10 @@ export default function LoginPage() {
   };
 
   return (
-    <Container maxWidth="sm" sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', px: 2 }}>
+    <Container
+      maxWidth="sm"
+      sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', px: 2 }}
+    >
       <Card sx={{ width: '100%', maxWidth: 420, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <CardContent sx={{ p: 4 }}>
           <Box
@@ -160,12 +150,7 @@ export default function LoginPage() {
               >
                 {loading ? t('login.submitting') : t('login.submit')}
               </Button>
-              <Button
-                fullWidth
-                variant="text"
-                onClick={() => navigate('/forgot-password')}
-                sx={{ mt: 1 }}
-              >
+              <Button fullWidth variant="text" onClick={() => navigate('/forgot-password')} sx={{ mt: 1 }}>
                 {t('login.forgot')}
               </Button>
             </form>

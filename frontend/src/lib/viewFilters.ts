@@ -1,9 +1,5 @@
 import { CATEGORIES, SUBCATEGORIES, type Category } from './categories';
-import {
-  emptyTicketListFilters,
-  type TicketListFilters,
-  type TicketViewFilters
-} from './ticketViews';
+import { emptyTicketListFilters, type TicketListFilters, type TicketViewFilters } from './ticketViews';
 
 export type ViewFilterField =
   | 'type'
@@ -38,7 +34,10 @@ export const VIEW_FILTER_FIELDS: { field: ViewFilterField; label: string }[] = [
 
 type DateFilterField = 'created' | 'due' | 'resolved';
 
-const DATE_FILTER_KEYS: Record<DateFilterField, readonly ['date_from' | 'due_from' | 'resolved_from', 'date_to' | 'due_to' | 'resolved_to']> = {
+const DATE_FILTER_KEYS: Record<
+  DateFilterField,
+  readonly ['date_from' | 'due_from' | 'resolved_from', 'date_to' | 'due_to' | 'resolved_to']
+> = {
   created: ['date_from', 'date_to'],
   due: ['due_from', 'due_to'],
   resolved: ['resolved_from', 'resolved_to']
@@ -50,10 +49,11 @@ export function isDateFilterField(field: string): field is DateFilterField {
 
 const FIELD_ORDER = VIEW_FILTER_FIELDS.map((item) => item.field);
 
-const splitCsv = (value?: string | null) => String(value || '')
-  .split(',')
-  .map((part) => part.trim())
-  .filter(Boolean);
+const splitCsv = (value?: string | null) =>
+  String(value || '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
 
 const nextRowId = () => `f-${Math.random().toString(36).slice(2, 9)}`;
 
@@ -103,13 +103,21 @@ export function rowsFromStored(filters: TicketViewFilters | null | undefined): V
 
   const groups = source.filter_group_ids?.length
     ? source.filter_group_ids
-    : splitCsv(source.filter_group_id ? String(source.filter_group_id) : source.group_id ? String(source.group_id) : '');
+    : splitCsv(
+        source.filter_group_id
+          ? String(source.filter_group_id)
+          : source.group_id
+            ? String(source.group_id)
+            : ''
+      );
   add('group', groups);
 
   if (groups.length) {
     const technicians = source.technician_ids?.length
       ? source.technician_ids
-      : (source.technician_id ? [source.technician_id] : []);
+      : source.technician_id
+        ? [source.technician_id]
+        : [];
     add('technician', technicians);
   }
 
@@ -176,8 +184,9 @@ export function viewFilterIssue(row: ViewFilterRow, rows: ViewFilterRow[]): stri
 }
 
 export function subcategoryOptions(categoryValues: string[]) {
-  const categories = (categoryValues.length ? categoryValues : [...CATEGORIES])
-    .filter((category): category is Category => CATEGORIES.includes(category as Category));
+  const categories = (categoryValues.length ? categoryValues : [...CATEGORIES]).filter(
+    (category): category is Category => CATEGORIES.includes(category as Category)
+  );
   const seen = new Set<string>();
   const options: { value: string; label: string }[] = [];
   for (const category of categories) {

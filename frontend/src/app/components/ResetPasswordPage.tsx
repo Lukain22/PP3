@@ -1,14 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
-import {
-  TextField,
-  Button,
-  Card,
-  CardContent,
-  Typography,
-  Box,
-  Container
-} from '@mui/material';
+import { TextField, Button, Card, CardContent, Typography, Box, Container } from '@mui/material';
 import { toast } from 'sonner';
 
 const API_URL = `${import.meta.env.VITE_API_URL as string}/auth`;
@@ -66,7 +58,10 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <Container maxWidth="sm" sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', px: 2 }}>
+    <Container
+      maxWidth="sm"
+      sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', px: 2 }}
+    >
       <Card sx={{ width: '100%', maxWidth: 420, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <CardContent sx={{ p: 4 }}>
           <Box
@@ -117,12 +112,7 @@ export default function ResetPasswordPage() {
             >
               {loading ? 'Guardando...' : 'Guardar contraseña'}
             </Button>
-            <Button
-              fullWidth
-              variant="text"
-              onClick={() => navigate('/forgot-password')}
-              sx={{ mt: 1 }}
-            >
+            <Button fullWidth variant="text" onClick={() => navigate('/forgot-password')} sx={{ mt: 1 }}>
               Pedir un enlace nuevo
             </Button>
           </form>

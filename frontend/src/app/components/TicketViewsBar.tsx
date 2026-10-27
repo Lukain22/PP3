@@ -1,11 +1,5 @@
 import { useEffect, useState } from 'react';
-import {
-  Box,
-  Stack,
-  Chip,
-  IconButton,
-  Tooltip
-} from '@mui/material';
+import { Box, Stack, Chip, IconButton, Tooltip } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
@@ -71,7 +65,9 @@ export default function TicketViewsBar({
     }
   };
 
-  useEffect(() => { loadViews(); }, [scope]);
+  useEffect(() => {
+    loadViews();
+  }, [scope]);
 
   const openCreateDialog = () => {
     setEditingView(null);

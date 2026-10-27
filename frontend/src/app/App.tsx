@@ -34,7 +34,15 @@ function RequireAdmin({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-function RequirePermission({ code, anyOf, children }: { code?: string; anyOf?: string[]; children: ReactNode }) {
+function RequirePermission({
+  code,
+  anyOf,
+  children
+}: {
+  code?: string;
+  anyOf?: string[];
+  children: ReactNode;
+}) {
   if (!getToken()) return <Navigate to="/" replace />;
   const allowed = anyOf?.length ? anyOf.some((item) => can(item)) : Boolean(code && can(code));
   if (!allowed) return <Navigate to="/admin" replace />;
@@ -50,7 +58,9 @@ function AccessGate({ children }: { children: ReactNode }) {
       if (getToken()) await refreshAccess();
       if (!cancelled) setReady(true);
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (!ready) return null;
@@ -74,35 +84,173 @@ export default function App() {
   return (
     <BrowserRouter>
       <AccessGate>
-      <div className="size-full">
-        <Routes>
-          <Route path="/" element={<LoginPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
-          <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
-          <Route path="/tickets" element={<RequireAuth><TicketsList /></RequireAuth>} />
-          <Route path="/tickets/:id" element={<RequireAuth><TicketDetail /></RequireAuth>} />
-          <Route path="/create-ticket" element={<RequireAuth><BlockTechnicianFromUserArea><CreateTicket /></BlockTechnicianFromUserArea></RequireAuth>} />
-          <Route path="/credits" element={<RequireAuth><Credits /></RequireAuth>} />
-          <Route path="/admin" element={<RequireAdmin><AdminPanel /></RequireAdmin>} />
-          <Route path="/admin/users" element={<RequirePermission code="admin.users"><AdminUsers /></RequirePermission>} />
-          <Route path="/admin/users/:id" element={<RequirePermission code="admin.users"><AdminUserDetail /></RequirePermission>} />
-          <Route path="/admin/groups" element={<RequirePermission code="admin.groups"><AdminGroups /></RequirePermission>} />
-          <Route path="/admin/groups/:id" element={<RequirePermission code="admin.groups"><AdminGroupDetail /></RequirePermission>} />
-          <Route path="/admin/sla" element={<RequirePermission code="admin.settings"><AdminSlaPolicies /></RequirePermission>} />
-          <Route path="/admin/roles" element={<RequirePermission code="admin.roles"><AdminRoles /></RequirePermission>} />
-          <Route path="/admin/roles/new" element={<RequirePermission code="admin.roles"><AdminRoleDetail /></RequirePermission>} />
-          <Route path="/admin/roles/:id" element={<RequirePermission code="admin.roles"><AdminRoleDetail /></RequirePermission>} />
-          <Route path="/admin/views" element={<RequireAdmin><AdminViews /></RequireAdmin>} />
-          <Route path="/admin/solutions" element={<RequirePermission anyOf={['kb.create', 'kb.edit', 'kb.delete', 'kb.publish', 'kb.approve']}><AdminSolutions /></RequirePermission>} />
-          <Route path="/admin/solutions/new" element={<RequirePermission code="kb.create"><AdminSolutionForm /></RequirePermission>} />
-          <Route path="/admin/solutions/:id" element={<RequirePermission code="kb.edit"><AdminSolutionForm /></RequirePermission>} />
-          <Route path="/panel-tecnico" element={<RequireTechnician><Navigate to="/tickets?view=system:all_my_groups" replace /></RequireTechnician>} />
-          <Route path="/technician" element={<Navigate to="/tickets?view=system:all_my_groups" replace />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-        <Toaster position="bottom-right" theme={theme} richColors />
-      </div>
+        <div className="size-full">
+          <Routes>
+            <Route path="/" element={<LoginPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route
+              path="/dashboard"
+              element={
+                <RequireAuth>
+                  <Dashboard />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/tickets"
+              element={
+                <RequireAuth>
+                  <TicketsList />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/tickets/:id"
+              element={
+                <RequireAuth>
+                  <TicketDetail />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/create-ticket"
+              element={
+                <RequireAuth>
+                  <BlockTechnicianFromUserArea>
+                    <CreateTicket />
+                  </BlockTechnicianFromUserArea>
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/credits"
+              element={
+                <RequireAuth>
+                  <Credits />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <RequireAdmin>
+                  <AdminPanel />
+                </RequireAdmin>
+              }
+            />
+            <Route
+              path="/admin/users"
+              element={
+                <RequirePermission code="admin.users">
+                  <AdminUsers />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/admin/users/:id"
+              element={
+                <RequirePermission code="admin.users">
+                  <AdminUserDetail />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/admin/groups"
+              element={
+                <RequirePermission code="admin.groups">
+                  <AdminGroups />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/admin/groups/:id"
+              element={
+                <RequirePermission code="admin.groups">
+                  <AdminGroupDetail />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/admin/sla"
+              element={
+                <RequirePermission code="admin.settings">
+                  <AdminSlaPolicies />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/admin/roles"
+              element={
+                <RequirePermission code="admin.roles">
+                  <AdminRoles />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/admin/roles/new"
+              element={
+                <RequirePermission code="admin.roles">
+                  <AdminRoleDetail />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/admin/roles/:id"
+              element={
+                <RequirePermission code="admin.roles">
+                  <AdminRoleDetail />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/admin/views"
+              element={
+                <RequireAdmin>
+                  <AdminViews />
+                </RequireAdmin>
+              }
+            />
+            <Route
+              path="/admin/solutions"
+              element={
+                <RequirePermission anyOf={['kb.create', 'kb.edit', 'kb.delete', 'kb.publish', 'kb.approve']}>
+                  <AdminSolutions />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/admin/solutions/new"
+              element={
+                <RequirePermission code="kb.create">
+                  <AdminSolutionForm />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/admin/solutions/:id"
+              element={
+                <RequirePermission code="kb.edit">
+                  <AdminSolutionForm />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/panel-tecnico"
+              element={
+                <RequireTechnician>
+                  <Navigate to="/tickets?view=system:all_my_groups" replace />
+                </RequireTechnician>
+              }
+            />
+            <Route
+              path="/technician"
+              element={<Navigate to="/tickets?view=system:all_my_groups" replace />}
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+          <Toaster position="bottom-right" theme={theme} richColors />
+        </div>
       </AccessGate>
     </BrowserRouter>
   );

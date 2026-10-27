@@ -1,12 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  Box,
-  Button,
-  CircularProgress,
-  IconButton,
-  Tooltip,
-  Typography
-} from '@mui/material';
+import { Box, Button, CircularProgress, IconButton, Tooltip, Typography } from '@mui/material';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import InsertDriveFileOutlinedIcon from '@mui/icons-material/InsertDriveFileOutlined';
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
@@ -373,7 +366,13 @@ export default function TicketAttachments({
             )}
             {fileList}
             {uploadButton && (
-              <Box sx={{ display: 'flex', justifyContent: contentAlign === 'left' ? 'flex-start' : 'center', mt: hasFiles ? 2 : 0 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: contentAlign === 'left' ? 'flex-start' : 'center',
+                  mt: hasFiles ? 2 : 0
+                }}
+              >
                 {uploadButton}
               </Box>
             )}

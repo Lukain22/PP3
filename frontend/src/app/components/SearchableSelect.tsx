@@ -18,7 +18,10 @@ interface SearchableSelectProps {
 }
 
 function normalize(text: string) {
-  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
 }
 
 export default function SearchableSelect({
@@ -99,18 +102,26 @@ export default function SearchableSelect({
           size={compact ? 'small' : undefined}
           autoFocus={autoFocus}
           error={error}
-          sx={compact ? {
-            '& .MuiOutlinedInput-root': {
-              height: 32,
-              fontSize: '0.875rem',
-              bgcolor: 'background.paper'
-            },
-            '& .MuiOutlinedInput-input': { py: '0 !important' },
-            ...(error ? {
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: 'error.main' },
-              '& .MuiOutlinedInput-root.Mui-disabled .MuiOutlinedInput-notchedOutline': { borderColor: 'error.main' }
-            } : {})
-          } : undefined}
+          sx={
+            compact
+              ? {
+                  '& .MuiOutlinedInput-root': {
+                    height: 32,
+                    fontSize: '0.875rem',
+                    bgcolor: 'background.paper'
+                  },
+                  '& .MuiOutlinedInput-input': { py: '0 !important' },
+                  ...(error
+                    ? {
+                        '& .MuiOutlinedInput-notchedOutline': { borderColor: 'error.main' },
+                        '& .MuiOutlinedInput-root.Mui-disabled .MuiOutlinedInput-notchedOutline': {
+                          borderColor: 'error.main'
+                        }
+                      }
+                    : {})
+                }
+              : undefined
+          }
         />
       )}
       slotProps={{

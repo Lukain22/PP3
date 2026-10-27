@@ -113,7 +113,11 @@ export default function TicketViewSelect({
     if (viewsResult?.response.ok) {
       setCustomViews(Array.isArray(viewsResult.data) ? viewsResult.data : []);
     }
-    if (layoutResult?.response.ok && Array.isArray(layoutResult.data.order) && layoutResult.data.order.length > 0) {
+    if (
+      layoutResult?.response.ok &&
+      Array.isArray(layoutResult.data.order) &&
+      layoutResult.data.order.length > 0
+    ) {
       setLayoutOrder(layoutResult.data.order);
     } else {
       setLayoutOrder(buildDefaultViewOrder(role));
@@ -265,7 +269,10 @@ export default function TicketViewSelect({
   const handleSaveView = async (values: ViewEditorValues) => {
     const listFilters = rowsToListFilters(values.rows);
     const filters = attachViewColumns(
-      viewFiltersToPayload(listFilters, values.rows.map((row) => row.field)),
+      viewFiltersToPayload(
+        listFilters,
+        values.rows.map((row) => row.field)
+      ),
       values.columns
     );
 
@@ -322,8 +329,20 @@ export default function TicketViewSelect({
 
   return (
     <>
-      <FormControl fullWidth={!inline} size="small" sx={inline ? { width: { xs: '100%', sm: 260 }, maxWidth: 280, flex: { xs: '1 1 100%', sm: '0 1 260px' } } : { mb: 2 }}>
-        {!inline && <InputLabel id="ticket-view-select-label" shrink>Vista</InputLabel>}
+      <FormControl
+        fullWidth={!inline}
+        size="small"
+        sx={
+          inline
+            ? { width: { xs: '100%', sm: 260 }, maxWidth: 280, flex: { xs: '1 1 100%', sm: '0 1 260px' } }
+            : { mb: 2 }
+        }
+      >
+        {!inline && (
+          <InputLabel id="ticket-view-select-label" shrink>
+            Vista
+          </InputLabel>
+        )}
         <OutlinedInput
           id="ticket-view-select-label"
           readOnly
@@ -332,18 +351,24 @@ export default function TicketViewSelect({
           value={selection.name}
           onClick={(e) => setMenuAnchor(e.currentTarget)}
           aria-label="Vista"
-          sx={inline ? {
-            cursor: 'pointer',
-            bgcolor: 'background.paper',
-            height: 30,
-            borderRadius: 1.5,
-            fontSize: '0.8125rem',
-            '& .MuiOutlinedInput-input': { py: 0, px: 0.25 }
-          } : { cursor: 'pointer', bgcolor: 'background.paper' }}
+          sx={
+            inline
+              ? {
+                  cursor: 'pointer',
+                  bgcolor: 'background.paper',
+                  height: 30,
+                  borderRadius: 1.5,
+                  fontSize: '0.8125rem',
+                  '& .MuiOutlinedInput-input': { py: 0, px: 0.25 }
+                }
+              : { cursor: 'pointer', bgcolor: 'background.paper' }
+          }
           startAdornment={
             <StarIcon sx={{ fontSize: inline ? 15 : 18, color: 'primary.main', mr: inline ? 0.5 : 1 }} />
           }
-          endAdornment={inline ? <ExpandMoreIcon sx={{ fontSize: 18, color: 'text.secondary' }} /> : undefined}
+          endAdornment={
+            inline ? <ExpandMoreIcon sx={{ fontSize: 18, color: 'text.secondary' }} /> : undefined
+          }
         />
       </FormControl>
 
@@ -517,37 +542,40 @@ export default function TicketViewSelect({
                       )}
                     </IconButton>
                   </Tooltip>
-                  {item.kind === 'custom' && item.view.is_owner && !item.view.audience && item.view.visibility !== 'public' && (
-                    <>
-                      <Tooltip title="Editar vista">
-                        <IconButton
-                          size="small"
-                          aria-label="Editar vista"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openEditDialog(item.view);
-                          }}
-                          sx={{ cursor: 'pointer', '&:active': { cursor: 'pointer' } }}
-                        >
-                          <EditIcon sx={{ fontSize: 16 }} />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Eliminar vista">
-                        <IconButton
-                          size="small"
-                          color="error"
-                          aria-label="Eliminar vista"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(item.view);
-                          }}
-                          sx={{ cursor: 'pointer', '&:active': { cursor: 'pointer' } }}
-                        >
-                          <DeleteOutlineIcon sx={{ fontSize: 16 }} />
-                        </IconButton>
-                      </Tooltip>
-                    </>
-                  )}
+                  {item.kind === 'custom' &&
+                    item.view.is_owner &&
+                    !item.view.audience &&
+                    item.view.visibility !== 'public' && (
+                      <>
+                        <Tooltip title="Editar vista">
+                          <IconButton
+                            size="small"
+                            aria-label="Editar vista"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditDialog(item.view);
+                            }}
+                            sx={{ cursor: 'pointer', '&:active': { cursor: 'pointer' } }}
+                          >
+                            <EditIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Eliminar vista">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            aria-label="Eliminar vista"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(item.view);
+                            }}
+                            sx={{ cursor: 'pointer', '&:active': { cursor: 'pointer' } }}
+                          >
+                            <DeleteOutlineIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Tooltip>
+                      </>
+                    )}
                 </Stack>
               </ListItemButton>
             );
@@ -558,7 +586,6 @@ export default function TicketViewSelect({
               Ninguna vista coincide
             </Typography>
           )}
-
         </Box>
         {(role !== 'user' || can('views.create')) && (
           <Box

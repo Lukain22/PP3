@@ -49,28 +49,31 @@ export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  const apiCall = useCallback(async (path: string, options: RequestInit = {}) => {
-    const token = getToken();
-    if (!token) return null;
+  const apiCall = useCallback(
+    async (path: string, options: RequestInit = {}) => {
+      const token = getToken();
+      if (!token) return null;
 
-    const response = await fetch(`${API_URL}${path}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        ...options.headers
+      const response = await fetch(`${API_URL}${path}`, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          ...options.headers
+        }
+      });
+
+      if (response.status === 401) {
+        clearAuth();
+        navigate('/');
+        return null;
       }
-    });
 
-    if (response.status === 401) {
-      clearAuth();
-      navigate('/');
-      return null;
-    }
-
-    const data = await response.json().catch(() => ({}));
-    return { response, data };
-  }, [navigate]);
+      const data = await response.json().catch(() => ({}));
+      return { response, data };
+    },
+    [navigate]
+  );
 
   const refreshUnreadCount = useCallback(async () => {
     const result = await apiCall('/notifications/unread-count');
@@ -106,9 +109,7 @@ export default function NotificationBell() {
     if (!item.read_at) {
       await apiCall(`/notifications/${item.id}/read`, { method: 'PATCH' });
       setItems((prev) =>
-        prev.map((entry) =>
-          entry.id === item.id ? { ...entry, read_at: new Date().toISOString() } : entry
-        )
+        prev.map((entry) => (entry.id === item.id ? { ...entry, read_at: new Date().toISOString() } : entry))
       );
       setUnreadCount((prev) => Math.max(0, prev - 1));
     }
@@ -119,7 +120,9 @@ export default function NotificationBell() {
   const handleMarkAllRead = async () => {
     const result = await apiCall('/notifications/read-all', { method: 'PATCH' });
     if (!result?.response.ok) return;
-    setItems((prev) => prev.map((entry) => ({ ...entry, read_at: entry.read_at || new Date().toISOString() })));
+    setItems((prev) =>
+      prev.map((entry) => ({ ...entry, read_at: entry.read_at || new Date().toISOString() }))
+    );
     setUnreadCount(0);
   };
 
@@ -147,7 +150,16 @@ export default function NotificationBell() {
           }
         }}
       >
-        <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+        <Box
+          sx={{
+            px: 2,
+            py: 1.5,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 1
+          }}
+        >
           <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
             Notificaciones
           </Typography>
@@ -187,10 +199,20 @@ export default function NotificationBell() {
                   primary={item.title}
                   secondary={
                     <>
-                      <Typography component="span" variant="body2" color="text.secondary" sx={{ display: 'block' }}>
+                      <Typography
+                        component="span"
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ display: 'block' }}
+                      >
                         {item.message}
                       </Typography>
-                      <Typography component="span" variant="caption" color="text.disabled" sx={{ display: 'block', mt: 0.5 }}>
+                      <Typography
+                        component="span"
+                        variant="caption"
+                        color="text.disabled"
+                        sx={{ display: 'block', mt: 0.5 }}
+                      >
                         {formatWhen(item.created_at)}
                       </Typography>
                     </>

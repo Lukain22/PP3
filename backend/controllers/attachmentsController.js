@@ -65,11 +65,8 @@ const runUploadTicketAttachments = (req, res) => {
     return res.status(400).json({ message: 'Destino de adjunto inválido' });
   }
 
-  const extraPermission = context === 'resolution'
-    ? 'tickets.resolve'
-    : context === 'comment'
-      ? 'tickets.comment'
-      : null;
+  const extraPermission =
+    context === 'resolution' ? 'tickets.resolve' : context === 'comment' ? 'tickets.comment' : null;
 
   const start = () => uploadForTicket(req, res, id, context);
   if (!extraPermission) return start();
@@ -86,82 +83,82 @@ const uploadForTicket = (req, res, id, context) => {
 
     assertBeyondOwnTicket(req, res, ticket, 'tickets.attach').then((allowed) => {
       if (!allowed) return;
-    const files = Array.isArray(req.files) ? req.files : [];
-    if (files.length === 0) {
-      return res.status(400).json({ message: 'No se recibieron archivos' });
-    }
+      const files = Array.isArray(req.files) ? req.files : [];
+      if (files.length === 0) {
+        return res.status(400).json({ message: 'No se recibieron archivos' });
+      }
 
-    const inline = req.body.inline === '1' || req.body.inline === 'true' ? 1 : 0;
-    const commentId = parseInt(req.body.comment_id, 10) || null;
-    if (context === 'comment' && !inline && !commentId) {
-      return res.status(400).json({ message: 'Falta la nota del adjunto' });
-    }
+      const inline = req.body.inline === '1' || req.body.inline === 'true' ? 1 : 0;
+      const commentId = parseInt(req.body.comment_id, 10) || null;
+      if (context === 'comment' && !inline && !commentId) {
+        return res.status(400).json({ message: 'Falta la nota del adjunto' });
+      }
 
-    const insertFiles = (linkedCommentId) => {
-      const values = files.map((file) => [
-        id,
-        req.user.id,
-        file.originalname,
-        file.filename,
-        getMimeType(file.originalname),
-        file.size,
-        inline,
-        context,
-        linkedCommentId
-      ]);
+      const insertFiles = (linkedCommentId) => {
+        const values = files.map((file) => [
+          id,
+          req.user.id,
+          file.originalname,
+          file.filename,
+          getMimeType(file.originalname),
+          file.size,
+          inline,
+          context,
+          linkedCommentId
+        ]);
 
-      db.query(
-        `INSERT INTO ticket_attachments
+        db.query(
+          `INSERT INTO ticket_attachments
           (ticket_id, user_id, original_name, stored_name, mime_type, size_bytes, is_inline, context, comment_id)
          VALUES ?`,
-        [values],
-        (err) => {
-          if (err) {
-            files.forEach((file) => {
-              fs.unlink(getStoredPath(id, file.filename), () => {});
-            });
-            return res.status(500).json({ message: 'Error al guardar adjuntos' });
-          }
+          [values],
+          (err) => {
+            if (err) {
+              files.forEach((file) => {
+                fs.unlink(getStoredPath(id, file.filename), () => {});
+              });
+              return res.status(500).json({ message: 'Error al guardar adjuntos' });
+            }
 
-          const storedNames = files.map((file) => file.filename);
-          db.query(
-            `SELECT a.*, u.email AS uploaded_by_email
+            const storedNames = files.map((file) => file.filename);
+            db.query(
+              `SELECT a.*, u.email AS uploaded_by_email
              FROM ticket_attachments a
              JOIN users u ON u.id = a.user_id
              WHERE a.ticket_id = ? AND a.stored_name IN (?)
              ORDER BY a.created_at ASC`,
-            [id, storedNames],
-            (selErr, rows) => {
-              if (selErr) {
-                return res.status(201).json({
-                  message: `${files.length} archivo${files.length === 1 ? '' : 's'} adjunto${files.length === 1 ? '' : 's'}`
+              [id, storedNames],
+              (selErr, rows) => {
+                if (selErr) {
+                  return res.status(201).json({
+                    message: `${files.length} archivo${files.length === 1 ? '' : 's'} adjunto${files.length === 1 ? '' : 's'}`
+                  });
+                }
+
+                res.status(201).json({
+                  message: `${files.length} archivo${files.length === 1 ? '' : 's'} adjunto${files.length === 1 ? '' : 's'}`,
+                  data: Array.isArray(rows) ? rows.map(mapAttachment) : []
                 });
               }
+            );
+          }
+        );
+      };
 
-              res.status(201).json({
-                message: `${files.length} archivo${files.length === 1 ? '' : 's'} adjunto${files.length === 1 ? '' : 's'}`,
-                data: Array.isArray(rows) ? rows.map(mapAttachment) : []
-              });
-            }
-          );
-        }
-      );
-    };
+      if (context === 'comment' && commentId) {
+        db.query(
+          'SELECT id FROM ticket_comments WHERE id = ? AND ticket_id = ?',
+          [commentId, id],
+          (commentErr, rows) => {
+            if (commentErr) return res.status(500).json({ message: 'Error al verificar la nota' });
+            if (!rows.length) return res.status(404).json({ message: 'Nota no encontrada' });
+            insertFiles(commentId);
+          }
+        );
+        return;
+      }
 
-    if (context === 'comment' && commentId) {
-      db.query(
-        'SELECT id FROM ticket_comments WHERE id = ? AND ticket_id = ?',
-        [commentId, id],
-        (commentErr, rows) => {
-          if (commentErr) return res.status(500).json({ message: 'Error al verificar la nota' });
-          if (!rows.length) return res.status(404).json({ message: 'Nota no encontrada' });
-          insertFiles(commentId);
-        }
-      );
-      return;
-    }
-
-    insertFiles(null);
+      insertFiles(null);
     });
   });
 };

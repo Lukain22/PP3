@@ -58,7 +58,10 @@ const assertTicketMutation = async (req, res, oldTicket, body) => {
       }
     }
 
-    if (body.technician_id !== undefined && Number(body.technician_id || 0) !== Number(oldTicket.technician_id || 0)) {
+    if (
+      body.technician_id !== undefined &&
+      Number(body.technician_id || 0) !== Number(oldTicket.technician_id || 0)
+    ) {
       const nextId = Number(body.technician_id) || null;
       if (nextId && nextId === Number(req.user.id)) needed.add('assignments.self');
       else needed.add('assignments.others');
@@ -94,16 +97,18 @@ const assertBeyondOwnTicket = async (req, res, ticket, code) => {
   }
 };
 
-const requirePermission = (...codes) => async (req, res, next) => {
-  try {
-    const access = await getRequestAccess(req);
-    if (codes.some((code) => access.has(code))) return next();
-    return res.status(403).json({ message: DENIED });
-  } catch (err) {
-    console.error('Error validando permiso:', err.code || err.message);
-    return res.status(500).json({ message: 'Error al validar permisos' });
-  }
-};
+const requirePermission =
+  (...codes) =>
+  async (req, res, next) => {
+    try {
+      const access = await getRequestAccess(req);
+      if (codes.some((code) => access.has(code))) return next();
+      return res.status(403).json({ message: DENIED });
+    } catch (err) {
+      console.error('Error validando permiso:', err.code || err.message);
+      return res.status(500).json({ message: 'Error al validar permisos' });
+    }
+  };
 
 const requireViewWrite = (action) => async (req, res, next) => {
   const code = action === 'create' ? 'views.create' : 'views.edit';

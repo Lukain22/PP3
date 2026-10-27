@@ -1,6 +1,6 @@
 export const TICKET_STATUSES = ['open', 'in-progress', 'on-hold', 'resolved'] as const;
 
-export type TicketStatus = typeof TICKET_STATUSES[number];
+export type TicketStatus = (typeof TICKET_STATUSES)[number];
 
 export const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
   open: 'Abierto',

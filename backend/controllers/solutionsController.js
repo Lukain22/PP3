@@ -11,22 +11,25 @@ const { ensureTicketDir, getMimeType } = require('../utils/attachments');
 const { getSolutionFilePath, removeSolutionFiles } = require('../utils/solutions');
 const { loadTicketWithAccess } = require('./ticketsController');
 
-const query = (sql, params = []) => new Promise((resolve, reject) => {
-  db.query(sql, params, (err, rows) => {
-    if (err) reject(err);
-    else resolve(rows);
+const query = (sql, params = []) =>
+  new Promise((resolve, reject) => {
+    db.query(sql, params, (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows);
+    });
   });
-});
 
 const normalizeTags = (value) => {
   if (value == null || value === '') return null;
-  const tags = [...new Set(
-    String(value)
-      .split(',')
-      .map((tag) => tag.trim())
-      .filter(Boolean)
-      .map((tag) => tag.slice(0, 40))
-  )].slice(0, 20);
+  const tags = [
+    ...new Set(
+      String(value)
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean)
+        .map((tag) => tag.slice(0, 40))
+    )
+  ].slice(0, 20);
   return tags.length ? tags.join(', ') : null;
 };
 
@@ -72,15 +75,20 @@ const attachGroups = async (rows) => {
 const replaceGroups = async (solutionId, groupIds) => {
   await query('DELETE FROM solution_groups WHERE solution_id = ?', [solutionId]);
   if (!groupIds.length) return;
-  await query(
-    'INSERT INTO solution_groups (solution_id, group_id) VALUES ?',
-    [groupIds.map((groupId) => [solutionId, groupId])]
-  );
+  await query('INSERT INTO solution_groups (solution_id, group_id) VALUES ?', [
+    groupIds.map((groupId) => [solutionId, groupId])
+  ]);
 };
 
 const parseGroupIds = async (shareAll, rawIds) => {
   if (shareAll) return [];
-  const ids = [...new Set((Array.isArray(rawIds) ? rawIds : []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0))];
+  const ids = [
+    ...new Set(
+      (Array.isArray(rawIds) ? rawIds : [])
+        .map((id) => Number(id))
+        .filter((id) => Number.isInteger(id) && id > 0)
+    )
+  ];
   if (!ids.length) return { error: 'Elegí al menos un grupo o compartila con todos' };
   const rows = await query('SELECT id FROM `groups` WHERE id IN (?)', [ids]);
   if (rows.length !== ids.length) return { error: 'Hay grupos inválidos' };
@@ -148,7 +156,9 @@ exports.listSolutionGroups = async (_req, res) => {
 
 exports.createSolution = async (req, res) => {
   try {
-    const title = String(req.body.title || '').trim().slice(0, 200);
+    const title = String(req.body.title || '')
+      .trim()
+      .slice(0, 200);
     const content = sanitizeDescription(req.body.content);
     if (!title || isEmptyDescription(content)) {
       return res.status(400).json({ message: 'El título y el contenido son requeridos' });
@@ -163,7 +173,16 @@ exports.createSolution = async (req, res) => {
       `INSERT INTO solutions
         (title, content, category, subcategory, tags, status, approval_status, share_all, created_by, updated_by)
        VALUES (?, ?, ?, ?, ?, 'active', 'pending', ?, ?, ?)`,
-      [title, content, classified.category, classified.subcategory, normalizeTags(req.body.tags), shareAll ? 1 : 0, req.user.id, req.user.id]
+      [
+        title,
+        content,
+        classified.category,
+        classified.subcategory,
+        normalizeTags(req.body.tags),
+        shareAll ? 1 : 0,
+        req.user.id,
+        req.user.id
+      ]
     );
     await replaceGroups(result.insertId, groupIds);
     res.status(201).json({ id: result.insertId, message: 'Solución creada' });
@@ -178,7 +197,9 @@ exports.updateSolution = async (req, res) => {
     const rows = await query('SELECT * FROM solutions WHERE id = ?', [req.params.id]);
     if (!rows.length) return res.status(404).json({ message: 'Solución no encontrada' });
     const current = rows[0];
-    const title = String(req.body.title || '').trim().slice(0, 200);
+    const title = String(req.body.title || '')
+      .trim()
+      .slice(0, 200);
     const content = sanitizeDescription(req.body.content);
     if (!title || isEmptyDescription(content)) {
       return res.status(400).json({ message: 'El título y el contenido son requeridos' });
@@ -190,8 +211,11 @@ exports.updateSolution = async (req, res) => {
     if (groupIds.error) return res.status(400).json({ message: groupIds.error });
 
     const access = await getRequestAccess(req);
-    const keepsApproval = current.approval_status === 'approved' && access.has('kb.approve')
-      && content === current.content && title === current.title;
+    const keepsApproval =
+      current.approval_status === 'approved' &&
+      access.has('kb.approve') &&
+      content === current.content &&
+      title === current.title;
     const approvalStatus = keepsApproval ? 'approved' : 'pending';
 
     await query(
@@ -214,7 +238,9 @@ exports.updateSolution = async (req, res) => {
       ]
     );
     await replaceGroups(req.params.id, groupIds);
-    res.json({ message: keepsApproval ? 'Solución actualizada' : 'Solución actualizada. Quedó pendiente de aprobación.' });
+    res.json({
+      message: keepsApproval ? 'Solución actualizada' : 'Solución actualizada. Quedó pendiente de aprobación.'
+    });
   } catch (err) {
     console.error('Error actualizando solución:', err.code || err.message);
     res.status(500).json({ message: 'Error al actualizar la solución' });
@@ -225,7 +251,11 @@ exports.setSolutionStatus = async (req, res) => {
   const status = req.body.status === 'inactive' ? 'inactive' : req.body.status === 'active' ? 'active' : null;
   if (!status) return res.status(400).json({ message: 'Estado inválido' });
   try {
-    const result = await query('UPDATE solutions SET status = ?, updated_by = ? WHERE id = ?', [status, req.user.id, req.params.id]);
+    const result = await query('UPDATE solutions SET status = ?, updated_by = ? WHERE id = ?', [
+      status,
+      req.user.id,
+      req.params.id
+    ]);
     if (!result.affectedRows) return res.status(404).json({ message: 'Solución no encontrada' });
     res.json({ message: status === 'active' ? 'Solución activada' : 'Solución desactivada' });
   } catch (err) {
@@ -243,7 +273,13 @@ exports.setSolutionApproval = async (req, res) => {
       `UPDATE solutions
        SET approval_status = ?, approved_by = ?, approved_at = ?, updated_by = ?
        WHERE id = ?`,
-      [approval, approval === 'approved' ? req.user.id : null, approval === 'approved' ? new Date() : null, req.user.id, req.params.id]
+      [
+        approval,
+        approval === 'approved' ? req.user.id : null,
+        approval === 'approved' ? new Date() : null,
+        req.user.id,
+        req.params.id
+      ]
     );
     if (!result.affectedRows) return res.status(404).json({ message: 'Solución no encontrada' });
     res.json({ message: approval === 'approved' ? 'Solución aprobada' : 'Solución rechazada' });
@@ -291,10 +327,10 @@ exports.uploadSolutionImage = async (req, res) => {
 
 exports.downloadSolutionImage = async (req, res) => {
   try {
-    const rows = await query(
-      'SELECT * FROM solution_attachments WHERE id = ? AND solution_id = ?',
-      [req.params.attachmentId, req.params.id]
-    );
+    const rows = await query('SELECT * FROM solution_attachments WHERE id = ? AND solution_id = ?', [
+      req.params.attachmentId,
+      req.params.id
+    ]);
     if (!rows.length) return res.status(404).json({ message: 'Imagen no encontrada' });
     const filePath = getSolutionFilePath(req.params.id, rows[0].stored_name);
     if (!fs.existsSync(filePath)) return res.status(404).json({ message: 'Imagen no encontrada' });
@@ -305,14 +341,14 @@ exports.downloadSolutionImage = async (req, res) => {
 };
 
 const copySolutionImagesToTicket = async (html, solutionId, ticketId, userId) => {
-  const ids = [...new Set(
-    [...String(html).matchAll(/data-attachment-id="(\d+)"/g)].map((match) => Number(match[1]))
-  )];
+  const ids = [
+    ...new Set([...String(html).matchAll(/data-attachment-id="(\d+)"/g)].map((match) => Number(match[1])))
+  ];
   if (!ids.length) return html;
-  const rows = await query(
-    'SELECT * FROM solution_attachments WHERE solution_id = ? AND id IN (?)',
-    [solutionId, ids]
-  );
+  const rows = await query('SELECT * FROM solution_attachments WHERE solution_id = ? AND id IN (?)', [
+    solutionId,
+    ids
+  ]);
   const dir = ensureTicketDir(ticketId);
   const replacements = new Map();
   for (const row of rows) {
@@ -355,7 +391,9 @@ exports.searchSolutions = async (req, res) => {
   const allowed = await assertPermission(req, res, 'tickets.resolve');
   if (!allowed) return;
   try {
-    const q = String(req.query.q || '').trim().slice(0, 100);
+    const q = String(req.query.q || '')
+      .trim()
+      .slice(0, 100);
     const like = `%${q.replace(/[%_]/g, '')}%`;
     const groupIds = await new Promise((resolve, reject) => {
       getUserGroupIds(req.user.id, (err, ids) => (err ? reject(err) : resolve(ids)));
@@ -366,7 +404,8 @@ exports.searchSolutions = async (req, res) => {
     if (!seesAll) {
       if (!groupIds.length) visibility = ' AND s.share_all = 1';
       else {
-        visibility = ' AND (s.share_all = 1 OR s.id IN (SELECT solution_id FROM solution_groups WHERE group_id IN (?)))';
+        visibility =
+          ' AND (s.share_all = 1 OR s.id IN (SELECT solution_id FROM solution_groups WHERE group_id IN (?)))';
         params.push(groupIds);
       }
     }
@@ -387,17 +426,19 @@ exports.searchSolutions = async (req, res) => {
       params
     );
     const withGroups = await attachGroups(rows);
-    res.json(withGroups.map((row) => ({
-      id: row.id,
-      title: row.title,
-      content: row.content,
-      category: row.category,
-      subcategory: row.subcategory,
-      tags: row.tags,
-      share_all: row.share_all,
-      use_count: row.use_count,
-      groups: row.groups
-    })));
+    res.json(
+      withGroups.map((row) => ({
+        id: row.id,
+        title: row.title,
+        content: row.content,
+        category: row.category,
+        subcategory: row.subcategory,
+        tags: row.tags,
+        share_all: row.share_all,
+        use_count: row.use_count,
+        groups: row.groups
+      }))
+    );
   } catch (err) {
     console.error('Error buscando soluciones:', err.code || err.message);
     res.status(500).json({ message: 'Error al buscar soluciones' });
@@ -423,10 +464,11 @@ exports.applySolution = async (req, res) => {
     });
     if (!ticket) return res.status(404).json({ message: 'Ticket no encontrado' });
     const content = await copySolutionImagesToTicket(solution.content, solution.id, ticketId, req.user.id);
-    await query(
-      'INSERT INTO solution_uses (solution_id, ticket_id, user_id) VALUES (?, ?, ?)',
-      [solution.id, ticketId, req.user.id]
-    );
+    await query('INSERT INTO solution_uses (solution_id, ticket_id, user_id) VALUES (?, ?, ?)', [
+      solution.id,
+      ticketId,
+      req.user.id
+    ]);
     await query('UPDATE solutions SET use_count = use_count + 1 WHERE id = ?', [solution.id]);
     res.json({ content, use_count: solution.use_count + 1 });
   } catch (err) {

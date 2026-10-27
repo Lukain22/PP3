@@ -68,7 +68,10 @@ export default function AdminUserDetail() {
 
   const apiCall = async (path: string, options: RequestInit = {}) => {
     const token = getToken();
-    if (!token) { navigate('/'); return null; }
+    if (!token) {
+      navigate('/');
+      return null;
+    }
 
     const response = await fetch(`${API_URL}${path}`, {
       ...options,
@@ -79,7 +82,11 @@ export default function AdminUserDetail() {
       }
     });
 
-    if (response.status === 401) { clearAuth(); navigate('/'); return null; }
+    if (response.status === 401) {
+      clearAuth();
+      navigate('/');
+      return null;
+    }
 
     const data = await response.json().catch(() => ({}));
     return { response, data };
@@ -127,7 +134,10 @@ export default function AdminUserDetail() {
   };
 
   useEffect(() => {
-    if (!getToken()) { navigate('/'); return; }
+    if (!getToken()) {
+      navigate('/');
+      return;
+    }
     loadUser();
   }, [id]);
 
@@ -164,7 +174,11 @@ export default function AdminUserDetail() {
 
   const formatDate = (d: string) =>
     new Date(d).toLocaleString('es-ES', {
-      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
 
   const handleSaveRoles = async () => {
@@ -200,10 +214,7 @@ export default function AdminUserDetail() {
 
   if (loading) {
     return (
-      <SupportShell
-        title="Cargando usuario..."
-        backTo="/admin/users"
-      >
+      <SupportShell title="Cargando usuario..." backTo="/admin/users">
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress />
         </Box>
@@ -217,7 +228,10 @@ export default function AdminUserDetail() {
       subtitle={`Usuario #${id} · Registrado ${formatDate(createdAt)}`}
       backTo="/admin/users"
     >
-      <Paper elevation={0} sx={{ p: { xs: 2, md: 3 }, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+      <Paper
+        elevation={0}
+        sx={{ p: { xs: 2, md: 3 }, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
+      >
         <Stack spacing={3}>
           <Box>
             <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 600 }}>
@@ -278,17 +292,13 @@ export default function AdminUserDetail() {
 
           {role !== 'technician' && (
             <Typography variant="body2" color="text.secondary">
-              Los grupos de esta sección solo aplican al perfil Técnico. Para que un usuario vea tickets de un grupo, asignale Espectador del sistema, o un rol con Ver tickets, y elegí el alcance en el rol.
+              Los grupos de esta sección solo aplican al perfil Técnico. Para que un usuario vea tickets de un
+              grupo, asignale Espectador del sistema, o un rol con Ver tickets, y elegí el alcance en el rol.
             </Typography>
           )}
 
           <Stack direction="row" spacing={1.5}>
-            <Button
-              variant="contained"
-              startIcon={<SaveIcon />}
-              disabled={saving}
-              onClick={handleSave}
-            >
+            <Button variant="contained" startIcon={<SaveIcon />} disabled={saving} onClick={handleSave}>
               {saving ? 'Guardando...' : 'Guardar cambios'}
             </Button>
             <Button variant="text" disabled={saving} onClick={() => navigate('/admin/users')}>
@@ -298,14 +308,18 @@ export default function AdminUserDetail() {
         </Stack>
       </Paper>
 
-      <Paper elevation={0} sx={{ p: { xs: 2, md: 3 }, mt: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+      <Paper
+        elevation={0}
+        sx={{ p: { xs: 2, md: 3 }, mt: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
+      >
         <Stack spacing={2.5}>
           <Box>
             <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 600 }}>
               Roles y permisos
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Si el usuario tiene varios roles, los permisos se combinan. Las acciones salen de esos permisos. La visibilidad de grupos sale del alcance de Ver tickets.
+              Si el usuario tiene varios roles, los permisos se combinan. Las acciones salen de esos permisos.
+              La visibilidad de grupos sale del alcance de Ver tickets.
             </Typography>
           </Box>
 
@@ -317,15 +331,21 @@ export default function AdminUserDetail() {
 
           <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
             {assignedRoleIds.length === 0 && (
-              <Typography variant="body2" color="text.secondary">Sin roles asignados</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Sin roles asignados
+              </Typography>
             )}
-            {roleOptions.filter((item) => assignedRoleIds.includes(item.id)).map((item) => (
-              <Chip
-                key={item.id}
-                label={item.name}
-                onDelete={() => setAssignedRoleIds((current) => current.filter((roleId) => roleId !== item.id))}
-              />
-            ))}
+            {roleOptions
+              .filter((item) => assignedRoleIds.includes(item.id))
+              .map((item) => (
+                <Chip
+                  key={item.id}
+                  label={item.name}
+                  onDelete={() =>
+                    setAssignedRoleIds((current) => current.filter((roleId) => roleId !== item.id))
+                  }
+                />
+              ))}
           </Stack>
 
           <FormControl fullWidth>
@@ -336,7 +356,12 @@ export default function AdminUserDetail() {
               value={assignedRoleIds}
               onChange={(e) => setAssignedRoleIds(e.target.value as number[])}
               input={<OutlinedInput label="Agregar roles" />}
-              renderValue={(selected) => roleOptions.filter((item) => selected.includes(item.id)).map((item) => item.name).join(', ')}
+              renderValue={(selected) =>
+                roleOptions
+                  .filter((item) => selected.includes(item.id))
+                  .map((item) => item.name)
+                  .join(', ')
+              }
             >
               {roleOptions.map((item) => (
                 <MenuItem key={item.id} value={item.id}>
@@ -348,14 +373,20 @@ export default function AdminUserDetail() {
           </FormControl>
 
           <Box>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>Permisos heredados</Typography>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              Permisos heredados
+            </Typography>
             {Object.keys(permissionsByModule).length === 0 ? (
-              <Typography variant="body2" color="text.secondary">Este usuario no tiene permisos por roles.</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Este usuario no tiene permisos por roles.
+              </Typography>
             ) : (
               <Stack spacing={1.25}>
                 {Object.entries(permissionsByModule).map(([moduleName, items]) => (
                   <Box key={moduleName}>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>{moduleName}</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+                      {moduleName}
+                    </Typography>
                     <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
                       {items.map((item) => (
                         <Chip key={item.code} label={item.name} size="small" variant="outlined" />

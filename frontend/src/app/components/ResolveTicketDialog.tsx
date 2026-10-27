@@ -204,7 +204,7 @@ export default function ResolveTicketDialog({
     });
   }
 
-  const subcategoryOptions = category ? (SUBCATEGORIES[category as Category] || []) : [];
+  const subcategoryOptions = category ? SUBCATEGORIES[category as Category] || [] : [];
   const needsTechnician = !technicianId;
   const needsCategory = !category;
   const needsSubcategory = !subcategory;
@@ -216,7 +216,11 @@ export default function ResolveTicketDialog({
   if (needsResolution) missing.push('Ingresá la resolución');
 
   const fieldCaption = (label: string, required: boolean) => (
-    <Typography variant="caption" color={required ? 'error' : 'text.secondary'} sx={{ display: 'block', mb: 0.5 }}>
+    <Typography
+      variant="caption"
+      color={required ? 'error' : 'text.secondary'}
+      sx={{ display: 'block', mb: 0.5 }}
+    >
       {label}
     </Typography>
   );
@@ -243,9 +247,7 @@ export default function ResolveTicketDialog({
         setContent(html);
       }
 
-      const resolution = isDescriptionEmpty(html)
-        ? (fileCount > 0 ? '<p>Archivo adjunto</p>' : '')
-        : html;
+      const resolution = isDescriptionEmpty(html) ? (fileCount > 0 ? '<p>Archivo adjunto</p>' : '') : html;
       if (!resolution) {
         toast.error('La resolución no puede estar vacía');
         return;
@@ -316,13 +318,7 @@ export default function ResolveTicketDialog({
   };
 
   return (
-    <Dialog
-      open={open}
-      onClose={saving ? undefined : onClose}
-      maxWidth="md"
-      fullWidth
-      scroll="paper"
-    >
+    <Dialog open={open} onClose={saving ? undefined : onClose} maxWidth="md" fullWidth scroll="paper">
       <DialogTitle sx={{ pb: 0.5 }}>
         Resolver #{ticket.id}
         {ticket.title ? (
@@ -351,7 +347,10 @@ export default function ResolveTicketDialog({
                   compact
                   label="Tipo"
                   value={type}
-                  options={TICKET_TYPE_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
+                  options={TICKET_TYPE_OPTIONS.map((option) => ({
+                    value: option.value,
+                    label: option.label
+                  }))}
                   onChange={(next) => setType(next)}
                 />
               ) : (
@@ -483,27 +482,43 @@ export default function ResolveTicketDialog({
         </Box>
 
         <Box sx={{ ...cardSx, mt: 2 }}>
-          <Typography variant="subtitle2" color={needsResolution ? 'error' : 'text.primary'} sx={{ fontWeight: 700, mb: 1 }}>
+          <Typography
+            variant="subtitle2"
+            color={needsResolution ? 'error' : 'text.primary'}
+            sx={{ fontWeight: 700, mb: 1 }}
+          >
             Resolución
           </Typography>
           <Tabs
             value={section}
             onChange={(_, value) => setSection(value)}
-            sx={{ minHeight: 36, mb: 1.5, '& .MuiTab-root': { minHeight: 36, textTransform: 'none', fontWeight: 600 } }}
+            sx={{
+              minHeight: 36,
+              mb: 1.5,
+              '& .MuiTab-root': { minHeight: 36, textTransform: 'none', fontWeight: 600 }
+            }}
           >
             <Tab value="resolution" label="Resolución" />
             <Tab value="solutions" label="Soluciones" />
           </Tabs>
-          <Box sx={{ display: section === 'resolution' ? 'flex' : 'none', flexDirection: 'column', minHeight: 0 }}>
-            <Box sx={{
-              height: 240,
-              display: 'flex',
+          <Box
+            sx={{
+              display: section === 'resolution' ? 'flex' : 'none',
               flexDirection: 'column',
-              minHeight: 0,
-              borderRadius: 1,
-              border: '1px solid',
-              borderColor: needsResolution ? 'error.main' : 'transparent'
-            }}>
+              minHeight: 0
+            }}
+          >
+            <Box
+              sx={{
+                height: 240,
+                display: 'flex',
+                flexDirection: 'column',
+                minHeight: 0,
+                borderRadius: 1,
+                border: '1px solid',
+                borderColor: needsResolution ? 'error.main' : 'transparent'
+              }}
+            >
               <RichTextEditor
                 ref={editorRef}
                 bounded
@@ -515,11 +530,7 @@ export default function ResolveTicketDialog({
               />
             </Box>
             <Box sx={{ pt: 1.5 }}>
-              <TicketAttachments
-                ticketId={ticket.id}
-                scope="resolution"
-                onCountChange={setFileCount}
-              />
+              <TicketAttachments ticketId={ticket.id} scope="resolution" onCountChange={setFileCount} />
             </Box>
           </Box>
           {section === 'solutions' && (
@@ -527,9 +538,9 @@ export default function ResolveTicketDialog({
               ticketId={String(ticket.id)}
               canApply
               onApply={(value) => {
-                setContent((prev) => (
+                setContent((prev) =>
                   isRichHtml(value) ? appendRichHtml(prev, value) : appendPlainTextToHtml(prev, value)
-                ));
+                );
                 setSection('resolution');
                 toast.success('Solución aplicada correctamente.');
               }}

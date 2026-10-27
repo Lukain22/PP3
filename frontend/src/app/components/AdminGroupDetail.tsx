@@ -56,7 +56,10 @@ export default function AdminGroupDetail() {
 
   const apiCall = async (path: string, options: RequestInit = {}) => {
     const token = getToken();
-    if (!token) { navigate('/'); return null; }
+    if (!token) {
+      navigate('/');
+      return null;
+    }
 
     const response = await fetch(`${API_URL}${path}`, {
       ...options,
@@ -67,8 +70,15 @@ export default function AdminGroupDetail() {
       }
     });
 
-    if (response.status === 401) { clearAuth(); navigate('/'); return null; }
-    if (response.status === 403) { navigate('/dashboard'); return null; }
+    if (response.status === 401) {
+      clearAuth();
+      navigate('/');
+      return null;
+    }
+    if (response.status === 403) {
+      navigate('/dashboard');
+      return null;
+    }
 
     const data = await response.json().catch(() => ({}));
     return { response, data };
@@ -104,7 +114,10 @@ export default function AdminGroupDetail() {
   };
 
   useEffect(() => {
-    if (!getToken()) { navigate('/'); return; }
+    if (!getToken()) {
+      navigate('/');
+      return;
+    }
     loadGroup();
   }, [id]);
 
@@ -163,15 +176,16 @@ export default function AdminGroupDetail() {
 
   const formatDate = (d: string) =>
     new Date(d).toLocaleString('es-ES', {
-      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
 
   if (loading) {
     return (
-      <SupportShell
-        title="Cargando grupo..."
-        backTo="/admin/groups"
-      >
+      <SupportShell title="Cargando grupo..." backTo="/admin/groups">
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress />
         </Box>
@@ -185,7 +199,10 @@ export default function AdminGroupDetail() {
       subtitle={`Grupo #${id}${createdAt ? ` · Creado ${formatDate(createdAt)}` : ''}`}
       backTo="/admin/groups"
     >
-      <Paper elevation={0} sx={{ p: { xs: 2, md: 3 }, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+      <Paper
+        elevation={0}
+        sx={{ p: { xs: 2, md: 3 }, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
+      >
         <Stack spacing={3}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {isDefault ? (
@@ -195,12 +212,7 @@ export default function AdminGroupDetail() {
             )}
           </Box>
 
-          <TextField
-            fullWidth
-            label="Nombre"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
+          <TextField fullWidth label="Nombre" value={name} onChange={(e) => setName(e.target.value)} />
 
           <TextField
             fullWidth

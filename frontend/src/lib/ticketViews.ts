@@ -177,7 +177,9 @@ export function viewIdToItemKey(viewId: number): string {
   return `view:${viewId}`;
 }
 
-export function parseViewItemKey(itemKey: string): { kind: 'system' | 'custom'; key?: SystemViewKey; viewId?: number } | null {
+export function parseViewItemKey(
+  itemKey: string
+): { kind: 'system' | 'custom'; key?: SystemViewKey; viewId?: number } | null {
   if (itemKey.startsWith('system:')) {
     return { kind: 'system', key: itemKey.slice(7) as SystemViewKey };
   }
@@ -193,10 +195,7 @@ export function buildDefaultViewOrder(role: UserRole): string[] {
   return getSystemViewsForRole(role).map((view) => systemViewKeyToItemKey(view.key));
 }
 
-export function sortViewItems<T extends { itemKey: string }>(
-  items: T[],
-  order: string[]
-): T[] {
+export function sortViewItems<T extends { itemKey: string }>(items: T[], order: string[]): T[] {
   const rank = new Map(order.map((key, index) => [key, index]));
   return [...items].sort((a, b) => {
     const aRank = rank.get(a.itemKey);
@@ -299,7 +298,10 @@ export function buildTicketQueryParams(
   if (sort) params.set('sort', sort);
   if (filters.type) params.set('type', filters.type);
   if (filters.priority) params.set('priority', filters.priority);
-  const groupIds = String(filters.group_id || '').split(',').map((part) => part.trim()).filter(Boolean);
+  const groupIds = String(filters.group_id || '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
   if (groupIds.length === 1) params.set('group_id', groupIds[0]);
   else if (groupIds.length > 1) params.set('group_ids', groupIds.join(','));
   if (groupIds.length > 0 && filters.technician_id) params.set('technician_ids', filters.technician_id);
@@ -316,11 +318,16 @@ export function buildTicketQueryParams(
   return params;
 }
 
-const splitFilter = (value?: string | null) => String(value || '').split(',').map((part) => part.trim()).filter(Boolean);
+const splitFilter = (value?: string | null) =>
+  String(value || '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
 
-const positiveIds = (value?: string | null) => splitFilter(value)
-  .map((part) => Number(part))
-  .filter((id) => Number.isInteger(id) && id > 0);
+const positiveIds = (value?: string | null) =>
+  splitFilter(value)
+    .map((part) => Number(part))
+    .filter((id) => Number.isInteger(id) && id > 0);
 
 export function viewFiltersToPayload(filters: TicketListFilters, order: string[] = []): TicketViewFilters {
   const types = splitFilter(filters.type);

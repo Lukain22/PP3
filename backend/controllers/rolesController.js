@@ -166,7 +166,10 @@ const parsePayload = (body) => {
   const parentId = body.parent_role_id ? Number(body.parent_role_id) : null;
   const isActive = body.is_active === undefined ? true : Boolean(body.is_active);
   const permissionCodes = knownCodes(body.permission_codes);
-  if (permissionCodes.some((code) => code.startsWith('admin.') && code !== 'admin.access') && !permissionCodes.includes('admin.access')) {
+  if (
+    permissionCodes.some((code) => code.startsWith('admin.') && code !== 'admin.access') &&
+    !permissionCodes.includes('admin.access')
+  ) {
     permissionCodes.push('admin.access');
   }
   const transferScope = normalizeScope(body.transfer_scope, 'all');
@@ -205,11 +208,19 @@ const validatePayload = async (payload, roleId) => {
     await assertNoCycle(roleId, payload.parentId);
   }
 
-  if (payload.permissionCodes.includes('assignments.transfer') && payload.transferScope.mode !== 'all' && payload.transferScope.group_ids.length === 0) {
+  if (
+    payload.permissionCodes.includes('assignments.transfer') &&
+    payload.transferScope.mode !== 'all' &&
+    payload.transferScope.group_ids.length === 0
+  ) {
     return 'Elegí al menos un grupo para el alcance de derivación';
   }
 
-  if (payload.permissionCodes.includes('tickets.view') && ['allow', 'deny'].includes(payload.viewScope.mode) && payload.viewScope.group_ids.length === 0) {
+  if (
+    payload.permissionCodes.includes('tickets.view') &&
+    ['allow', 'deny'].includes(payload.viewScope.mode) &&
+    payload.viewScope.group_ids.length === 0
+  ) {
     return 'Elegí al menos un grupo para el alcance de visibilidad';
   }
 
@@ -225,7 +236,10 @@ const validatePayload = async (payload, roleId) => {
 const clearPermissionScope = async (roleId, code) => {
   const perm = await query('SELECT id FROM permissions WHERE code = ?', [code]);
   if (!perm.length) return;
-  await query('DELETE FROM role_permission_scopes WHERE role_id = ? AND permission_id = ?', [roleId, perm[0].id]);
+  await query('DELETE FROM role_permission_scopes WHERE role_id = ? AND permission_id = ?', [
+    roleId,
+    perm[0].id
+  ]);
 };
 
 const persistGrants = async (roleId, payload) => {
@@ -283,7 +297,8 @@ exports.updateRole = async (req, res) => {
       ...req.body,
       name: req.body.name === undefined ? current.name : req.body.name,
       description: req.body.description === undefined ? current.description : req.body.description,
-      parent_role_id: req.body.parent_role_id === undefined ? current.parent_role_id : req.body.parent_role_id,
+      parent_role_id:
+        req.body.parent_role_id === undefined ? current.parent_role_id : req.body.parent_role_id,
       is_active: req.body.is_active === undefined ? Boolean(Number(current.is_active)) : req.body.is_active
     });
 
@@ -299,13 +314,14 @@ exports.updateRole = async (req, res) => {
       payload.name = current.name;
     }
 
-    const onlyStatus = req.body.is_active !== undefined
-      && req.body.name === undefined
-      && req.body.permission_codes === undefined
-      && req.body.description === undefined
-      && req.body.parent_role_id === undefined
-      && req.body.transfer_scope === undefined
-      && req.body.view_scope === undefined;
+    const onlyStatus =
+      req.body.is_active !== undefined &&
+      req.body.name === undefined &&
+      req.body.permission_codes === undefined &&
+      req.body.description === undefined &&
+      req.body.parent_role_id === undefined &&
+      req.body.transfer_scope === undefined &&
+      req.body.view_scope === undefined;
 
     if (onlyStatus) {
       if (current.code === 'administrador' && !payload.isActive) {
@@ -332,7 +348,12 @@ exports.updateRole = async (req, res) => {
        WHERE id = ?`,
       [payload.name, payload.description, payload.isActive ? 1 : 0, payload.parentId, current.id]
     );
-    if (req.body.permission_codes !== undefined || req.body.transfer_scope !== undefined || req.body.view_scope !== undefined || current.code === 'administrador') {
+    if (
+      req.body.permission_codes !== undefined ||
+      req.body.transfer_scope !== undefined ||
+      req.body.view_scope !== undefined ||
+      current.code === 'administrador'
+    ) {
       await persistGrants(current.id, payload);
     }
     const updated = await loadRole(current.id);
@@ -486,7 +507,9 @@ exports.setUserRoles = async (req, res) => {
     });
 
     if (unique.length) {
-      const existing = await query('SELECT id FROM roles WHERE id IN (?)', [unique.map((item) => item.role_id)]);
+      const existing = await query('SELECT id FROM roles WHERE id IN (?)', [
+        unique.map((item) => item.role_id)
+      ]);
       if (existing.length !== unique.length) {
         return res.status(400).json({ message: 'Hay roles inválidos' });
       }
@@ -501,7 +524,15 @@ exports.setUserRoles = async (req, res) => {
     if (unique.length) {
       await query(
         'INSERT INTO user_roles (user_id, role_id, assigned_by, valid_from, valid_until) VALUES ?',
-        [unique.map((item) => [Number(req.params.id), item.role_id, req.user.id, item.valid_from, item.valid_until])]
+        [
+          unique.map((item) => [
+            Number(req.params.id),
+            item.role_id,
+            req.user.id,
+            item.valid_from,
+            item.valid_until
+          ])
+        ]
       );
     }
 

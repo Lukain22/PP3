@@ -27,8 +27,7 @@ const serializeScope = (scope) => ({
   deny: [...(scope?.deny || [])].map(Number)
 });
 
-const hasScopeGrant = (scope) =>
-  Boolean(scope && (scope.all || scope.allow.size > 0 || scope.deny.size > 0));
+const hasScopeGrant = (scope) => Boolean(scope && (scope.all || scope.allow.size > 0 || scope.deny.size > 0));
 
 const buildAccess = ({ isSuperuser, accountRole, roles, permissionCodes, catalog, scopes, actingCodes }) => {
   const codes = new Set(permissionCodes);
@@ -61,7 +60,8 @@ const buildAccess = ({ isSuperuser, accountRole, roles, permissionCodes, catalog
       return codes.has(code);
     },
     canActOnOthers(code) {
-      if (isSuperuser || accountRole === 'admin' || accountRole === 'technician') return codes.has(code) || isSuperuser;
+      if (isSuperuser || accountRole === 'admin' || accountRole === 'technician')
+        return codes.has(code) || isSuperuser;
       return (actingCodes || new Set()).has(code);
     },
     canTransferTo(groupId) {
@@ -100,7 +100,8 @@ const loadCatalog = async () => {
   const rows = await query(
     'SELECT code, module, name, description, supports_scope, sort_order FROM permissions ORDER BY module, sort_order, name'
   );
-  if (!rows.length) return PERMISSIONS.map((item) => ({ ...item, supports_scope: item.supportsScope ? 1 : 0 }));
+  if (!rows.length)
+    return PERMISSIONS.map((item) => ({ ...item, supports_scope: item.supportsScope ? 1 : 0 }));
   return rows;
 };
 
@@ -123,11 +124,11 @@ const expandRoleIds = async (roleIds, options = {}) => {
       ? (await query('SELECT code, is_active FROM roles WHERE id = ?', [parentId]))[0]
       : null;
     if (
-      parentId
-      && parent
-      && Number(parent.is_active) === 1
-      && !skipRoleCodes.has(parent.code)
-      && !seen.has(parentId)
+      parentId &&
+      parent &&
+      Number(parent.is_active) === 1 &&
+      !skipRoleCodes.has(parent.code) &&
+      !seen.has(parentId)
     ) {
       queue.push(parentId);
     }
@@ -278,12 +279,16 @@ const readPermissionScope = async (roleId, code) => {
   if (rows.some((row) => row.scope_mode === 'deny')) {
     return {
       mode: 'deny',
-      group_ids: rows.filter((row) => row.scope_mode === 'deny' && Number(row.scope_ref_id) > 0).map((row) => Number(row.scope_ref_id))
+      group_ids: rows
+        .filter((row) => row.scope_mode === 'deny' && Number(row.scope_ref_id) > 0)
+        .map((row) => Number(row.scope_ref_id))
     };
   }
   return {
     mode: 'allow',
-    group_ids: rows.filter((row) => row.scope_mode === 'allow' && Number(row.scope_ref_id) > 0).map((row) => Number(row.scope_ref_id))
+    group_ids: rows
+      .filter((row) => row.scope_mode === 'allow' && Number(row.scope_ref_id) > 0)
+      .map((row) => Number(row.scope_ref_id))
   };
 };
 
@@ -302,12 +307,16 @@ const readViewScope = async (roleId) => {
   if (rows.some((row) => row.scope_mode === 'deny')) {
     return {
       mode: 'deny',
-      group_ids: rows.filter((row) => row.scope_mode === 'deny' && Number(row.scope_ref_id) > 0).map((row) => Number(row.scope_ref_id))
+      group_ids: rows
+        .filter((row) => row.scope_mode === 'deny' && Number(row.scope_ref_id) > 0)
+        .map((row) => Number(row.scope_ref_id))
     };
   }
   return {
     mode: 'allow',
-    group_ids: rows.filter((row) => row.scope_mode === 'allow' && Number(row.scope_ref_id) > 0).map((row) => Number(row.scope_ref_id))
+    group_ids: rows
+      .filter((row) => row.scope_mode === 'allow' && Number(row.scope_ref_id) > 0)
+      .map((row) => Number(row.scope_ref_id))
   };
 };
 
@@ -315,11 +324,10 @@ const replacePermissionScope = async (roleId, code, scope) => {
   const perm = await query('SELECT id FROM permissions WHERE code = ?', [code]);
   if (!perm.length) return;
   const permissionId = perm[0].id;
-  await query('DELETE FROM role_permission_scopes WHERE role_id = ? AND permission_id = ? AND scope_type = ?', [
-    roleId,
-    permissionId,
-    'group'
-  ]);
+  await query(
+    'DELETE FROM role_permission_scopes WHERE role_id = ? AND permission_id = ? AND scope_type = ?',
+    [roleId, permissionId, 'group']
+  );
 
   const mode = scope?.mode || 'all';
   if (mode === 'all') {
@@ -352,7 +360,8 @@ const replacePermissionScope = async (roleId, code, scope) => {
 const replaceTransferScope = (roleId, scope) => replacePermissionScope(roleId, 'assignments.transfer', scope);
 const replaceViewScope = (roleId, scope) => replacePermissionScope(roleId, 'tickets.view', scope);
 
-const scopeIdList = (scope) => [...(scope?.allow || []), ...(scope?.deny || [])].map(Number).filter((id) => id > 0);
+const scopeIdList = (scope) =>
+  [...(scope?.allow || []), ...(scope?.deny || [])].map(Number).filter((id) => id > 0);
 
 const resolveTicketViewGrant = (access) => {
   if (!access?.has('tickets.view')) return null;
@@ -373,10 +382,9 @@ const replaceRolePermissions = async (roleId, codes) => {
   if (!unique.length) return;
   const rows = await query('SELECT id, code FROM permissions WHERE code IN (?)', [unique]);
   if (!rows.length) return;
-  await query(
-    'INSERT INTO role_permissions (role_id, permission_id) VALUES ?',
-    [rows.map((row) => [roleId, row.id])]
-  );
+  await query('INSERT INTO role_permissions (role_id, permission_id) VALUES ?', [
+    rows.map((row) => [roleId, row.id])
+  ]);
 };
 
 const inheritedPermissionCodes = async (roleId) => {
@@ -495,7 +503,9 @@ const seedSystemRoles = async () => {
 
     const rows = await query('SELECT id FROM roles WHERE code = ?', [role.code]);
     const roleId = rows[0].id;
-    const current = await query('SELECT permission_id FROM role_permissions WHERE role_id = ? LIMIT 1', [roleId]);
+    const current = await query('SELECT permission_id FROM role_permissions WHERE role_id = ? LIMIT 1', [
+      roleId
+    ]);
     const shouldFill = role.code === 'administrador' || current.length === 0;
     if (shouldFill) {
       await replaceRolePermissions(roleId, role.codes);

@@ -4,10 +4,34 @@ import { getToken } from './auth';
 const API_URL = import.meta.env.VITE_API_URL as string;
 
 const ALLOWED_TAGS = [
-  'p', 'br', 'strong', 'em', 'u', 's', 'h1', 'h2', 'h3',
-  'ul', 'ol', 'li', 'a', 'img', 'span', 'mark', 'blockquote',
-  'pre', 'code', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
-  'label', 'input', 'div'
+  'p',
+  'br',
+  'strong',
+  'em',
+  'u',
+  's',
+  'h1',
+  'h2',
+  'h3',
+  'ul',
+  'ol',
+  'li',
+  'a',
+  'img',
+  'span',
+  'mark',
+  'blockquote',
+  'pre',
+  'code',
+  'table',
+  'thead',
+  'tbody',
+  'tr',
+  'th',
+  'td',
+  'label',
+  'input',
+  'div'
 ];
 
 let hooksReady = false;
@@ -48,9 +72,22 @@ export function sanitizeRichHtml(value: string) {
   return DOMPurify.sanitize(value || '', {
     ALLOWED_TAGS,
     ALLOWED_ATTR: [
-      'href', 'target', 'rel', 'alt', 'style', 'data-attachment-id', 'data-pending',
-      'data-type', 'data-checked', 'data-color', 'colspan', 'rowspan', 'start',
-      'type', 'checked', 'disabled'
+      'href',
+      'target',
+      'rel',
+      'alt',
+      'style',
+      'data-attachment-id',
+      'data-pending',
+      'data-type',
+      'data-checked',
+      'data-color',
+      'colspan',
+      'rowspan',
+      'start',
+      'type',
+      'checked',
+      'disabled'
     ],
     ALLOW_DATA_ATTR: true
   });
@@ -82,10 +119,7 @@ export function isDescriptionEmpty(html: string) {
 }
 
 function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 export function plainTextToEditorHtml(value: string) {

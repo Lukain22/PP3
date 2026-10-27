@@ -45,13 +45,9 @@ const initTicketViewsTable = () => {
       });
     };
 
-    migrate(
-      'ALTER TABLE ticket_views ADD COLUMN sort_order INT NOT NULL DEFAULT 0',
-      'sort_order',
-      () => migrate(
-        'ALTER TABLE ticket_views ADD COLUMN hidden TINYINT(1) NOT NULL DEFAULT 0',
-        'hidden',
-        () => migrate(
+    migrate('ALTER TABLE ticket_views ADD COLUMN sort_order INT NOT NULL DEFAULT 0', 'sort_order', () =>
+      migrate('ALTER TABLE ticket_views ADD COLUMN hidden TINYINT(1) NOT NULL DEFAULT 0', 'hidden', () =>
+        migrate(
           'ALTER TABLE ticket_views ADD COLUMN audience VARCHAR(20) NULL DEFAULT NULL',
           'audience',
           () => {
@@ -159,10 +155,8 @@ const replaceViewGroups = (viewId, groupIds, callback) => {
     if (err) return callback(err);
     if (!groupIds.length) return callback(null);
     const values = groupIds.map((groupId) => [viewId, groupId]);
-    db.query(
-      'INSERT INTO ticket_view_groups (view_id, group_id) VALUES ?',
-      [values],
-      (insertErr) => callback(insertErr || null)
+    db.query('INSERT INTO ticket_view_groups (view_id, group_id) VALUES ?', [values], (insertErr) =>
+      callback(insertErr || null)
     );
   });
 };
@@ -219,23 +213,23 @@ const validateViewPayload = (body, user, callback) => {
     return callback(null, basePayload);
   }
 
-  const rawIds = Array.isArray(body.share_group_ids) && body.share_group_ids.length
-    ? body.share_group_ids
-    : [share_group_id];
-  const groupIds = [...new Set(
-    rawIds
-      .map((id) => parseInt(id, 10))
-      .filter((id) => Number.isInteger(id) && id > 0)
-  )];
+  const rawIds =
+    Array.isArray(body.share_group_ids) && body.share_group_ids.length
+      ? body.share_group_ids
+      : [share_group_id];
+  const groupIds = [
+    ...new Set(rawIds.map((id) => parseInt(id, 10)).filter((id) => Number.isInteger(id) && id > 0))
+  ];
   if (!groupIds.length) {
     return callback(new Error('Seleccioná un grupo para compartir la vista'));
   }
 
-  const finish = () => callback(null, {
-    ...basePayload,
-    share_group_id: groupIds[0],
-    share_group_ids: groupIds
-  });
+  const finish = () =>
+    callback(null, {
+      ...basePayload,
+      share_group_id: groupIds[0],
+      share_group_ids: groupIds
+    });
 
   if (user.role === 'admin') {
     return db.query('SELECT id FROM `groups` WHERE id IN (?)', [groupIds], (err, rows) => {
@@ -264,10 +258,12 @@ exports.getViews = (req, res) => {
 
   const { getRequestAccess, resolveTicketViewGrant } = require('../rbac/service');
 
-  getRequestAccess(req).then((access) => {
-    const grant = user.role === 'admin' ? null : resolveTicketViewGrant(access);
-    loadVisibleViews(req, res, scope, user, grant);
-  }).catch(() => res.status(500).json({ message: 'Error al obtener vistas' }));
+  getRequestAccess(req)
+    .then((access) => {
+      const grant = user.role === 'admin' ? null : resolveTicketViewGrant(access);
+      loadVisibleViews(req, res, scope, user, grant);
+    })
+    .catch(() => res.status(500).json({ message: 'Error al obtener vistas' }));
 };
 
 const loadVisibleViews = (req, res, scope, user, grant) => {
@@ -276,11 +272,8 @@ const loadVisibleViews = (req, res, scope, user, grant) => {
 
     const params = [user.id, scope, user.id];
     const access = ['v.user_id = ?'];
-    const audiences = user.role === 'user'
-      ? ['user', 'both']
-      : user.role === 'technician'
-        ? ['technician', 'both']
-        : null;
+    const audiences =
+      user.role === 'user' ? ['user', 'both'] : user.role === 'technician' ? ['technician', 'both'] : null;
     const audienceSql = audiences
       ? `AND (v.audience IS NULL OR v.audience IN (${audiences.map(() => '?').join(', ')}))`
       : '';
@@ -294,7 +287,9 @@ const loadVisibleViews = (req, res, scope, user, grant) => {
 
     if (user.role === 'admin' || (grant && grant.mode === 'all')) {
       access.push("(v.visibility = 'public')");
-      access.push("(v.visibility = 'group' AND (v.share_group_id IS NOT NULL OR EXISTS (SELECT 1 FROM ticket_view_groups vg WHERE vg.view_id = v.id)))");
+      access.push(
+        "(v.visibility = 'group' AND (v.share_group_id IS NOT NULL OR EXISTS (SELECT 1 FROM ticket_view_groups vg WHERE vg.view_id = v.id)))"
+      );
     } else if (grant && grant.mode === 'allow' && grant.ids.length > 0) {
       const placeholders = grant.ids.map(() => '?').join(', ');
       access.push("(v.visibility = 'public')");
@@ -311,12 +306,16 @@ const loadVisibleViews = (req, res, scope, user, grant) => {
         );
         params.push(...grant.ids, ...grant.ids);
       } else {
-        access.push("(v.visibility = 'group' AND (v.share_group_id IS NOT NULL OR EXISTS (SELECT 1 FROM ticket_view_groups vg WHERE vg.view_id = v.id)))");
+        access.push(
+          "(v.visibility = 'group' AND (v.share_group_id IS NOT NULL OR EXISTS (SELECT 1 FROM ticket_view_groups vg WHERE vg.view_id = v.id)))"
+        );
       }
     }
 
     if (user.role === 'admin') {
-      access.push("(v.visibility = 'group' AND (v.share_group_id IS NOT NULL OR EXISTS (SELECT 1 FROM ticket_view_groups vg WHERE vg.view_id = v.id)))");
+      access.push(
+        "(v.visibility = 'group' AND (v.share_group_id IS NOT NULL OR EXISTS (SELECT 1 FROM ticket_view_groups vg WHERE vg.view_id = v.id)))"
+      );
     } else if (groupIds.length > 0) {
       const placeholders = groupIds.map(() => '?').join(', ');
       access.push(
@@ -361,23 +360,17 @@ exports.saveViewLayout = (req, res) => {
     return res.status(400).json({ message: 'order debe ser un array' });
   }
 
-  const keys = order
-    .map((key) => String(key).trim())
-    .filter((key) => key.length > 0 && key.length <= 80);
+  const keys = order.map((key) => String(key).trim()).filter((key) => key.length > 0 && key.length <= 80);
 
   db.query('DELETE FROM user_view_layout WHERE user_id = ?', [req.user.id], (delErr) => {
     if (delErr) return res.status(500).json({ message: 'Error al actualizar orden' });
     if (keys.length === 0) return res.json({ message: 'Orden guardado', order: [] });
 
     const values = keys.map((key, index) => [req.user.id, key, index]);
-    db.query(
-      'INSERT INTO user_view_layout (user_id, item_key, sort_order) VALUES ?',
-      [values],
-      (insErr) => {
-        if (insErr) return res.status(500).json({ message: 'Error al guardar orden' });
-        res.json({ message: 'Orden guardado', order: keys });
-      }
-    );
+    db.query('INSERT INTO user_view_layout (user_id, item_key, sort_order) VALUES ?', [values], (insErr) => {
+      if (insErr) return res.status(500).json({ message: 'Error al guardar orden' });
+      res.json({ message: 'Orden guardado', order: keys });
+    });
   });
 };
 
@@ -477,10 +470,8 @@ exports.deleteView = (req, res) => {
     db.query('DELETE FROM ticket_views WHERE id = ?', [id], (delErr, result) => {
       if (delErr) return res.status(500).json({ message: 'Error al eliminar vista' });
       if (result.affectedRows === 0) return res.status(404).json({ message: 'Vista no encontrada' });
-      db.query(
-        'DELETE FROM user_view_layout WHERE item_key = ?',
-        [`view:${id}`],
-        () => res.json({ message: 'Vista eliminada' })
+      db.query('DELETE FROM user_view_layout WHERE item_key = ?', [`view:${id}`], () =>
+        res.json({ message: 'Vista eliminada' })
       );
     });
   });
@@ -564,10 +555,13 @@ exports.listAdminViews = (req, res) => {
     [req.user.id],
     (err, rows) => {
       if (err) return res.status(500).json({ message: 'Error al obtener vistas' });
-      loadShareGroups(rows.map((row) => row.id), (groupErr, map) => {
-        if (groupErr) return res.status(500).json({ message: 'Error al obtener grupos' });
-        res.json(rows.map((row) => serializeView(row, groupsForRow(row, map))));
-      });
+      loadShareGroups(
+        rows.map((row) => row.id),
+        (groupErr, map) => {
+          if (groupErr) return res.status(500).json({ message: 'Error al obtener grupos' });
+          res.json(rows.map((row) => serializeView(row, groupsForRow(row, map))));
+        }
+      );
     }
   );
 };

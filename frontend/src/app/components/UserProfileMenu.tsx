@@ -26,7 +26,8 @@ export default function UserProfileMenu() {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const email = getEmail();
   const open = Boolean(anchorEl);
-  const roleKey = getRole() === 'admin' ? 'role.admin' : getRole() === 'technician' ? 'role.technician' : 'role.user';
+  const roleKey =
+    getRole() === 'admin' ? 'role.admin' : getRole() === 'technician' ? 'role.technician' : 'role.user';
 
   const handleLogout = () => {
     setAnchorEl(null);
@@ -109,8 +110,16 @@ export default function UserProfileMenu() {
             ariaLabel={t('profile.appearance')}
             value={theme}
             options={[
-              { value: 'light', label: t('profile.light'), icon: <LightModeOutlinedIcon sx={{ fontSize: 16 }} /> },
-              { value: 'dark', label: t('profile.dark'), icon: <DarkModeOutlinedIcon sx={{ fontSize: 16 }} /> }
+              {
+                value: 'light',
+                label: t('profile.light'),
+                icon: <LightModeOutlinedIcon sx={{ fontSize: 16 }} />
+              },
+              {
+                value: 'dark',
+                label: t('profile.dark'),
+                icon: <DarkModeOutlinedIcon sx={{ fontSize: 16 }} />
+              }
             ]}
             onChange={(value) => changeTheme(value as 'light' | 'dark')}
           />

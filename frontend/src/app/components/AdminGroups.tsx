@@ -73,7 +73,10 @@ export default function AdminGroups() {
 
   const apiCall = async (path: string, options: RequestInit = {}) => {
     const token = getToken();
-    if (!token) { navigate('/'); return null; }
+    if (!token) {
+      navigate('/');
+      return null;
+    }
 
     const response = await fetch(`${API_URL}${path}`, {
       ...options,
@@ -84,8 +87,15 @@ export default function AdminGroups() {
       }
     });
 
-    if (response.status === 401) { clearAuth(); navigate('/'); return null; }
-    if (response.status === 403) { navigate('/dashboard'); return null; }
+    if (response.status === 401) {
+      clearAuth();
+      navigate('/');
+      return null;
+    }
+    if (response.status === 403) {
+      navigate('/dashboard');
+      return null;
+    }
 
     const data = await response.json().catch(() => ({}));
     return { response, data };
@@ -100,7 +110,9 @@ export default function AdminGroups() {
     setLoading(false);
   };
 
-  useEffect(() => { loadGroups(); }, []);
+  useEffect(() => {
+    loadGroups();
+  }, []);
 
   const openCreate = () => {
     setName('');
@@ -171,7 +183,10 @@ export default function AdminGroups() {
     if (!query) return groups;
     return groups.filter((group) => {
       const kind = group.is_default ? 'principal' : 'resolución';
-      return [String(group.id), group.name, group.description || '', kind].join(' ').toLowerCase().includes(query);
+      return [String(group.id), group.name, group.description || '', kind]
+        .join(' ')
+        .toLowerCase()
+        .includes(query);
     });
   }, [groups, search]);
 
@@ -198,128 +213,150 @@ export default function AdminGroups() {
               )
             }}
           />
-          <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={openCreate} sx={{ height: 30, ml: 'auto' }}>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={openCreate}
+            sx={{ height: 30, ml: 'auto' }}
+          >
             Nuevo grupo
           </Button>
         </Box>
       }
     >
       <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
-      ) : (
-        <Paper
-          elevation={0}
-          sx={{
-            flex: 1,
-            minHeight: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            border: '1px solid',
-            borderColor: 'divider',
-            borderRadius: 2,
-            overflow: 'hidden'
-          }}
-        >
-          <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-            <Table stickyHeader size="small" sx={denseTableSx}>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ width: 64 }}>#</TableCell>
-                  <TableCell>Nombre</TableCell>
-                  <TableCell>Descripción</TableCell>
-                  <TableCell sx={{ width: 120 }}>Tipo</TableCell>
-                  <TableCell sx={{ width: 130 }}>Creado</TableCell>
-                  <TableCell sx={{ width: 80 }} align="center">Acciones</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {visibleGroups.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} sx={{ py: 4, textAlign: 'center' }}>
-                      <Typography color="text.secondary">
-                        {search.trim() ? 'Sin resultados para esa búsqueda.' : 'No hay grupos.'}
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ) : visibleGroups.map((group) => (
-                  <TableRow
-                    key={group.id}
-                    hover
-                    sx={{ cursor: 'pointer', '&:last-child td': { border: 0 } }}
-                    onClick={() => navigate(`/admin/groups/${group.id}`)}
-                  >
-                    <TableCell sx={{ color: 'text.secondary' }}>{group.id}</TableCell>
-                    <TableCell sx={{ maxWidth: 240 }}>
-                      <Link
-                        component="button"
-                        underline="hover"
-                        variant="body2"
-                        noWrap
-                        title={group.name}
-                        sx={{ fontWeight: 600, display: 'block', maxWidth: '100%', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/admin/groups/${group.id}`);
-                        }}
-                      >
-                        {group.name}
-                      </Link>
-                    </TableCell>
-                    <TableCell sx={{ maxWidth: 420 }}>
-                      <Typography variant="body2" color="text.secondary" noWrap title={group.description || ''}>
-                        {group.description || '—'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      {group.is_default ? (
-                        <Chip label="Principal" color="primary" size="small" />
-                      ) : (
-                        <Chip label="Resolución" size="small" variant="outlined" />
-                      )}
-                    </TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(group.created_at)}</TableCell>
-                    <TableCell align="center" onClick={(e) => e.stopPropagation()}>
-                      {!group.is_default && (
-                        <Tooltip title="Eliminar">
-                          <span>
-                            <IconButton
-                              size="small"
-                              color="error"
-                              disabled={busyId === group.id}
-                              onClick={(e) => handleDelete(group, e)}
-                            >
-                              <DeleteOutlineIcon fontSize="small" />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <Box
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <Paper
+            elevation={0}
             sx={{
-              flexShrink: 0,
-              px: 1.5,
-              py: 0.5,
-              borderTop: '1px solid',
+              flex: 1,
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              border: '1px solid',
               borderColor: 'divider',
-              bgcolor: 'action.hover'
+              borderRadius: 2,
+              overflow: 'hidden'
             }}
           >
-            <Typography variant="body2" color="text.secondary">
-              {search.trim() && visibleGroups.length !== groups.length
-                ? `${visibleGroups.length} de ${groups.length} grupos`
-                : `${groups.length} grupo${groups.length === 1 ? '' : 's'}`}
-            </Typography>
-          </Box>
-        </Paper>
-      )}
+            <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+              <Table stickyHeader size="small" sx={denseTableSx}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ width: 64 }}>#</TableCell>
+                    <TableCell>Nombre</TableCell>
+                    <TableCell>Descripción</TableCell>
+                    <TableCell sx={{ width: 120 }}>Tipo</TableCell>
+                    <TableCell sx={{ width: 130 }}>Creado</TableCell>
+                    <TableCell sx={{ width: 80 }} align="center">
+                      Acciones
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {visibleGroups.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} sx={{ py: 4, textAlign: 'center' }}>
+                        <Typography color="text.secondary">
+                          {search.trim() ? 'Sin resultados para esa búsqueda.' : 'No hay grupos.'}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    visibleGroups.map((group) => (
+                      <TableRow
+                        key={group.id}
+                        hover
+                        sx={{ cursor: 'pointer', '&:last-child td': { border: 0 } }}
+                        onClick={() => navigate(`/admin/groups/${group.id}`)}
+                      >
+                        <TableCell sx={{ color: 'text.secondary' }}>{group.id}</TableCell>
+                        <TableCell sx={{ maxWidth: 240 }}>
+                          <Link
+                            component="button"
+                            underline="hover"
+                            variant="body2"
+                            noWrap
+                            title={group.name}
+                            sx={{
+                              fontWeight: 600,
+                              display: 'block',
+                              maxWidth: '100%',
+                              textAlign: 'left',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/admin/groups/${group.id}`);
+                            }}
+                          >
+                            {group.name}
+                          </Link>
+                        </TableCell>
+                        <TableCell sx={{ maxWidth: 420 }}>
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            noWrap
+                            title={group.description || ''}
+                          >
+                            {group.description || '—'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          {group.is_default ? (
+                            <Chip label="Principal" color="primary" size="small" />
+                          ) : (
+                            <Chip label="Resolución" size="small" variant="outlined" />
+                          )}
+                        </TableCell>
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(group.created_at)}</TableCell>
+                        <TableCell align="center" onClick={(e) => e.stopPropagation()}>
+                          {!group.is_default && (
+                            <Tooltip title="Eliminar">
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  disabled={busyId === group.id}
+                                  onClick={(e) => handleDelete(group, e)}
+                                >
+                                  <DeleteOutlineIcon fontSize="small" />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            <Box
+              sx={{
+                flexShrink: 0,
+                px: 1.5,
+                py: 0.5,
+                borderTop: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'action.hover'
+              }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                {search.trim() && visibleGroups.length !== groups.length
+                  ? `${visibleGroups.length} de ${groups.length} grupos`
+                  : `${groups.length} grupo${groups.length === 1 ? '' : 's'}`}
+              </Typography>
+            </Box>
+          </Paper>
+        )}
       </Box>
 
       <Dialog open={dialogOpen} onClose={() => !saving && setDialogOpen(false)} maxWidth="sm" fullWidth>
@@ -344,7 +381,9 @@ export default function AdminGroups() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)} disabled={saving}>Cancelar</Button>
+          <Button onClick={() => setDialogOpen(false)} disabled={saving}>
+            Cancelar
+          </Button>
           <Button variant="contained" onClick={handleCreate} disabled={saving}>
             {saving ? 'Creando...' : 'Crear y editar'}
           </Button>

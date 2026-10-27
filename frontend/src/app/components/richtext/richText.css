@@ -55,8 +55,12 @@
   padding: 0;
 }
 
-.rich-text-shell.is-plain .ProseMirror p:first-of-type { margin-top: 0; }
-.rich-text-shell.is-plain .ProseMirror p:last-of-type { margin-bottom: 0; }
+.rich-text-shell.is-plain .ProseMirror p:first-of-type {
+  margin-top: 0;
+}
+.rich-text-shell.is-plain .ProseMirror p:last-of-type {
+  margin-bottom: 0;
+}
 .rich-text-shell.is-plain .ProseMirror,
 .rich-text-shell.is-plain .ProseMirror p,
 .rich-text-shell.is-plain .ProseMirror h1,
@@ -71,7 +75,7 @@
   min-height: 180px;
   padding: 12px 14px;
   outline: none;
-  font-family: Inter, "Segoe UI", sans-serif;
+  font-family: Inter, 'Segoe UI', sans-serif;
   font-size: 0.95rem;
   line-height: 1.5;
   max-width: 100%;
@@ -115,15 +119,25 @@
 }
 
 .ProseMirror [data-line-height='1'],
-.rich-text-content [data-line-height='1'] { line-height: 1; }
+.rich-text-content [data-line-height='1'] {
+  line-height: 1;
+}
 .ProseMirror [data-line-height='1.15'],
-.rich-text-content [data-line-height='1.15'] { line-height: 1.15; }
+.rich-text-content [data-line-height='1.15'] {
+  line-height: 1.15;
+}
 .ProseMirror [data-line-height='1.5'],
-.rich-text-content [data-line-height='1.5'] { line-height: 1.5; }
+.rich-text-content [data-line-height='1.5'] {
+  line-height: 1.5;
+}
 .ProseMirror [data-line-height='1.75'],
-.rich-text-content [data-line-height='1.75'] { line-height: 1.75; }
+.rich-text-content [data-line-height='1.75'] {
+  line-height: 1.75;
+}
 .ProseMirror [data-line-height='2'],
-.rich-text-content [data-line-height='2'] { line-height: 2; }
+.rich-text-content [data-line-height='2'] {
+  line-height: 2;
+}
 
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
@@ -134,22 +148,42 @@
 }
 
 .rich-text-content h1,
-.ProseMirror h1 { font-size: 1.6rem; line-height: 1.25; margin: 0.6em 0 0.3em; }
+.ProseMirror h1 {
+  font-size: 1.6rem;
+  line-height: 1.25;
+  margin: 0.6em 0 0.3em;
+}
 .rich-text-content h2,
-.ProseMirror h2 { font-size: 1.3rem; line-height: 1.3; margin: 0.55em 0 0.25em; }
+.ProseMirror h2 {
+  font-size: 1.3rem;
+  line-height: 1.3;
+  margin: 0.55em 0 0.25em;
+}
 .rich-text-content h3,
-.ProseMirror h3 { font-size: 1.1rem; line-height: 1.35; margin: 0.5em 0 0.2em; }
+.ProseMirror h3 {
+  font-size: 1.1rem;
+  line-height: 1.35;
+  margin: 0.5em 0 0.2em;
+}
 
 .rich-text-content p,
-.ProseMirror p { margin: 0.35em 0; }
+.ProseMirror p {
+  margin: 0.35em 0;
+}
 
 .rich-text-content ul,
 .rich-text-content ol,
 .ProseMirror ul,
-.ProseMirror ol { margin: 0.4em 0; padding-left: 1.4em; }
+.ProseMirror ol {
+  margin: 0.4em 0;
+  padding-left: 1.4em;
+}
 
 .rich-text-content a,
-.ProseMirror a { color: #1565c0; text-decoration: underline; }
+.ProseMirror a {
+  color: #1565c0;
+  text-decoration: underline;
+}
 
 .rich-text-content img,
 .ProseMirror img {
@@ -182,7 +216,9 @@
 }
 
 .rich-text-content th,
-.ProseMirror th { background: #f5f7fa; }
+.ProseMirror th {
+  background: #f5f7fa;
+}
 
 .rich-text-content input[type='checkbox'] {
   pointer-events: none;
@@ -234,15 +270,21 @@
 }
 
 .dark .rich-text-content a,
-.dark .ProseMirror a { color: #93c5fd; }
+.dark .ProseMirror a {
+  color: #93c5fd;
+}
 
 .dark .rich-text-content th,
 .dark .rich-text-content td,
 .dark .ProseMirror th,
-.dark .ProseMirror td { border-color: rgba(255, 255, 255, 0.2); }
+.dark .ProseMirror td {
+  border-color: rgba(255, 255, 255, 0.2);
+}
 
 .dark .rich-text-content th,
-.dark .ProseMirror th { background: #162033; }
+.dark .ProseMirror th {
+  background: #162033;
+}
 
 .dark .rich-text-content blockquote,
 .dark .ProseMirror blockquote {

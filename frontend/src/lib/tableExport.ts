@@ -69,15 +69,17 @@ function buildCsv<T>(columns: ExportColumn<T>[], rows: T[], meta: ExportReportMe
 }
 
 function columnWidth<T>(column: ExportColumn<T>, rows: T[]) {
-  const longest = rows.reduce((max, row) => Math.max(max, cellText(column.value(row)).length), column.header.length);
+  const longest = rows.reduce(
+    (max, row) => Math.max(max, cellText(column.value(row)).length),
+    column.header.length
+  );
   return Math.min(MAX_COLUMN_WIDTH, Math.max(column.width ?? 12, longest + 2, column.header.length + 2));
 }
 
 async function buildXlsx<T>(columns: ExportColumn<T>[], rows: T[], meta: ExportReportMeta, at: Date) {
   const loaded = await import('exceljs');
-  const excel = typeof loaded.Workbook === 'function'
-    ? loaded
-    : (loaded as { default: typeof loaded }).default;
+  const excel =
+    typeof loaded.Workbook === 'function' ? loaded : (loaded as { default: typeof loaded }).default;
   const workbook = new excel.Workbook();
   workbook.creator = meta.generatedBy || 'Usuario';
   workbook.created = at;
@@ -146,9 +148,12 @@ export async function downloadTableExport<T>(options: {
 }) {
   const at = options.meta.generatedAt ?? new Date();
   const filename = exportFilename(options.filenameBase, options.format, at);
-  const blob = options.format === 'xlsx'
-    ? await buildXlsx(options.columns, options.rows, options.meta, at)
-    : new Blob([buildCsv(options.columns, options.rows, options.meta, at)], { type: 'text/csv;charset=utf-8' });
+  const blob =
+    options.format === 'xlsx'
+      ? await buildXlsx(options.columns, options.rows, options.meta, at)
+      : new Blob([buildCsv(options.columns, options.rows, options.meta, at)], {
+          type: 'text/csv;charset=utf-8'
+        });
   downloadBlob(blob, filename);
   return filename;
 }

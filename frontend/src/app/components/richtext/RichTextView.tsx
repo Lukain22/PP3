@@ -10,7 +10,12 @@ interface RichTextViewProps {
   resolveImageUrl?: (attachmentId: string) => Promise<string | null>;
 }
 
-export default function RichTextView({ value, ticketId, emptyLabel = 'Sin descripción', resolveImageUrl }: RichTextViewProps) {
+export default function RichTextView({
+  value,
+  ticketId,
+  emptyLabel = 'Sin descripción',
+  resolveImageUrl
+}: RichTextViewProps) {
   const baseHtml = value && isRichHtml(value) ? sanitizeRichHtml(value) : '';
   const [html, setHtml] = useState(baseHtml);
 
@@ -27,7 +32,9 @@ export default function RichTextView({ value, ticketId, emptyLabel = 'Sin descri
     if (!loadUrl || ids.length === 0) return;
     Promise.all(ids.map(async (id) => [id, await loadUrl(id)] as const)).then((pairs) => {
       if (cancelled) {
-        pairs.forEach(([, url]) => { if (url) URL.revokeObjectURL(url); });
+        pairs.forEach(([, url]) => {
+          if (url) URL.revokeObjectURL(url);
+        });
         return;
       }
       let next = baseHtml;
@@ -45,7 +52,11 @@ export default function RichTextView({ value, ticketId, emptyLabel = 'Sin descri
   }, [baseHtml, ticketId, resolveImageUrl]);
 
   if (!value) {
-    return <Typography variant="body2" color="text.secondary">{emptyLabel}</Typography>;
+    return (
+      <Typography variant="body2" color="text.secondary">
+        {emptyLabel}
+      </Typography>
+    );
   }
 
   if (!isRichHtml(value)) {
@@ -56,10 +67,5 @@ export default function RichTextView({ value, ticketId, emptyLabel = 'Sin descri
     );
   }
 
-  return (
-    <div
-      className="rich-text-content"
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  );
+  return <div className="rich-text-content" dangerouslySetInnerHTML={{ __html: html }} />;
 }

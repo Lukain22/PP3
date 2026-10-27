@@ -68,7 +68,10 @@ export default function AdminRoles() {
 
   const apiCall = async (path: string, options: RequestInit = {}) => {
     const token = getToken();
-    if (!token) { navigate('/'); return null; }
+    if (!token) {
+      navigate('/');
+      return null;
+    }
 
     const response = await fetch(`${API_URL}${path}`, {
       ...options,
@@ -79,7 +82,11 @@ export default function AdminRoles() {
       }
     });
 
-    if (response.status === 401) { clearAuth(); navigate('/'); return null; }
+    if (response.status === 401) {
+      clearAuth();
+      navigate('/');
+      return null;
+    }
     if (response.status === 403) {
       toast.error('No tenés permiso para esta acción');
       return { response, data: {} };
@@ -96,7 +103,9 @@ export default function AdminRoles() {
     setLoading(false);
   };
 
-  useEffect(() => { loadRoles(); }, []);
+  useEffect(() => {
+    loadRoles();
+  }, []);
 
   const toggleActive = async (role: RoleRow) => {
     setBusyId(role.id);
@@ -145,7 +154,10 @@ export default function AdminRoles() {
     return roles.filter((role) => {
       const status = role.is_active ? 'activo' : 'inactivo';
       const system = role.is_system ? 'sistema' : '';
-      return [role.name, role.description || '', status, system, String(role.user_count)].join(' ').toLowerCase().includes(query);
+      return [role.name, role.description || '', status, system, String(role.user_count)]
+        .join(' ')
+        .toLowerCase()
+        .includes(query);
     });
   }, [roles, search]);
 
@@ -172,122 +184,145 @@ export default function AdminRoles() {
               )
             }}
           />
-          <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={() => navigate('/admin/roles/new')} sx={{ height: 30, ml: 'auto' }}>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={() => navigate('/admin/roles/new')}
+            sx={{ height: 30, ml: 'auto' }}
+          >
             Nuevo rol
           </Button>
         </Box>
       }
     >
       <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
-      ) : (
-        <Paper
-          elevation={0}
-          sx={{
-            flex: 1,
-            minHeight: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            border: '1px solid',
-            borderColor: 'divider',
-            borderRadius: 2,
-            overflow: 'hidden'
-          }}
-        >
-          <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-            <Table stickyHeader size="small" sx={denseTableSx}>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Nombre</TableCell>
-                  <TableCell>Descripción</TableCell>
-                  <TableCell sx={{ width: 120 }}>Usuarios</TableCell>
-                  <TableCell sx={{ width: 140 }}>Estado</TableCell>
-                  <TableCell sx={{ width: 160 }} align="right">Acciones</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {visibleRoles.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} sx={{ py: 4, textAlign: 'center' }}>
-                      <Typography color="text.secondary">
-                        {search.trim() ? 'Sin resultados para esa búsqueda.' : 'No hay roles.'}
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ) : visibleRoles.map((role) => (
-                  <TableRow key={role.id} hover sx={{ '&:last-child td': { border: 0 } }}>
-                    <TableCell sx={{ maxWidth: 280 }}>
-                      <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
-                        <Typography variant="body2" noWrap title={role.name} sx={{ fontWeight: 600 }}>{role.name}</Typography>
-                        {role.is_system && <Chip label="Sistema" size="small" variant="outlined" />}
-                      </Stack>
-                    </TableCell>
-                    <TableCell sx={{ maxWidth: 420 }}>
-                      <Typography variant="body2" color="text.secondary" noWrap title={role.description || ''}>
-                        {role.description || '—'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{role.user_count}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={role.is_active ? 'Activo' : 'Inactivo'}
-                        color={role.is_active ? 'success' : 'default'}
-                        size="small"
-                        variant={role.is_active ? 'filled' : 'outlined'}
-                        onClick={() => toggleActive(role)}
-                        disabled={busyId === role.id}
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <Tooltip title="Editar">
-                        <IconButton size="small" onClick={() => navigate(`/admin/roles/${role.id}`)}>
-                          <EditOutlinedIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Duplicar">
-                        <IconButton size="small" disabled={busyId === role.id} onClick={() => duplicate(role)}>
-                          <ContentCopyIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title={role.is_system ? 'Los roles del sistema no se eliminan' : 'Eliminar'}>
-                        <span>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            disabled={role.is_system || busyId === role.id}
-                            onClick={() => remove(role)}
-                          >
-                            <DeleteOutlineIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <Box
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <Paper
+            elevation={0}
             sx={{
-              flexShrink: 0,
-              px: 1.5,
-              py: 0.5,
-              borderTop: '1px solid',
+              flex: 1,
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              border: '1px solid',
               borderColor: 'divider',
-              bgcolor: 'action.hover'
+              borderRadius: 2,
+              overflow: 'hidden'
             }}
           >
-            <Typography variant="body2" color="text.secondary">
-              {search.trim() && visibleRoles.length !== roles.length
-                ? `${visibleRoles.length} de ${roles.length} roles`
-                : `${roles.length} rol${roles.length === 1 ? '' : 'es'}`}
-            </Typography>
-          </Box>
-        </Paper>
-      )}
+            <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+              <Table stickyHeader size="small" sx={denseTableSx}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Nombre</TableCell>
+                    <TableCell>Descripción</TableCell>
+                    <TableCell sx={{ width: 120 }}>Usuarios</TableCell>
+                    <TableCell sx={{ width: 140 }}>Estado</TableCell>
+                    <TableCell sx={{ width: 160 }} align="right">
+                      Acciones
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {visibleRoles.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} sx={{ py: 4, textAlign: 'center' }}>
+                        <Typography color="text.secondary">
+                          {search.trim() ? 'Sin resultados para esa búsqueda.' : 'No hay roles.'}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    visibleRoles.map((role) => (
+                      <TableRow key={role.id} hover sx={{ '&:last-child td': { border: 0 } }}>
+                        <TableCell sx={{ maxWidth: 280 }}>
+                          <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
+                            <Typography variant="body2" noWrap title={role.name} sx={{ fontWeight: 600 }}>
+                              {role.name}
+                            </Typography>
+                            {role.is_system && <Chip label="Sistema" size="small" variant="outlined" />}
+                          </Stack>
+                        </TableCell>
+                        <TableCell sx={{ maxWidth: 420 }}>
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            noWrap
+                            title={role.description || ''}
+                          >
+                            {role.description || '—'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>{role.user_count}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={role.is_active ? 'Activo' : 'Inactivo'}
+                            color={role.is_active ? 'success' : 'default'}
+                            size="small"
+                            variant={role.is_active ? 'filled' : 'outlined'}
+                            onClick={() => toggleActive(role)}
+                            disabled={busyId === role.id}
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          <Tooltip title="Editar">
+                            <IconButton size="small" onClick={() => navigate(`/admin/roles/${role.id}`)}>
+                              <EditOutlinedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Duplicar">
+                            <IconButton
+                              size="small"
+                              disabled={busyId === role.id}
+                              onClick={() => duplicate(role)}
+                            >
+                              <ContentCopyIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip
+                            title={role.is_system ? 'Los roles del sistema no se eliminan' : 'Eliminar'}
+                          >
+                            <span>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                disabled={role.is_system || busyId === role.id}
+                                onClick={() => remove(role)}
+                              >
+                                <DeleteOutlineIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            <Box
+              sx={{
+                flexShrink: 0,
+                px: 1.5,
+                py: 0.5,
+                borderTop: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'action.hover'
+              }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                {search.trim() && visibleRoles.length !== roles.length
+                  ? `${visibleRoles.length} de ${roles.length} roles`
+                  : `${roles.length} rol${roles.length === 1 ? '' : 'es'}`}
+              </Typography>
+            </Box>
+          </Paper>
+        )}
       </Box>
     </SupportShell>
   );

@@ -48,16 +48,13 @@ exports.getGroupById = (req, res) => {
 };
 
 exports.getTechnicians = (req, res) => {
-  db.query(
-    "SELECT id, email FROM users WHERE role = 'technician' ORDER BY email ASC",
-    (err, rows) => {
-      if (err) {
-        console.error('Error en getTechnicians:', err.code);
-        return res.status(500).json({ message: 'Error al obtener técnicos' });
-      }
-      res.json(rows);
+  db.query("SELECT id, email FROM users WHERE role = 'technician' ORDER BY email ASC", (err, rows) => {
+    if (err) {
+      console.error('Error en getTechnicians:', err.code);
+      return res.status(500).json({ message: 'Error al obtener técnicos' });
     }
-  );
+    res.json(rows);
+  });
 };
 
 const syncGroupTechnicians = (groupId, technicianIds, callback) => {

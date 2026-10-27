@@ -7,10 +7,24 @@ const MAX_FILE_SIZE = 4 * 1024 * 1024;
 const MAX_FILES_PER_REQUEST = 5;
 
 const ALLOWED_EXTENSIONS = new Set([
-  '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp',
-  '.txt', '.csv', '.pdf',
-  '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
-  '.zip', '.rar', '.7z'
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.gif',
+  '.webp',
+  '.bmp',
+  '.txt',
+  '.csv',
+  '.pdf',
+  '.doc',
+  '.docx',
+  '.xls',
+  '.xlsx',
+  '.ppt',
+  '.pptx',
+  '.zip',
+  '.rar',
+  '.7z'
 ]);
 
 const MIME_BY_EXT = {
@@ -97,21 +111,17 @@ const initAttachmentsTable = () => {
 };
 
 const removeScopedAttachments = (whereSql, params, callback) => {
-  db.query(
-    `SELECT ticket_id, stored_name FROM ticket_attachments WHERE ${whereSql}`,
-    params,
-    (err, rows) => {
-      if (err) return callback(err);
-      db.query(`DELETE FROM ticket_attachments WHERE ${whereSql}`, params, (delErr) => {
-        if (!delErr && Array.isArray(rows)) {
-          rows.forEach((row) => {
-            fs.unlink(getStoredPath(row.ticket_id, row.stored_name), () => {});
-          });
-        }
-        callback(delErr);
-      });
-    }
-  );
+  db.query(`SELECT ticket_id, stored_name FROM ticket_attachments WHERE ${whereSql}`, params, (err, rows) => {
+    if (err) return callback(err);
+    db.query(`DELETE FROM ticket_attachments WHERE ${whereSql}`, params, (delErr) => {
+      if (!delErr && Array.isArray(rows)) {
+        rows.forEach((row) => {
+          fs.unlink(getStoredPath(row.ticket_id, row.stored_name), () => {});
+        });
+      }
+      callback(delErr);
+    });
+  });
 };
 
 const ensureTicketDir = (ticketId) => {
@@ -130,8 +140,7 @@ const getMimeType = (filename) => {
   return MIME_BY_EXT[ext] || 'application/octet-stream';
 };
 
-const getStoredPath = (ticketId, storedName) =>
-  path.join(UPLOAD_ROOT, String(ticketId), storedName);
+const getStoredPath = (ticketId, storedName) => path.join(UPLOAD_ROOT, String(ticketId), storedName);
 
 module.exports = {
   UPLOAD_ROOT,

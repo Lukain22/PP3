@@ -70,9 +70,9 @@ export function ticketColumnMeta(key: TicketColumnKey): TicketColumnMeta {
 
 export function normalizeTicketColumns(raw: unknown): TicketColumnKey[] | null {
   if (!Array.isArray(raw)) return null;
-  const columns = raw.filter((key): key is TicketColumnKey => (
-    typeof key === 'string' && COLUMN_KEYS.has(key as TicketColumnKey)
-  ));
+  const columns = raw.filter(
+    (key): key is TicketColumnKey => typeof key === 'string' && COLUMN_KEYS.has(key as TicketColumnKey)
+  );
   const unique = [...new Set(columns)];
   return unique.length ? unique : null;
 }

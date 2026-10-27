@@ -33,7 +33,11 @@ import TableCell from '@tiptap/extension-table-cell';
 import TableHeader from '@tiptap/extension-table-header';
 import { Extension } from '@tiptap/core';
 import { toast } from 'sonner';
-import { MAX_ATTACHMENT_BYTES, uploadTicketAttachments, type AttachmentScope } from '../../../lib/attachments';
+import {
+  MAX_ATTACHMENT_BYTES,
+  uploadTicketAttachments,
+  type AttachmentScope
+} from '../../../lib/attachments';
 import { fetchAttachmentObjectUrl, htmlForStorage } from '../../../lib/richText';
 import './richText.css';
 
@@ -43,40 +47,43 @@ const LINE_HEIGHTS = ['1', '1.15', '1.5', '1.75', '2'];
 const FontSize = Extension.create({
   name: 'fontSize',
   addGlobalAttributes() {
-    return [{
-      types: ['textStyle'],
-      attributes: {
-        fontSize: {
-          default: null,
-          parseHTML: (element) => element.style.fontSize || null,
-          renderHTML: (attributes) => {
-            if (!attributes.fontSize) return {};
-            return { style: `font-size: ${attributes.fontSize}` };
+    return [
+      {
+        types: ['textStyle'],
+        attributes: {
+          fontSize: {
+            default: null,
+            parseHTML: (element) => element.style.fontSize || null,
+            renderHTML: (attributes) => {
+              if (!attributes.fontSize) return {};
+              return { style: `font-size: ${attributes.fontSize}` };
+            }
           }
         }
       }
-    }];
+    ];
   }
 });
 
 const LineHeight = Extension.create({
   name: 'lineHeight',
   addGlobalAttributes() {
-    return [{
-      types: ['paragraph', 'heading'],
-      attributes: {
-        lineHeight: {
-          default: null,
-          parseHTML: (element) => {
-            const value = element.getAttribute('data-line-height');
-            return value && LINE_HEIGHTS.includes(value) ? value : null;
-          },
-          renderHTML: (attributes) => (
-            attributes.lineHeight ? { 'data-line-height': attributes.lineHeight } : {}
-          )
+    return [
+      {
+        types: ['paragraph', 'heading'],
+        attributes: {
+          lineHeight: {
+            default: null,
+            parseHTML: (element) => {
+              const value = element.getAttribute('data-line-height');
+              return value && LINE_HEIGHTS.includes(value) ? value : null;
+            },
+            renderHTML: (attributes) =>
+              attributes.lineHeight ? { 'data-line-height': attributes.lineHeight } : {}
+          }
         }
       }
-    }];
+    ];
   }
 });
 
@@ -94,16 +101,13 @@ const InlineImage = Image.extend({
       attachmentId: {
         default: null,
         parseHTML: (element) => element.getAttribute('data-attachment-id'),
-        renderHTML: (attributes) => (
+        renderHTML: (attributes) =>
           attributes.attachmentId ? { 'data-attachment-id': attributes.attachmentId } : {}
-        )
       },
       pendingId: {
         default: null,
         parseHTML: (element) => element.getAttribute('data-pending'),
-        renderHTML: (attributes) => (
-          attributes.pendingId ? { 'data-pending': attributes.pendingId } : {}
-        )
+        renderHTML: (attributes) => (attributes.pendingId ? { 'data-pending': attributes.pendingId } : {})
       }
     };
   }
@@ -149,7 +153,7 @@ function collectImageFiles(data: DataTransfer | null) {
   if (!data) return [];
   const files: File[] = [];
   Array.from(data.items || []).forEach((item) => {
-      if (item.kind === 'file' && item.type.startsWith('image/')) {
+    if (item.kind === 'file' && item.type.startsWith('image/')) {
       const file = item.getAsFile();
       const image = file ? imageFileFromClipboard(file) : null;
       if (image) files.push(image);
@@ -164,18 +168,21 @@ function collectImageFiles(data: DataTransfer | null) {
   return files;
 }
 
-const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(function RichTextEditor({
-  value,
-  onChange,
-  ticketId,
-  placeholder = 'Describí el problema. Podés pegar capturas con Ctrl + V.',
-  plain = false,
-  bounded = false,
-  attachmentContext = 'ticket',
-  commentId,
-  uploadInlineFile,
-  resolveInlineUrl
-}, ref) {
+const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(function RichTextEditor(
+  {
+    value,
+    onChange,
+    ticketId,
+    placeholder = 'Describí el problema. Podés pegar capturas con Ctrl + V.',
+    plain = false,
+    bounded = false,
+    attachmentContext = 'ticket',
+    commentId,
+    uploadInlineFile,
+    resolveInlineUrl
+  },
+  ref
+) {
   const filesRef = useRef(new Map<string, File>());
   const lastHtml = useRef(value);
   const urls = useRef<string[]>([]);
@@ -194,7 +201,11 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
       Color,
       Highlight.configure({ multicolor: true }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      Link.configure({ openOnClick: false, autolink: true, HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' } }),
+      Link.configure({
+        openOnClick: false,
+        autolink: true,
+        HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' }
+      }),
       InlineImage.configure({ allowBase64: false }),
       Placeholder.configure({ placeholder }),
       TaskList,
@@ -207,7 +218,9 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
     content: value || '',
     editorProps: {
       handlePaste: (_view, event) => {
-        const hasImage = Array.from(event.clipboardData?.items || []).some((item) => item.type.startsWith('image/'));
+        const hasImage = Array.from(event.clipboardData?.items || []).some((item) =>
+          item.type.startsWith('image/')
+        );
         const files = collectImageFiles(event.clipboardData);
         if (hasImage && files.length === 0) {
           event.preventDefault();
@@ -257,10 +270,14 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
       }
       const url = resolveInlineUrl ? await resolveInlineUrl(uploaded.id) : null;
       if (url) urls.current.push(url);
-      editor.chain().focus().insertContent({
-        type: 'image',
-        attrs: { src: url || '', attachmentId: uploaded.id }
-      }).run();
+      editor
+        .chain()
+        .focus()
+        .insertContent({
+          type: 'image',
+          attrs: { src: url || '', attachmentId: uploaded.id }
+        })
+        .run();
       return;
     }
     if (ticketId) {
@@ -276,20 +293,28 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
       }
       const url = await fetchAttachmentObjectUrl(ticketId, String(attachment.id));
       if (url) urls.current.push(url);
-      editor.chain().focus().insertContent({
-        type: 'image',
-        attrs: { src: url || '', attachmentId: String(attachment.id) }
-      }).run();
+      editor
+        .chain()
+        .focus()
+        .insertContent({
+          type: 'image',
+          attrs: { src: url || '', attachmentId: String(attachment.id) }
+        })
+        .run();
       return;
     }
     const pendingId = crypto.randomUUID();
     const url = URL.createObjectURL(file);
     urls.current.push(url);
     filesRef.current.set(pendingId, file);
-    editor.chain().focus().insertContent({
-      type: 'image',
-      attrs: { src: url, pendingId }
-    }).run();
+    editor
+      .chain()
+      .focus()
+      .insertContent({
+        type: 'image',
+        attrs: { src: url, pendingId }
+      })
+      .run();
   };
 
   hydrateRef.current = (current: Editor) => {
@@ -334,12 +359,17 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
     if (!editor || !plain) return;
     const open = () => setShowTools(true);
     editor.on('focus', open);
-    return () => { editor.off('focus', open); };
+    return () => {
+      editor.off('focus', open);
+    };
   }, [editor, plain]);
 
-  useEffect(() => () => {
-    urls.current.forEach((url) => URL.revokeObjectURL(url));
-  }, []);
+  useEffect(
+    () => () => {
+      urls.current.forEach((url) => URL.revokeObjectURL(url));
+    },
+    []
+  );
 
   useEffect(() => {
     const root = toolbarRef.current;
@@ -349,89 +379,141 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
     });
   });
 
-  useImperativeHandle(ref, () => ({
-    focus: () => {
-      if (!editor) return false;
-      editor.commands.focus('end');
-      return true;
-    },
-    hasPendingImages: () => filesRef.current.size > 0,
-    flushPendingImages: async (nextTicketId, options) => {
-      if (!editor) return { ok: false, html: value };
-      const pending: { pos: number; pendingId: string; file: File }[] = [];
-      editor.state.doc.descendants((node, pos) => {
-        if (node.type.name !== 'image' || !node.attrs.pendingId) return;
-        const file = filesRef.current.get(node.attrs.pendingId);
-        if (file) pending.push({ pos, pendingId: node.attrs.pendingId, file });
-      });
-
-      for (const item of [...pending].reverse()) {
-        let attachmentId = '';
-        if (options?.upload) {
-          const uploaded = await options.upload(item.file);
-          if (!uploaded) return { ok: false, html: htmlForStorage(editor.getHTML()) };
-          attachmentId = uploaded.id;
-        } else {
-          const uploaded = await uploadTicketAttachments(nextTicketId, [item.file], {
-            inline: true,
-            context: options?.context || attachmentContext,
-            commentId: options?.commentId || commentId
-          });
-          const attachment = uploaded.data?.[0];
-          if (!uploaded.ok || !attachment) return { ok: false, html: htmlForStorage(editor.getHTML()) };
-          attachmentId = String(attachment.id);
-        }
-        const node = editor.state.doc.nodeAt(item.pos);
-        if (!node) continue;
-        const tr = editor.state.tr.setNodeMarkup(item.pos, undefined, {
-          ...node.attrs,
-          src: '',
-          pendingId: null,
-          attachmentId
+  useImperativeHandle(
+    ref,
+    () => ({
+      focus: () => {
+        if (!editor) return false;
+        editor.commands.focus('end');
+        return true;
+      },
+      hasPendingImages: () => filesRef.current.size > 0,
+      flushPendingImages: async (nextTicketId, options) => {
+        if (!editor) return { ok: false, html: value };
+        const pending: { pos: number; pendingId: string; file: File }[] = [];
+        editor.state.doc.descendants((node, pos) => {
+          if (node.type.name !== 'image' || !node.attrs.pendingId) return;
+          const file = filesRef.current.get(node.attrs.pendingId);
+          if (file) pending.push({ pos, pendingId: node.attrs.pendingId, file });
         });
-        editor.view.dispatch(tr);
-        filesRef.current.delete(item.pendingId);
-      }
 
-      const html = htmlForStorage(editor.getHTML());
-      lastHtml.current = html;
-      onChange(html);
-      return { ok: true, html };
-    }
-  }), [editor, value, attachmentContext, commentId]);
+        for (const item of [...pending].reverse()) {
+          let attachmentId = '';
+          if (options?.upload) {
+            const uploaded = await options.upload(item.file);
+            if (!uploaded) return { ok: false, html: htmlForStorage(editor.getHTML()) };
+            attachmentId = uploaded.id;
+          } else {
+            const uploaded = await uploadTicketAttachments(nextTicketId, [item.file], {
+              inline: true,
+              context: options?.context || attachmentContext,
+              commentId: options?.commentId || commentId
+            });
+            const attachment = uploaded.data?.[0];
+            if (!uploaded.ok || !attachment) return { ok: false, html: htmlForStorage(editor.getHTML()) };
+            attachmentId = String(attachment.id);
+          }
+          const node = editor.state.doc.nodeAt(item.pos);
+          if (!node) continue;
+          const tr = editor.state.tr.setNodeMarkup(item.pos, undefined, {
+            ...node.attrs,
+            src: '',
+            pendingId: null,
+            attachmentId
+          });
+          editor.view.dispatch(tr);
+          filesRef.current.delete(item.pendingId);
+        }
+
+        const html = htmlForStorage(editor.getHTML());
+        lastHtml.current = html;
+        onChange(html);
+        return { ok: true, html };
+      }
+    }),
+    [editor, value, attachmentContext, commentId]
+  );
 
   if (!editor) return null;
 
-  const mark = (active: boolean) => active ? 'primary.main' : 'text.secondary';
+  const mark = (active: boolean) => (active ? 'primary.main' : 'text.secondary');
   const run = (action: () => void) => () => action();
 
   return (
     <Box
-      className={['rich-text-shell', bounded ? 'is-bounded' : '', plain ? 'is-plain' : '', plain && showTools ? 'is-tools' : ''].filter(Boolean).join(' ')}
+      className={[
+        'rich-text-shell',
+        bounded ? 'is-bounded' : '',
+        plain ? 'is-plain' : '',
+        plain && showTools ? 'is-tools' : ''
+      ]
+        .filter(Boolean)
+        .join(' ')}
       sx={bounded ? { flex: 1, minHeight: 0 } : undefined}
     >
       <Box className="rich-text-toolbar" ref={toolbarRef}>
-        <Tooltip title="Negrita"><IconButton size="small" onClick={run(() => editor.chain().focus().toggleBold().run())} sx={{ color: mark(editor.isActive('bold')) }}><FormatBoldIcon fontSize="small" /></IconButton></Tooltip>
-        <Tooltip title="Cursiva"><IconButton size="small" onClick={run(() => editor.chain().focus().toggleItalic().run())} sx={{ color: mark(editor.isActive('italic')) }}><FormatItalicIcon fontSize="small" /></IconButton></Tooltip>
-        <Tooltip title="Subrayado"><IconButton size="small" onClick={run(() => editor.chain().focus().toggleUnderline().run())} sx={{ color: mark(editor.isActive('underline')) }}><FormatUnderlinedIcon fontSize="small" /></IconButton></Tooltip>
-        <Tooltip title="Tachado"><IconButton size="small" onClick={run(() => editor.chain().focus().toggleStrike().run())} sx={{ color: mark(editor.isActive('strike')) }}><StrikethroughSIcon fontSize="small" /></IconButton></Tooltip>
+        <Tooltip title="Negrita">
+          <IconButton
+            size="small"
+            onClick={run(() => editor.chain().focus().toggleBold().run())}
+            sx={{ color: mark(editor.isActive('bold')) }}
+          >
+            <FormatBoldIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Cursiva">
+          <IconButton
+            size="small"
+            onClick={run(() => editor.chain().focus().toggleItalic().run())}
+            sx={{ color: mark(editor.isActive('italic')) }}
+          >
+            <FormatItalicIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Subrayado">
+          <IconButton
+            size="small"
+            onClick={run(() => editor.chain().focus().toggleUnderline().run())}
+            sx={{ color: mark(editor.isActive('underline')) }}
+          >
+            <FormatUnderlinedIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Tachado">
+          <IconButton
+            size="small"
+            onClick={run(() => editor.chain().focus().toggleStrike().run())}
+            sx={{ color: mark(editor.isActive('strike')) }}
+          >
+            <StrikethroughSIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
         <Select
           size="small"
           value={editor.getAttributes('textStyle').fontSize || ''}
           displayEmpty
           onChange={(e) => {
             const size = e.target.value;
-            if (!size) editor.chain().focus().setMark('textStyle', { fontSize: null }).removeEmptyTextStyle().run();
+            if (!size)
+              editor.chain().focus().setMark('textStyle', { fontSize: null }).removeEmptyTextStyle().run();
             else editor.chain().focus().setMark('textStyle', { fontSize: size }).run();
           }}
           sx={{ minWidth: 88, mx: 0.5, '& .MuiSelect-select': { py: 0.4, fontSize: '0.8rem' } }}
         >
           <MenuItem value="">Tamaño</MenuItem>
-          {FONT_SIZES.map((size) => <MenuItem key={size} value={size}>{size.replace('px', '')}</MenuItem>)}
+          {FONT_SIZES.map((size) => (
+            <MenuItem key={size} value={size}>
+              {size.replace('px', '')}
+            </MenuItem>
+          ))}
         </Select>
         <Select
           size="small"
-          value={(editor.isActive('heading') ? editor.getAttributes('heading').lineHeight : editor.getAttributes('paragraph').lineHeight) || ''}
+          value={
+            (editor.isActive('heading')
+              ? editor.getAttributes('heading').lineHeight
+              : editor.getAttributes('paragraph').lineHeight) || ''
+          }
           displayEmpty
           onChange={(e) => {
             const next = e.target.value || null;
@@ -443,23 +525,55 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
           sx={{ minWidth: 108, mx: 0.5, '& .MuiSelect-select': { py: 0.4, fontSize: '0.8rem' } }}
         >
           <MenuItem value="">Interlineado</MenuItem>
-          {LINE_HEIGHTS.map((height) => <MenuItem key={height} value={height}>{height}</MenuItem>)}
+          {LINE_HEIGHTS.map((height) => (
+            <MenuItem key={height} value={height}>
+              {height}
+            </MenuItem>
+          ))}
         </Select>
         <Tooltip title="Color de texto">
-          <Box component="label" sx={{ display: 'inline-flex', alignItems: 'center', px: 0.5, cursor: 'pointer' }}>
-            <Box sx={{ width: 14, height: 14, borderRadius: 0.5, bgcolor: editor.getAttributes('textStyle').color || '#212121', border: '1px solid', borderColor: 'divider' }} />
+          <Box
+            component="label"
+            sx={{ display: 'inline-flex', alignItems: 'center', px: 0.5, cursor: 'pointer' }}
+          >
+            <Box
+              sx={{
+                width: 14,
+                height: 14,
+                borderRadius: 0.5,
+                bgcolor: editor.getAttributes('textStyle').color || '#212121',
+                border: '1px solid',
+                borderColor: 'divider'
+              }}
+            />
             <input
               type="color"
               aria-label="Color de texto"
-              value={/^#[0-9a-f]{6}$/i.test(editor.getAttributes('textStyle').color || '') ? editor.getAttributes('textStyle').color : '#212121'}
+              value={
+                /^#[0-9a-f]{6}$/i.test(editor.getAttributes('textStyle').color || '')
+                  ? editor.getAttributes('textStyle').color
+                  : '#212121'
+              }
               onChange={(e) => editor.chain().focus().setColor(e.target.value).run()}
               style={{ width: 0, height: 0, opacity: 0, position: 'absolute' }}
             />
           </Box>
         </Tooltip>
         <Tooltip title="Resaltado">
-          <Box component="label" sx={{ display: 'inline-flex', alignItems: 'center', px: 0.5, cursor: 'pointer' }}>
-            <Box sx={{ width: 14, height: 14, borderRadius: 0.5, bgcolor: '#fff59d', border: '1px solid', borderColor: 'divider' }} />
+          <Box
+            component="label"
+            sx={{ display: 'inline-flex', alignItems: 'center', px: 0.5, cursor: 'pointer' }}
+          >
+            <Box
+              sx={{
+                width: 14,
+                height: 14,
+                borderRadius: 0.5,
+                bgcolor: '#fff59d',
+                border: '1px solid',
+                borderColor: 'divider'
+              }}
+            />
             <input
               type="color"
               aria-label="Color de resaltado"
@@ -469,30 +583,119 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(fun
             />
           </Box>
         </Tooltip>
-        <Tooltip title="Título 1"><IconButton size="small" onClick={run(() => editor.chain().focus().toggleHeading({ level: 1 }).run())} sx={{ color: mark(editor.isActive('heading', { level: 1 })), fontSize: 13, fontWeight: 700 }}>H1</IconButton></Tooltip>
-        <Tooltip title="Título 2"><IconButton size="small" onClick={run(() => editor.chain().focus().toggleHeading({ level: 2 }).run())} sx={{ color: mark(editor.isActive('heading', { level: 2 })), fontSize: 13, fontWeight: 700 }}>H2</IconButton></Tooltip>
-        <Tooltip title="Título 3"><IconButton size="small" onClick={run(() => editor.chain().focus().toggleHeading({ level: 3 }).run())} sx={{ color: mark(editor.isActive('heading', { level: 3 })), fontSize: 13, fontWeight: 700 }}>H3</IconButton></Tooltip>
-        <Tooltip title="Viñetas"><IconButton size="small" onClick={run(() => editor.chain().focus().toggleBulletList().run())} sx={{ color: mark(editor.isActive('bulletList')) }}><FormatListBulletedIcon fontSize="small" /></IconButton></Tooltip>
-        <Tooltip title="Numerada"><IconButton size="small" onClick={run(() => editor.chain().focus().toggleOrderedList().run())} sx={{ color: mark(editor.isActive('orderedList')) }}><FormatListNumberedIcon fontSize="small" /></IconButton></Tooltip>
-        <Tooltip title="Checklist"><IconButton size="small" onClick={run(() => editor.chain().focus().toggleTaskList().run())} sx={{ color: mark(editor.isActive('taskList')) }}><ChecklistIcon fontSize="small" /></IconButton></Tooltip>
-        <Tooltip title="Izquierda"><IconButton size="small" onClick={run(() => editor.chain().focus().setTextAlign('left').run())}><FormatAlignLeftIcon fontSize="small" /></IconButton></Tooltip>
-        <Tooltip title="Centro"><IconButton size="small" onClick={run(() => editor.chain().focus().setTextAlign('center').run())}><FormatAlignCenterIcon fontSize="small" /></IconButton></Tooltip>
-        <Tooltip title="Derecha"><IconButton size="small" onClick={run(() => editor.chain().focus().setTextAlign('right').run())}><FormatAlignRightIcon fontSize="small" /></IconButton></Tooltip>
-        <Tooltip title="Justificado"><IconButton size="small" onClick={run(() => editor.chain().focus().setTextAlign('justify').run())}><FormatAlignJustifyIcon fontSize="small" /></IconButton></Tooltip>
-        <Tooltip title="Enlace"><IconButton size="small" onClick={run(() => {
-          const previous = editor.getAttributes('link').href || '';
-          const href = window.prompt('Dirección del enlace', previous);
-          if (href === null) return;
-          if (!href.trim()) {
-            editor.chain().focus().unsetLink().run();
-            return;
-          }
-          const safe = /^(https?:|mailto:)/i.test(href.trim()) ? href.trim() : `https://${href.trim()}`;
-          editor.chain().focus().extendMarkRange('link').setLink({ href: safe }).run();
-        })} sx={{ color: mark(editor.isActive('link')) }}><LinkIcon fontSize="small" /></IconButton></Tooltip>
-        <Tooltip title="Quitar enlace"><IconButton size="small" onClick={run(() => editor.chain().focus().unsetLink().run())}><LinkOffIcon fontSize="small" /></IconButton></Tooltip>
-        <Tooltip title="Insertar tabla"><IconButton size="small" onClick={run(() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run())}><TableChartIcon fontSize="small" /></IconButton></Tooltip>
-        <Tooltip title="Eliminar tabla"><IconButton size="small" onClick={run(() => editor.chain().focus().deleteTable().run())}><DeleteOutlineIcon fontSize="small" /></IconButton></Tooltip>
+        <Tooltip title="Título 1">
+          <IconButton
+            size="small"
+            onClick={run(() => editor.chain().focus().toggleHeading({ level: 1 }).run())}
+            sx={{ color: mark(editor.isActive('heading', { level: 1 })), fontSize: 13, fontWeight: 700 }}
+          >
+            H1
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Título 2">
+          <IconButton
+            size="small"
+            onClick={run(() => editor.chain().focus().toggleHeading({ level: 2 }).run())}
+            sx={{ color: mark(editor.isActive('heading', { level: 2 })), fontSize: 13, fontWeight: 700 }}
+          >
+            H2
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Título 3">
+          <IconButton
+            size="small"
+            onClick={run(() => editor.chain().focus().toggleHeading({ level: 3 }).run())}
+            sx={{ color: mark(editor.isActive('heading', { level: 3 })), fontSize: 13, fontWeight: 700 }}
+          >
+            H3
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Viñetas">
+          <IconButton
+            size="small"
+            onClick={run(() => editor.chain().focus().toggleBulletList().run())}
+            sx={{ color: mark(editor.isActive('bulletList')) }}
+          >
+            <FormatListBulletedIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Numerada">
+          <IconButton
+            size="small"
+            onClick={run(() => editor.chain().focus().toggleOrderedList().run())}
+            sx={{ color: mark(editor.isActive('orderedList')) }}
+          >
+            <FormatListNumberedIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Checklist">
+          <IconButton
+            size="small"
+            onClick={run(() => editor.chain().focus().toggleTaskList().run())}
+            sx={{ color: mark(editor.isActive('taskList')) }}
+          >
+            <ChecklistIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Izquierda">
+          <IconButton size="small" onClick={run(() => editor.chain().focus().setTextAlign('left').run())}>
+            <FormatAlignLeftIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Centro">
+          <IconButton size="small" onClick={run(() => editor.chain().focus().setTextAlign('center').run())}>
+            <FormatAlignCenterIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Derecha">
+          <IconButton size="small" onClick={run(() => editor.chain().focus().setTextAlign('right').run())}>
+            <FormatAlignRightIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Justificado">
+          <IconButton size="small" onClick={run(() => editor.chain().focus().setTextAlign('justify').run())}>
+            <FormatAlignJustifyIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Enlace">
+          <IconButton
+            size="small"
+            onClick={run(() => {
+              const previous = editor.getAttributes('link').href || '';
+              const href = window.prompt('Dirección del enlace', previous);
+              if (href === null) return;
+              if (!href.trim()) {
+                editor.chain().focus().unsetLink().run();
+                return;
+              }
+              const safe = /^(https?:|mailto:)/i.test(href.trim()) ? href.trim() : `https://${href.trim()}`;
+              editor.chain().focus().extendMarkRange('link').setLink({ href: safe }).run();
+            })}
+            sx={{ color: mark(editor.isActive('link')) }}
+          >
+            <LinkIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Quitar enlace">
+          <IconButton size="small" onClick={run(() => editor.chain().focus().unsetLink().run())}>
+            <LinkOffIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Insertar tabla">
+          <IconButton
+            size="small"
+            onClick={run(() =>
+              editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+            )}
+          >
+            <TableChartIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Eliminar tabla">
+          <IconButton size="small" onClick={run(() => editor.chain().focus().deleteTable().run())}>
+            <DeleteOutlineIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
       </Box>
       <Box className="rich-text-scroll">
         <EditorContent editor={editor} />

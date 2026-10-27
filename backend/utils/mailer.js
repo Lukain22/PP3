@@ -1,6 +1,9 @@
 const nodemailer = require('nodemailer');
 
-const stripQuotes = (value) => String(value || '').replace(/^["']|["']$/g, '').trim();
+const stripQuotes = (value) =>
+  String(value || '')
+    .replace(/^["']|["']$/g, '')
+    .trim();
 
 const gmailUser = () => stripQuotes(process.env.GMAIL_USER).toLowerCase();
 

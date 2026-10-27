@@ -83,10 +83,9 @@ export async function downloadTicketAttachment(ticketId: number | string, attach
   const token = getToken();
   if (!token) throw new Error('Sesión expirada');
 
-  const response = await fetch(
-    `${API_URL}/tickets/${ticketId}/attachments/${attachment.id}/download`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
+  const response = await fetch(`${API_URL}/tickets/${ticketId}/attachments/${attachment.id}/download`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
 
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));

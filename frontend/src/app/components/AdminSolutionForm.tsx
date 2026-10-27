@@ -35,28 +35,39 @@ export default function AdminSolutionForm() {
   const [shareAll, setShareAll] = useState(false);
   const [groupIds, setGroupIds] = useState<number[]>([]);
   const editorRef = useRef<RichTextEditorHandle>(null);
-  const uploadInlineFile = useCallback(async (file: File) => {
-    if (!id || isNew) return null;
-    const uploaded = await uploadSolutionImage(id, file);
-    if (!uploaded.ok) {
-      toast.error(uploaded.message || 'No se pudo guardar la imagen');
-      return null;
-    }
-    return { id: uploaded.id };
-  }, [id, isNew]);
+  const uploadInlineFile = useCallback(
+    async (file: File) => {
+      if (!id || isNew) return null;
+      const uploaded = await uploadSolutionImage(id, file);
+      if (!uploaded.ok) {
+        toast.error(uploaded.message || 'No se pudo guardar la imagen');
+        return null;
+      }
+      return { id: uploaded.id };
+    },
+    [id, isNew]
+  );
   const resolveInlineUrl = useCallback(
-    (attachmentId: string) => (id && !isNew ? fetchSolutionImageUrl(id, attachmentId) : Promise.resolve(null)),
+    (attachmentId: string) =>
+      id && !isNew ? fetchSolutionImageUrl(id, attachmentId) : Promise.resolve(null),
     [id, isNew]
   );
 
   const apiCall = async (path: string, options: RequestInit = {}) => {
     const token = getToken();
-    if (!token) { navigate('/'); return null; }
+    if (!token) {
+      navigate('/');
+      return null;
+    }
     const response = await fetch(`${API_URL}${path}`, {
       ...options,
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...options.headers }
     });
-    if (response.status === 401) { clearAuth(); navigate('/'); return null; }
+    if (response.status === 401) {
+      clearAuth();
+      navigate('/');
+      return null;
+    }
     const data = await response.json().catch(() => ({}));
     return { response, data };
   };
@@ -85,11 +96,15 @@ export default function AdminSolutionForm() {
       setGroupIds((result.data.groups || []).map((group: SolutionGroup) => group.id));
       setLoading(false);
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   const toggleGroup = (groupId: number) => {
-    setGroupIds((current) => current.includes(groupId) ? current.filter((item) => item !== groupId) : [...current, groupId]);
+    setGroupIds((current) =>
+      current.includes(groupId) ? current.filter((item) => item !== groupId) : [...current, groupId]
+    );
   };
 
   const save = async () => {
@@ -99,12 +114,13 @@ export default function AdminSolutionForm() {
     }
     setSaving(true);
     const hasPendingImages = editorRef.current?.hasPendingImages() ?? false;
-    const contentToSave = hasPendingImages && isNew
-      ? (() => {
-          const withoutImages = descriptionWithoutPending(content);
-          return isDescriptionEmpty(withoutImages) ? '<p>Imagen adjunta</p>' : withoutImages;
-        })()
-      : content;
+    const contentToSave =
+      hasPendingImages && isNew
+        ? (() => {
+            const withoutImages = descriptionWithoutPending(content);
+            return isDescriptionEmpty(withoutImages) ? '<p>Imagen adjunta</p>' : withoutImages;
+          })()
+        : content;
     const result = await apiCall(isNew ? '/admin/solutions' : `/admin/solutions/${id}`, {
       method: isNew ? 'POST' : 'PATCH',
       body: JSON.stringify({
@@ -166,11 +182,33 @@ export default function AdminSolutionForm() {
   const subs = category ? SUBCATEGORIES[category as Category] || [] : [];
 
   return (
-    <SupportShell compact={false} title={isNew ? 'Nueva solución' : 'Editar solución'} backTo="/admin/solutions">
+    <SupportShell
+      compact={false}
+      title={isNew ? 'Nueva solución' : 'Editar solución'}
+      backTo="/admin/solutions"
+    >
       {loading ? null : (
-        <Paper elevation={0} sx={{ p: { xs: 2, md: 3 }, border: '1px solid', borderColor: 'divider', borderRadius: 2, maxWidth: 980 }}>
-          <TextField fullWidth size="small" label="Título" value={title} onChange={(event) => setTitle(event.target.value)} sx={{ mb: 2 }} />
-          <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 600 }}>Contenido</Typography>
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 2, md: 3 },
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 2,
+            maxWidth: 980
+          }}
+        >
+          <TextField
+            fullWidth
+            size="small"
+            label="Título"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            sx={{ mb: 2 }}
+          />
+          <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 600 }}>
+            Contenido
+          </Typography>
           <RichTextEditor
             ref={editorRef}
             value={content}
@@ -179,20 +217,54 @@ export default function AdminSolutionForm() {
             uploadInlineFile={isNew ? undefined : uploadInlineFile}
             resolveInlineUrl={isNew ? undefined : resolveInlineUrl}
           />
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' }, gap: 1.5, mt: 2 }}>
-            <TextField select size="small" label="Categoría" value={category} onChange={(event) => { setCategory(event.target.value); setSubcategory(''); }}>
+          <Box
+            sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' }, gap: 1.5, mt: 2 }}
+          >
+            <TextField
+              select
+              size="small"
+              label="Categoría"
+              value={category}
+              onChange={(event) => {
+                setCategory(event.target.value);
+                setSubcategory('');
+              }}
+            >
               <MenuItem value="">Sin categoría</MenuItem>
-              {CATEGORIES.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+              {CATEGORIES.map((item) => (
+                <MenuItem key={item} value={item}>
+                  {item}
+                </MenuItem>
+              ))}
             </TextField>
-            <TextField select size="small" label="Subcategoría" value={subcategory} disabled={!category} onChange={(event) => setSubcategory(event.target.value)}>
+            <TextField
+              select
+              size="small"
+              label="Subcategoría"
+              value={subcategory}
+              disabled={!category}
+              onChange={(event) => setSubcategory(event.target.value)}
+            >
               <MenuItem value="">Sin subcategoría</MenuItem>
-              {subs.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+              {subs.map((item) => (
+                <MenuItem key={item} value={item}>
+                  {item}
+                </MenuItem>
+              ))}
             </TextField>
-            <TextField size="small" label="Etiquetas" placeholder="iis, reinicio" value={tags} onChange={(event) => setTags(event.target.value)} />
+            <TextField
+              size="small"
+              label="Etiquetas"
+              placeholder="iis, reinicio"
+              value={tags}
+              onChange={(event) => setTags(event.target.value)}
+            />
           </Box>
           <Box sx={{ mt: 2 }}>
             <FormControlLabel
-              control={<Checkbox checked={shareAll} onChange={(event) => setShareAll(event.target.checked)} />}
+              control={
+                <Checkbox checked={shareAll} onChange={(event) => setShareAll(event.target.checked)} />
+              }
               label="Compartir con todos los grupos"
             />
             {!shareAll && (
@@ -200,7 +272,13 @@ export default function AdminSolutionForm() {
                 {groups.map((group) => (
                   <FormControlLabel
                     key={group.id}
-                    control={<Checkbox size="small" checked={groupIds.includes(group.id)} onChange={() => toggleGroup(group.id)} />}
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={groupIds.includes(group.id)}
+                        onChange={() => toggleGroup(group.id)}
+                      />
+                    }
                     label={group.name}
                   />
                 ))}
@@ -208,7 +286,9 @@ export default function AdminSolutionForm() {
             )}
           </Box>
           <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-            <Button variant="contained" disabled={saving} onClick={save}>{saving ? 'Guardando...' : 'Guardar'}</Button>
+            <Button variant="contained" disabled={saving} onClick={save}>
+              {saving ? 'Guardando...' : 'Guardar'}
+            </Button>
             <Button onClick={() => navigate('/admin/solutions')}>Cancelar</Button>
           </Box>
         </Paper>

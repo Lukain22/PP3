@@ -2,13 +2,7 @@ const VALID_STATUSES = ['open', 'in-progress', 'on-hold', 'resolved'];
 const VALID_PRIORITIES = ['low', 'medium', 'high'];
 const VALID_TYPES = ['incident', 'requirement'];
 
-const VALID_CATEGORIES = [
-  'Hardware',
-  'Software',
-  'Red / Conectividad',
-  'Acceso / Cuentas',
-  'Otro'
-];
+const VALID_CATEGORIES = ['Hardware', 'Software', 'Red / Conectividad', 'Acceso / Cuentas', 'Otro'];
 
 const VALID_SUBCATEGORIES = {
   Hardware: ['Computadora / Notebook', 'Impresora', 'Proyector', 'Periféricos', 'Otro'],
@@ -19,8 +13,34 @@ const VALID_SUBCATEGORIES = {
 };
 
 const VALID_SUBCATEGORY_VALUES = [...new Set(Object.values(VALID_SUBCATEGORIES).flat())];
-const VIEW_FILTER_FIELDS = ['type', 'status', 'priority', 'group', 'technician', 'category', 'subcategory', 'created', 'due', 'resolved'];
-const VIEW_COLUMNS = ['id', 'title', 'description', 'user', 'group', 'assignee', 'type', 'status', 'priority', 'category', 'subcategory', 'created', 'due', 'sla_status'];
+const VIEW_FILTER_FIELDS = [
+  'type',
+  'status',
+  'priority',
+  'group',
+  'technician',
+  'category',
+  'subcategory',
+  'created',
+  'due',
+  'resolved'
+];
+const VIEW_COLUMNS = [
+  'id',
+  'title',
+  'description',
+  'user',
+  'group',
+  'assignee',
+  'type',
+  'status',
+  'priority',
+  'category',
+  'subcategory',
+  'created',
+  'due',
+  'sla_status'
+];
 
 const parseStatusFilter = (statusQuery) => {
   if (!statusQuery) return [];
@@ -32,12 +52,14 @@ const parseStatusFilter = (statusQuery) => {
 
 const parseCsvPositiveInts = (value) => {
   if (!value) return [];
-  return [...new Set(
-    String(value)
-      .split(',')
-      .map((part) => parseInt(part.trim(), 10))
-      .filter((n) => Number.isInteger(n) && n > 0)
-  )];
+  return [
+    ...new Set(
+      String(value)
+        .split(',')
+        .map((part) => parseInt(part.trim(), 10))
+        .filter((n) => Number.isInteger(n) && n > 0)
+    )
+  ];
 };
 
 const appendListFilters = (conditions, params, query) => {
@@ -85,7 +107,9 @@ const appendListFilters = (conditions, params, query) => {
 };
 
 const likeContains = (value) => {
-  const escaped = String(value).trim().replace(/[\\%_]/g, (char) => `\\${char}`);
+  const escaped = String(value)
+    .trim()
+    .replace(/[\\%_]/g, (char) => `\\${char}`);
   return `%${escaped}%`;
 };
 
@@ -99,11 +123,13 @@ const STATUS_TEXT_MATCHES = [
 ];
 
 const matchStatusText = (value) => {
-  const needle = String(value || '').trim().toLowerCase();
+  const needle = String(value || '')
+    .trim()
+    .toLowerCase();
   if (!needle) return [];
-  return STATUS_TEXT_MATCHES
-    .filter((status) => status.label.includes(needle) || status.value.includes(needle))
-    .map((status) => status.value);
+  return STATUS_TEXT_MATCHES.filter(
+    (status) => status.label.includes(needle) || status.value.includes(needle)
+  ).map((status) => status.value);
 };
 
 const appendExtendedListFilters = (conditions, params, query) => {
@@ -135,7 +161,8 @@ const appendExtendedListFilters = (conditions, params, query) => {
   if (query.assignee && String(query.assignee).trim()) {
     const raw = String(query.assignee).trim();
     const needle = raw.toLowerCase();
-    const matchesUnassigned = 'sin asignar'.startsWith(needle) || (needle.length >= 4 && 'sin asignar'.includes(needle));
+    const matchesUnassigned =
+      'sin asignar'.startsWith(needle) || (needle.length >= 4 && 'sin asignar'.includes(needle));
     if (matchesUnassigned) {
       conditions.push(`(t.technician_id IS NULL OR ${likeClause('tech.email')})`);
     } else {
@@ -184,7 +211,9 @@ const appendExtendedListFilters = (conditions, params, query) => {
       .filter((id) => Number.isInteger(id) && id > 0);
 
     if (unassigned && technicianIds.length > 0) {
-      conditions.push(`(t.technician_id IS NULL OR t.technician_id IN (${technicianIds.map(() => '?').join(', ')}))`);
+      conditions.push(
+        `(t.technician_id IS NULL OR t.technician_id IN (${technicianIds.map(() => '?').join(', ')}))`
+      );
       params.push(...technicianIds);
     } else if (unassigned) {
       conditions.push('t.technician_id IS NULL');
@@ -259,29 +288,42 @@ const asList = (value) => {
   return [value];
 };
 
-const parseAllowedList = (value, allowed) => [...new Set(
-  asList(value)
-    .flatMap((item) => String(item).split(','))
-    .map((item) => item.trim())
-    .filter((item) => allowed.includes(item))
-)];
+const parseAllowedList = (value, allowed) => [
+  ...new Set(
+    asList(value)
+      .flatMap((item) => String(item).split(','))
+      .map((item) => item.trim())
+      .filter((item) => allowed.includes(item))
+  )
+];
 
-const parseIdList = (value) => [...new Set(
-  asList(value)
-    .map((item) => parseInt(item, 10))
-    .filter((id) => Number.isInteger(id) && id > 0)
-)];
+const parseIdList = (value) => [
+  ...new Set(
+    asList(value)
+      .map((item) => parseInt(item, 10))
+      .filter((id) => Number.isInteger(id) && id > 0)
+  )
+];
 
 const isIsoDate = (value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
 
 const normalizeViewFilters = (raw) => {
-  const filters = typeof raw === 'string' ? JSON.parse(raw) : (raw || {});
+  const filters = typeof raw === 'string' ? JSON.parse(raw) : raw || {};
   const result = {};
 
   const types = parseAllowedList(asList(filters.types).length ? filters.types : filters.type, VALID_TYPES);
-  const priorities = parseAllowedList(asList(filters.priorities).length ? filters.priorities : filters.priority, VALID_PRIORITIES);
-  const groupIds = parseIdList(asList(filters.filter_group_ids).length ? filters.filter_group_ids : (filters.filter_group_id ?? filters.group_id));
-  const technicianIds = parseIdList(asList(filters.technician_ids).length ? filters.technician_ids : filters.technician_id);
+  const priorities = parseAllowedList(
+    asList(filters.priorities).length ? filters.priorities : filters.priority,
+    VALID_PRIORITIES
+  );
+  const groupIds = parseIdList(
+    asList(filters.filter_group_ids).length
+      ? filters.filter_group_ids
+      : (filters.filter_group_id ?? filters.group_id)
+  );
+  const technicianIds = parseIdList(
+    asList(filters.technician_ids).length ? filters.technician_ids : filters.technician_id
+  );
   const categories = parseAllowedList(filters.categories, VALID_CATEGORIES);
   const subcategories = parseAllowedList(filters.subcategories, VALID_SUBCATEGORY_VALUES);
   const statuses = parseAllowedList(filters.status, VALID_STATUSES);

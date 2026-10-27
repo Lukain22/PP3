@@ -85,9 +85,12 @@ export async function uploadSolutionImage(solutionId: number | string, file: Fil
 export async function fetchSolutionImageUrl(solutionId: number | string, attachmentId: string) {
   const token = getToken();
   if (!token) return null;
-  const response = await fetch(`${API_URL}/admin/solutions/${solutionId}/attachments/${attachmentId}/download`, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
+  const response = await fetch(
+    `${API_URL}/admin/solutions/${solutionId}/attachments/${attachmentId}/download`,
+    {
+      headers: { Authorization: `Bearer ${token}` }
+    }
+  );
   if (!response.ok) return null;
   const blob = await response.blob();
   return URL.createObjectURL(blob);

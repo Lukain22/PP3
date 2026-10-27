@@ -1,9 +1,9 @@
 const db = require('../db/db');
 
 const DEFAULT_POLICIES = {
-  high:   { response_hours: 2,  resolution_hours: 8  },
-  medium: { response_hours: 4,  resolution_hours: 24 },
-  low:    { response_hours: 8,  resolution_hours: 48 }
+  high: { response_hours: 2, resolution_hours: 8 },
+  medium: { response_hours: 4, resolution_hours: 24 },
+  low: { response_hours: 8, resolution_hours: 48 }
 };
 
 const VALID_SLA_STATUSES = ['on_track', 'at_risk', 'breached', 'met', 'paused'];
@@ -77,8 +77,7 @@ const loadPolicies = (callback) => {
   });
 };
 
-const addHours = (baseDate, hours) =>
-  new Date(new Date(baseDate).getTime() + hours * 60 * 60 * 1000);
+const addHours = (baseDate, hours) => new Date(new Date(baseDate).getTime() + hours * 60 * 60 * 1000);
 
 const calculateSlaDates = (createdAt, priority, policies) => {
   const policy = policies[priority] || policies.medium || DEFAULT_POLICIES.medium;
@@ -212,9 +211,7 @@ const applySlaFieldsToUpdate = (oldTicket, updates, policies) => {
     status: newStatus
   };
 
-  const slaStatus = newStatus === STATUS_ON_HOLD
-    ? 'paused'
-    : computeSlaStatus(ticketForStatus);
+  const slaStatus = newStatus === STATUS_ON_HOLD ? 'paused' : computeSlaStatus(ticketForStatus);
 
   return {
     priority,
