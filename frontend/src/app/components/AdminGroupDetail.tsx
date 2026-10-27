@@ -24,19 +24,11 @@ import { toast } from 'sonner';
 import SupportShell from './SupportShell';
 import { getToken } from '../../lib/auth';
 import { apiFetch } from '../../lib/api';
+import type { Group } from '../../types/domain';
 
 interface Technician {
   id: number;
   email: string;
-}
-
-interface GroupDetail {
-  id: number;
-  name: string;
-  description: string | null;
-  is_default: number;
-  created_at: string;
-  technicians: Technician[];
 }
 
 export default function AdminGroupDetail() {
@@ -89,12 +81,12 @@ export default function AdminGroupDetail() {
       return;
     }
 
-    const group = groupResult.data as GroupDetail;
+    const group = groupResult.data as Group;
     setName(group.name);
     setDescription(group.description || '');
     setTechnicianIds(group.technicians?.map((t) => t.id) || []);
     setIsDefault(Boolean(group.is_default));
-    setCreatedAt(group.created_at);
+    setCreatedAt(group.created_at as string);
 
     if (techResult?.response.ok) {
       setAllTechnicians(Array.isArray(techResult.data) ? techResult.data : []);

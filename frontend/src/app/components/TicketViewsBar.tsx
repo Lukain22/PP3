@@ -17,19 +17,20 @@ import {
 import { normalizeTicketColumns, STAFF_DEFAULT_COLUMNS } from '../../lib/ticketColumns';
 import { rowsFromListFilters, rowsFromStored, rowsToListFilters } from '../../lib/viewFilters';
 import ViewEditorDialog, { type ViewEditorValues } from './ViewEditorDialog';
+import type { Group } from '../../types/domain';
 
-interface GroupOption {
-  id: number;
-  name: string;
+function apiMessage(data: unknown): string {
+  const message = (data as { message?: unknown }).message;
+  return typeof message === 'string' ? message : '';
 }
 
 interface TicketViewsBarProps {
   scope: 'admin' | 'technician';
-  groups: GroupOption[];
+  groups: Group[];
   currentFilters: TicketListFilters;
   currentSortBy: string;
   activeViewId: number | null;
-  apiCall: (path: string, options?: RequestInit) => Promise<{ response: Response; data: any } | null>;
+  apiCall: (path: string, options?: RequestInit) => Promise<{ response: Response; data: unknown } | null>;
   onApplyView: (view: TicketView | null, filters: TicketListFilters, sortBy: string) => void;
 }
 
@@ -124,7 +125,7 @@ export default function TicketViewsBar({
 
       if (!result) return;
       if (!result.response.ok) {
-        toast.error(result.data.message || 'No se pudo guardar la vista');
+        toast.error(apiMessage(result.data) || 'No se pudo guardar la vista');
         return;
       }
 
@@ -145,7 +146,7 @@ export default function TicketViewsBar({
     const result = await apiCall(`/views/${view.id}`, { method: 'DELETE' });
     if (!result) return;
     if (!result.response.ok) {
-      toast.error(result.data.message || 'No se pudo eliminar');
+      toast.error(apiMessage(result.data) || 'No se pudo eliminar');
       return;
     }
     toast.success('Vista eliminada');

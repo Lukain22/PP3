@@ -23,24 +23,7 @@ import { toast } from 'sonner';
 import SupportShell from './SupportShell';
 import { getToken, type UserRole, refreshAccess, type AccessPermission } from '../../lib/auth';
 import { apiFetch } from '../../lib/api';
-
-interface GroupOption {
-  id: number;
-  name: string;
-}
-
-interface UserGroup {
-  id: number;
-  name: string;
-}
-
-interface UserDetail {
-  id: number;
-  email: string;
-  role: UserRole;
-  created_at: string;
-  groups: UserGroup[];
-}
+import type { Group, User } from '../../types/domain';
 
 const ROLE_LABELS: Record<UserRole, string> = {
   user: 'Usuario',
@@ -58,7 +41,7 @@ export default function AdminUserDetail() {
   const [createdAt, setCreatedAt] = useState('');
   const [role, setRole] = useState<UserRole>('user');
   const [groupIds, setGroupIds] = useState<number[]>([]);
-  const [allGroups, setAllGroups] = useState<GroupOption[]>([]);
+  const [allGroups, setAllGroups] = useState<Group[]>([]);
   const [roleOptions, setRoleOptions] = useState<{ id: number; name: string; is_active: boolean }[]>([]);
   const [assignedRoleIds, setAssignedRoleIds] = useState<number[]>([]);
   const [effectivePermissions, setEffectivePermissions] = useState<AccessPermission[]>([]);
@@ -97,7 +80,7 @@ export default function AdminUserDetail() {
       return;
     }
 
-    const user = userResult.data as UserDetail;
+    const user = userResult.data as User;
     setEmail(user.email);
     setCreatedAt(user.created_at);
     setRole(user.role);

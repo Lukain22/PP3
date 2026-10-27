@@ -48,19 +48,20 @@ import {
   viewFiltersToPayload,
   viewIdToItemKey
 } from '../../lib/ticketViews';
+import type { Group } from '../../types/domain';
 
-interface GroupOption {
-  id: number;
-  name: string;
+function apiMessage(data: unknown): string {
+  const message = (data as { message?: unknown }).message;
+  return typeof message === 'string' ? message : '';
 }
 
 interface TicketViewSelectProps {
   role: UserRole;
-  groups: GroupOption[];
+  groups: Group[];
   selection: ActiveViewSelection;
   currentFilters: TicketListFilters;
   currentSortBy: string;
-  apiCall: (path: string, options?: RequestInit) => Promise<{ response: Response; data: any } | null>;
+  apiCall: (path: string, options?: RequestInit) => Promise<{ response: Response; data: unknown } | null>;
   onApply: (selection: ActiveViewSelection) => void;
   inline?: boolean;
 }
@@ -113,12 +114,11 @@ export default function TicketViewSelect({
     if (viewsResult?.response.ok) {
       setCustomViews(Array.isArray(viewsResult.data) ? viewsResult.data : []);
     }
-    if (
-      layoutResult?.response.ok &&
-      Array.isArray(layoutResult.data.order) &&
-      layoutResult.data.order.length > 0
-    ) {
-      setLayoutOrder(layoutResult.data.order);
+    const order = layoutResult?.response.ok
+      ? (layoutResult.data as { order?: unknown }).order
+      : undefined;
+    if (Array.isArray(order) && order.length > 0) {
+      setLayoutOrder(order);
     } else {
       setLayoutOrder(buildDefaultViewOrder(role));
     }
@@ -194,7 +194,7 @@ export default function TicketViewSelect({
         setLayoutOrder(previous);
         setFavoriteKeys(previousFavorites);
         saveFavoriteViewKeys(role, previousFavorites);
-        toast.error(result?.data.message || 'No se pudo guardar el orden');
+        toast.error(apiMessage(result?.data) || 'No se pudo guardar el orden');
       }
     } catch {
       setLayoutOrder(previous);
@@ -294,7 +294,7 @@ export default function TicketViewSelect({
 
       if (!result) return;
       if (!result.response.ok) {
-        toast.error(result.data.message || 'No se pudo guardar la vista');
+        toast.error(apiMessage(result.data) || 'No se pudo guardar la vista');
         return;
       }
 
@@ -314,7 +314,7 @@ export default function TicketViewSelect({
     const result = await apiCall(`/views/${view.id}`, { method: 'DELETE' });
     if (!result) return;
     if (!result.response.ok) {
-      toast.error(result.data.message || 'No se pudo eliminar');
+      toast.error(apiMessage(result.data) || 'No se pudo eliminar');
       return;
     }
     toast.success('Vista eliminada');

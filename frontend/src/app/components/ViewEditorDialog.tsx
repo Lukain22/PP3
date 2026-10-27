@@ -66,7 +66,7 @@ interface ViewEditorDialogProps {
   title: string;
   initial: ViewEditorValues;
   groups: { id: number; name: string }[];
-  apiCall: (path: string, options?: RequestInit) => Promise<{ response: Response; data: any } | null>;
+  apiCall: (path: string, options?: RequestInit) => Promise<{ response: Response; data: unknown } | null>;
   adminMode?: boolean;
   onClose: () => void;
   onSubmit: (values: ViewEditorValues) => void;

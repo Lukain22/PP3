@@ -20,19 +20,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import SupportShell from './SupportShell';
 import { getToken, type UserRole } from '../../lib/auth';
 import { apiFetch } from '../../lib/api';
-
-interface UserGroup {
-  id: number;
-  name: string;
-}
-
-interface User {
-  id: number;
-  email: string;
-  role: UserRole;
-  created_at: string;
-  groups?: UserGroup[];
-}
+import type { User } from '../../types/domain';
 
 const ROLE_LABELS: Record<UserRole, string> = {
   user: 'Usuario',

@@ -24,6 +24,7 @@ import StatusBadge from './StatusBadge';
 import TicketAttachments from './TicketAttachments';
 import TicketSolutions from './TicketSolutions';
 import RichTextEditor, { type RichTextEditorHandle } from './richtext/RichTextEditor';
+import type { Group } from '../../types/domain';
 
 export interface ResolveTicketSeed {
   id: number;
@@ -37,11 +38,6 @@ export interface ResolveTicketSeed {
   technician_id?: number | null;
   technician_email?: string | null;
   sla_status?: string | null;
-}
-
-interface GroupOption {
-  id: number;
-  name: string;
 }
 
 interface TechnicianOption {
@@ -109,7 +105,7 @@ export default function ResolveTicketDialog({
   const [content, setContent] = useState('');
   const [fileCount, setFileCount] = useState(0);
   const [section, setSection] = useState<'resolution' | 'solutions'>('resolution');
-  const [groups, setGroups] = useState<GroupOption[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [technicians, setTechnicians] = useState<TechnicianOption[]>([]);
   const [baseline, setBaseline] = useState<Baseline | null>(null);
   const [slaStatus, setSlaStatus] = useState<string | null>(null);

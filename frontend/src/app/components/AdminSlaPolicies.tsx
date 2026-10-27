@@ -21,12 +21,7 @@ import SupportShell from './SupportShell';
 import { getToken } from '../../lib/auth';
 import { apiFetch } from '../../lib/api';
 import { PRIORITY_LABELS } from '../../lib/sla';
-
-interface SlaPolicy {
-  priority: string;
-  response_hours: number;
-  resolution_hours: number;
-}
+import type { SlaPolicy } from '../../types/domain';
 
 const PRIORITY_ORDER = ['high', 'medium', 'low'];
 

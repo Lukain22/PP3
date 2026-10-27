@@ -33,27 +33,7 @@ import {
   buildTicketQueryParams,
   emptyTicketListFilters
 } from '../../lib/ticketViews';
-
-interface Ticket {
-  id: number;
-  title: string;
-  description: string;
-  status: string;
-  priority: string | null;
-  type: string;
-  group_id: number | null;
-  group_name: string | null;
-  technician_id?: number | null;
-  technician_email?: string | null;
-  sla_status?: string | null;
-  created_at: string;
-  user_email: string;
-}
-
-interface Group {
-  id: number;
-  name: string;
-}
+import type { Group, Ticket } from '../../types/domain';
 
 interface TechnicianOption {
   id: number;
@@ -199,7 +179,7 @@ export default function TechnicianPanel() {
     return tickets.filter(
       (t) =>
         t.title.toLowerCase().includes(q) ||
-        t.user_email.toLowerCase().includes(q) ||
+        (t.user_email as string).toLowerCase().includes(q) ||
         (t.technician_email || '').toLowerCase().includes(q) ||
         String(t.id).includes(q) ||
         (t.group_name || '').toLowerCase().includes(q)

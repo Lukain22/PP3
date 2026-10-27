@@ -55,6 +55,7 @@ import TicketSolutions from './TicketSolutions';
 import ResolveTicketDialog from './ResolveTicketDialog';
 import { appendPlainTextToHtml, appendRichHtml, isDescriptionEmpty, isRichHtml } from '../../lib/richText';
 import { uploadTicketAttachments } from '../../lib/attachments';
+import type { Comment, Group, Ticket, TicketHistoryEntry } from '../../types/domain';
 
 type TicketEditField =
   | 'title'
@@ -66,33 +67,6 @@ type TicketEditField =
   | 'subcategory'
   | 'group'
   | 'technician';
-
-interface Ticket {
-  id: number;
-  title: string;
-  description: string;
-  status: string;
-  priority: string | null;
-  type: string;
-  category?: string | null;
-  subcategory?: string | null;
-  sla_response_due?: string | null;
-  sla_resolution_due?: string | null;
-  sla_status?: string | null;
-  created_at: string;
-  updated_at?: string;
-  user_id: number;
-  user_email?: string;
-  group_id?: number | null;
-  group_name?: string | null;
-  technician_id?: number | null;
-  technician_email?: string | null;
-}
-
-interface GroupOption {
-  id: number;
-  name: string;
-}
 
 interface TechnicianOption {
   id: number;
@@ -109,24 +83,6 @@ interface TicketFormData {
   subcategory: string;
   group_id: number | '';
   technician_id: number | '';
-}
-
-interface Comment {
-  id: number;
-  content: string;
-  created_at: string;
-  user_id: number;
-  email: string;
-}
-
-interface HistoryEntry {
-  id: number;
-  action: string;
-  field_name: string | null;
-  old_value: string | null;
-  new_value: string | null;
-  created_at: string;
-  email: string;
 }
 
 interface Resolution {
@@ -156,13 +112,13 @@ interface HistoryGroup {
   key: string;
   email: string;
   created_at: string;
-  entries: HistoryEntry[];
+  entries: TicketHistoryEntry[];
 }
 
-function groupHistoryByMoment(entries: HistoryEntry[]): HistoryGroup[] {
+function groupHistoryByMoment(entries: TicketHistoryEntry[]): HistoryGroup[] {
   const groups: HistoryGroup[] = [];
 
-  const momentKey = (entry: HistoryEntry) => {
+  const momentKey = (entry: TicketHistoryEntry) => {
     const ts = Math.floor(new Date(entry.created_at).getTime() / 1000);
     return `${entry.email}|${ts}`;
   };
@@ -187,7 +143,7 @@ function HistoryGroupCard({
 }: {
   group: HistoryGroup;
   formatDateTime: (date: string) => string;
-  formatHistoryEntry: (entry: HistoryEntry) => string;
+  formatHistoryEntry: (entry: TicketHistoryEntry) => string;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -371,7 +327,7 @@ export default function TicketDetail() {
   const canAttachHere = staff || isOwner ? can('tickets.attach') : canActOnOthers('tickets.attach');
   const canEditThis = staff || isOwner || canActOnOthers('tickets.edit');
   const [comments, setComments] = useState<Comment[]>([]);
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [history, setHistory] = useState<TicketHistoryEntry[]>([]);
   const [resolution, setResolution] = useState<Resolution | null>(null);
   const [resolutionText, setResolutionText] = useState('');
   const [resolutionSection, setResolutionSection] = useState<'resolution' | 'solutions'>('resolution');
@@ -407,7 +363,7 @@ export default function TicketDetail() {
     group_id: '',
     technician_id: ''
   });
-  const [groups, setGroups] = useState<GroupOption[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [groupTechnicians, setGroupTechnicians] = useState<TechnicianOption[]>([]);
 
   useEffect(() => {
@@ -520,7 +476,7 @@ export default function TicketDetail() {
       minute: '2-digit'
     });
 
-  const formatHistoryEntry = (entry: HistoryEntry) => {
+  const formatHistoryEntry = (entry: TicketHistoryEntry) => {
     if (entry.action === 'created') {
       const field = entry.field_name ? HISTORY_FIELD_LABELS[entry.field_name] || entry.field_name : null;
       if (field) {

@@ -31,14 +31,7 @@ import { toast } from 'sonner';
 import SupportShell from './SupportShell';
 import { getToken } from '../../lib/auth';
 import { apiFetch } from '../../lib/api';
-
-interface Group {
-  id: number;
-  name: string;
-  description: string | null;
-  is_default: number;
-  created_at: string;
-}
+import type { Group } from '../../types/domain';
 
 const denseTableSx = {
   '& .MuiTableCell-root': {
@@ -306,7 +299,7 @@ export default function AdminGroups() {
                             <Chip label="Resolución" size="small" variant="outlined" />
                           )}
                         </TableCell>
-                        <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(group.created_at)}</TableCell>
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(group.created_at as string)}</TableCell>
                         <TableCell align="center" onClick={(e) => e.stopPropagation()}>
                           {!group.is_default && (
                             <Tooltip title="Eliminar">

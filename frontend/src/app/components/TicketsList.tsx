@@ -68,6 +68,7 @@ import {
   viewIdToItemKey
 } from '../../lib/ticketViews';
 import { downloadTableExport, type ExportFormat } from '../../lib/tableExport';
+import type { Group, Ticket } from '../../types/domain';
 
 function isTicketUnseen(seen: number | boolean | undefined) {
   return seen === 0 || seen === false;
@@ -98,33 +99,6 @@ function TicketTypeMark({ type }: { type?: string | null }) {
       </Box>
     </Tooltip>
   );
-}
-
-interface Ticket {
-  id: number;
-  title: string;
-  description: string;
-  status: string;
-  priority: string | null;
-  type: string;
-  group_id: number | null;
-  group_name: string | null;
-  technician_id?: number | null;
-  technician_email?: string | null;
-  sla_status?: string | null;
-  sla_resolution_due?: string | null;
-  category?: string | null;
-  subcategory?: string | null;
-  created_at: string;
-  updated_at?: string;
-  user_id: number;
-  user_email?: string;
-  seen?: number | boolean;
-}
-
-interface GroupOption {
-  id: number;
-  name: string;
 }
 
 interface TechnicianOption {
@@ -274,8 +248,8 @@ export default function TicketsList() {
   const customViewParam = parseViewItemKey(resolveTicketViewItemKey(location.search, role));
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [groups, setGroups] = useState<GroupOption[]>([]);
-  const [transferGroups, setTransferGroups] = useState<GroupOption[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [transferGroups, setTransferGroups] = useState<Group[]>([]);
   const [groupTechnicians, setGroupTechnicians] = useState<Record<number, TechnicianOption[]>>({});
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -609,7 +583,7 @@ export default function TicketsList() {
       columnSort,
       isStaffTable ? columnFilters : undefined
     );
-    if (!visible || visible.some((ticket) => ticket.id === ticketId)) return;
+    if (!visible || visible.some((ticket: Ticket) => ticket.id === ticketId)) return;
     setSelectedIds((prev) => {
       if (!prev.has(ticketId)) return prev;
       const next = new Set(prev);

@@ -28,6 +28,7 @@ import { toast } from 'sonner';
 import SupportShell from './SupportShell';
 import { getToken } from '../../lib/auth';
 import { apiFetch } from '../../lib/api';
+import type { Group } from '../../types/domain';
 
 interface PermissionItem {
   code: string;
@@ -40,11 +41,6 @@ interface PermissionModule {
   key: string;
   label: string;
   permissions: PermissionItem[];
-}
-
-interface GroupOption {
-  id: number;
-  name: string;
 }
 
 interface RoleOption {
@@ -70,7 +66,7 @@ export default function AdminRoleDetail() {
   const [inherited, setInherited] = useState<string[]>([]);
   const [inheritedTransferAll, setInheritedTransferAll] = useState(false);
   const [modules, setModules] = useState<PermissionModule[]>([]);
-  const [groups, setGroups] = useState<GroupOption[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [roles, setRoles] = useState<RoleOption[]>([]);
   const [transferMode, setTransferMode] = useState<'all' | 'allow' | 'deny'>('all');
   const [groupIds, setGroupIds] = useState<number[]>([]);

@@ -30,27 +30,9 @@ import { getTicketTypeLabel } from '../../lib/ticketTypes';
 import { getPriorityLabel, getSlaStatusLabel, isIncident } from '../../lib/sla';
 import { apiFetch } from '../../lib/api';
 import { getEmail, isAdmin, isStaff, isTechnician } from '../../lib/auth';
+import type { Group, Ticket } from '../../types/domain';
 
 type DashboardScope = 'all' | 'groups' | 'mine';
-
-interface Ticket {
-  id: number;
-  title: string;
-  description: string;
-  status: string;
-  priority: string | null;
-  type: string;
-  group_id?: number | null;
-  group_name?: string | null;
-  sla_status?: string | null;
-  created_at: string;
-  user_id: number;
-}
-
-interface GroupOption {
-  id: number;
-  name: string;
-}
 
 type ChartSlice = { name: string; value: number; color: string };
 
@@ -194,7 +176,7 @@ export default function Dashboard() {
   const scopeOptions = getScopeOptions();
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [groups, setGroups] = useState<GroupOption[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [scope, setScope] = useState<DashboardScope>(getDefaultScope);
   const [groupId, setGroupId] = useState('');
   const [loading, setLoading] = useState(true);
