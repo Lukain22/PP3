@@ -1,6 +1,5 @@
+import { apiFetch } from './api';
 import { getToken } from './auth';
-
-const API_URL = import.meta.env.VITE_API_URL as string;
 
 export const ACCEPTED_FILE_TYPES =
   '.jpg,.jpeg,.png,.gif,.webp,.bmp,.txt,.csv,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.7z';
@@ -41,9 +40,7 @@ export async function fetchTicketAttachments(
   if (options?.commentId) params.set('comment_id', String(options.commentId));
   const query = params.toString();
 
-  const response = await fetch(`${API_URL}/tickets/${ticketId}/attachments${query ? `?${query}` : ''}`, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
+  const response = await apiFetch(`/tickets/${ticketId}/attachments${query ? `?${query}` : ''}`);
 
   if (!response.ok) return [];
   const data = await response.json().catch(() => []);
@@ -65,9 +62,8 @@ export async function uploadTicketAttachments(
   if (options?.context) formData.append('context', options.context);
   if (options?.commentId) formData.append('comment_id', String(options.commentId));
 
-  const response = await fetch(`${API_URL}/tickets/${ticketId}/attachments`, {
+  const response = await apiFetch(`/tickets/${ticketId}/attachments`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
     body: formData
   });
 
@@ -83,9 +79,7 @@ export async function downloadTicketAttachment(ticketId: number | string, attach
   const token = getToken();
   if (!token) throw new Error('Sesión expirada');
 
-  const response = await fetch(`${API_URL}/tickets/${ticketId}/attachments/${attachment.id}/download`, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
+  const response = await apiFetch(`/tickets/${ticketId}/attachments/${attachment.id}/download`);
 
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
@@ -108,9 +102,8 @@ export async function deleteTicketAttachment(
   const token = getToken();
   if (!token) return { ok: false, message: 'Sesión expirada' };
 
-  const response = await fetch(`${API_URL}/tickets/${ticketId}/attachments/${attachmentId}`, {
-    method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` }
+  const response = await apiFetch(`/tickets/${ticketId}/attachments/${attachmentId}`, {
+    method: 'DELETE'
   });
 
   const data = await response.json().catch(() => ({}));

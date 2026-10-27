@@ -1,6 +1,5 @@
+import { apiFetch } from './api';
 import { getToken } from './auth';
-
-const API_URL = import.meta.env.VITE_API_URL as string;
 
 export interface SolutionGroup {
   id: number;
@@ -69,9 +68,8 @@ export async function uploadSolutionImage(solutionId: number | string, file: Fil
   if (!token) return { ok: false as const, message: 'Sesión expirada' };
   const formData = new FormData();
   formData.append('file', file);
-  const response = await fetch(`${API_URL}/admin/solutions/${solutionId}/attachments`, {
+  const response = await apiFetch(`/admin/solutions/${solutionId}/attachments`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
     body: formData
   });
   const data = await response.json().catch(() => ({}));
@@ -85,11 +83,8 @@ export async function uploadSolutionImage(solutionId: number | string, file: Fil
 export async function fetchSolutionImageUrl(solutionId: number | string, attachmentId: string) {
   const token = getToken();
   if (!token) return null;
-  const response = await fetch(
-    `${API_URL}/admin/solutions/${solutionId}/attachments/${attachmentId}/download`,
-    {
-      headers: { Authorization: `Bearer ${token}` }
-    }
+  const response = await apiFetch(
+    `/admin/solutions/${solutionId}/attachments/${attachmentId}/download`
   );
   if (!response.ok) return null;
   const blob = await response.blob();

@@ -2,8 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { TextField, Button, Card, CardContent, Typography, Box, Container } from '@mui/material';
 import { toast } from 'sonner';
-
-const API_URL = `${import.meta.env.VITE_API_URL as string}/auth`;
+import { apiFetch } from '../../lib/api';
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
@@ -34,9 +33,9 @@ export default function ResetPasswordPage() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/reset-password`, {
+      const response = await apiFetch('/auth/reset-password', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        auth: false,
         body: JSON.stringify({ token, password })
       });
 

@@ -21,7 +21,8 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import SupportShell from './SupportShell';
 import StatusBadge from './StatusBadge';
-import { getToken, clearAuth } from '../../lib/auth';
+import { apiFetch } from '../../lib/api';
+import { getToken } from '../../lib/auth';
 import { toast } from 'sonner';
 import { isIncident } from '../../lib/sla';
 import InlineEditSelect from './InlineEditSelect';
@@ -32,8 +33,6 @@ import {
   buildTicketQueryParams,
   emptyTicketListFilters
 } from '../../lib/ticketViews';
-
-const API_URL = import.meta.env.VITE_API_URL as string;
 
 interface Ticket {
   id: number;
@@ -92,18 +91,9 @@ export default function TechnicianPanel() {
       return null;
     }
 
-    const response = await fetch(`${API_URL}${path}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        ...options.headers
-      }
-    });
+    const response = await apiFetch(path, options);
 
     if (response.status === 401) {
-      clearAuth();
-      navigate('/');
       return null;
     }
     if (response.status === 403) {

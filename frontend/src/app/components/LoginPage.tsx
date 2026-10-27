@@ -3,9 +3,8 @@ import { useNavigate } from 'react-router';
 import { TextField, Button, Card, CardContent, Typography, Box, Container, Tabs, Tab } from '@mui/material';
 import { toast } from 'sonner';
 import { setAuth, getHomePath, refreshAccess, type UserRole } from '../../lib/auth';
+import { apiFetch } from '../../lib/api';
 import { usePreferences } from '../PreferencesProvider';
-
-const API_URL = `${import.meta.env.VITE_API_URL as string}/auth`;
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -21,9 +20,9 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/login`, {
+      const response = await apiFetch('/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        auth: false,
         body: JSON.stringify({ email, password })
       });
 
@@ -61,9 +60,9 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/register`, {
+      const response = await apiFetch('/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        auth: false,
         body: JSON.stringify({ email, password })
       });
 

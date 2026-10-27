@@ -163,9 +163,8 @@ export async function refreshAccess(): Promise<void> {
   if (!token) return;
 
   try {
-    const response = await fetch(`${import.meta.env.VITE_API_URL as string}/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const { apiFetch } = await import('./api');
+    const response = await apiFetch('/auth/me', { redirectOn401: false });
     if (response.status === 401) {
       clearAuth();
       return;

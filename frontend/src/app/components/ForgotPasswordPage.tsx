@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { TextField, Button, Card, CardContent, Typography, Box, Container } from '@mui/material';
 import { toast } from 'sonner';
-
-const API_URL = `${import.meta.env.VITE_API_URL as string}/auth`;
+import { apiFetch } from '../../lib/api';
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
@@ -16,9 +15,9 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/forgot-password`, {
+      const response = await apiFetch('/auth/forgot-password', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        auth: false,
         body: JSON.stringify({ email })
       });
 

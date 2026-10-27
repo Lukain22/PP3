@@ -1,7 +1,6 @@
 import DOMPurify from 'dompurify';
+import { apiFetch } from './api';
 import { getToken } from './auth';
-
-const API_URL = import.meta.env.VITE_API_URL as string;
 
 const ALLOWED_TAGS = [
   'p',
@@ -157,9 +156,7 @@ export function plainTextFromDescription(value: string) {
 export async function fetchAttachmentObjectUrl(ticketId: number | string, attachmentId: string) {
   const token = getToken();
   if (!token) return null;
-  const response = await fetch(`${API_URL}/tickets/${ticketId}/attachments/${attachmentId}/download`, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
+  const response = await apiFetch(`/tickets/${ticketId}/attachments/${attachmentId}/download`);
   if (!response.ok) return null;
   const blob = await response.blob();
   return URL.createObjectURL(blob);

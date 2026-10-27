@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
+import { apiFetch } from '../lib/api';
 import { getToken } from '../lib/auth';
 import { translate, type Language, type MessageKey } from '../lib/i18n';
 import {
@@ -22,12 +23,8 @@ const PreferencesContext = createContext<PreferencesContextValue | null>(null);
 async function persist(patch: Partial<UiPreferences>) {
   const token = getToken();
   if (!token) return;
-  const response = await fetch(`${import.meta.env.VITE_API_URL as string}/auth/preferences`, {
+  const response = await apiFetch('/auth/preferences', {
     method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`
-    },
     body: JSON.stringify(patch)
   });
   if (!response.ok) {

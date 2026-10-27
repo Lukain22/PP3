@@ -15,9 +15,8 @@ import {
   Typography
 } from '@mui/material';
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
-import { clearAuth, getToken } from '../../lib/auth';
-
-const API_URL = import.meta.env.VITE_API_URL as string;
+import { apiFetch } from '../../lib/api';
+import { getToken } from '../../lib/auth';
 
 export interface AppNotification {
   id: number;
@@ -54,18 +53,9 @@ export default function NotificationBell() {
       const token = getToken();
       if (!token) return null;
 
-      const response = await fetch(`${API_URL}${path}`, {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-          ...options.headers
-        }
-      });
+      const response = await apiFetch(path, options);
 
       if (response.status === 401) {
-        clearAuth();
-        navigate('/');
         return null;
       }
 

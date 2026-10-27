@@ -15,19 +15,27 @@ function redirectToLogin(): void {
   window.dispatchEvent(new PopStateEvent('popstate', { state: window.history.state }));
 }
 
-export async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
-  const headers = new Headers(options.headers);
-  const token = getToken();
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
+export type ApiFetchOptions = RequestInit & {
+  auth?: boolean;
+  redirectOn401?: boolean;
+};
+
+export async function apiFetch(path: string, options: ApiFetchOptions = {}): Promise<Response> {
+  const { auth = true, redirectOn401 = true, ...request } = options;
+  const headers = new Headers(request.headers);
+  if (auth) {
+    const token = getToken();
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
   }
-  if (!(options.body instanceof FormData) && !headers.has('Content-Type')) {
+  if (!(request.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
 
-  const response = await fetch(apiUrl(path), { ...options, headers });
+  const response = await fetch(apiUrl(path), { ...request, headers });
 
-  if (response.status === 401) {
+  if (auth && redirectOn401 && response.status === 401) {
     redirectToLogin();
   }
 

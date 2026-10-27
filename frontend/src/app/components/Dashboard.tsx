@@ -28,9 +28,8 @@ import StatusBadge from './StatusBadge';
 import { downloadDashboardPdf } from '../../lib/dashboardPdf';
 import { getTicketTypeLabel } from '../../lib/ticketTypes';
 import { getPriorityLabel, getSlaStatusLabel, isIncident } from '../../lib/sla';
+import { apiFetch } from '../../lib/api';
 import { getEmail, isAdmin, isStaff, isTechnician } from '../../lib/auth';
-
-const API_URL = import.meta.env.VITE_API_URL as string;
 
 type DashboardScope = 'all' | 'groups' | 'mine';
 
@@ -211,9 +210,7 @@ export default function Dashboard() {
     if (!token) return;
 
     const groupsPath = isAdmin() ? '/admin/groups' : '/technician/groups';
-    fetch(`${API_URL}${groupsPath}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    apiFetch(groupsPath)
       .then(async (res) => (res.ok ? res.json() : []))
       .then((data) => setGroups(Array.isArray(data) ? data : []))
       .catch(() => setGroups([]));
@@ -240,13 +237,9 @@ export default function Dashboard() {
       path = isAdmin() ? '/admin/tickets' : '/technician/tickets';
     }
 
-    fetch(`${API_URL}${path}?${params}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    apiFetch(`${path}?${params}`)
       .then(async (res) => {
         if (res.status === 401) {
-          localStorage.removeItem('token');
-          navigate('/');
           return null;
         }
         if (!res.ok) throw new Error();
