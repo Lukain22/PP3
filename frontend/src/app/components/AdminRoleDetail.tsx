@@ -26,9 +26,8 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SaveIcon from '@mui/icons-material/Save';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
-import { clearAuth, getToken } from '../../lib/auth';
-
-const API_URL = import.meta.env.VITE_API_URL as string;
+import { getToken } from '../../lib/auth';
+import { apiFetch } from '../../lib/api';
 
 interface PermissionItem {
   code: string;
@@ -86,17 +85,8 @@ export default function AdminRoleDetail() {
       navigate('/');
       return null;
     }
-    const response = await fetch(`${API_URL}${path}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        ...options.headers
-      }
-    });
+    const response = await apiFetch(path, options);
     if (response.status === 401) {
-      clearAuth();
-      navigate('/');
       return null;
     }
     const data = await response.json().catch(() => ({}));

@@ -26,14 +26,13 @@ import SearchIcon from '@mui/icons-material/Search';
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import { toast } from 'sonner';
-import { clearAuth, getToken } from '../../lib/auth';
+import { getToken } from '../../lib/auth';
+import { apiFetch } from '../../lib/api';
 import { rowsFromStored, rowsToListFilters } from '../../lib/viewFilters';
 import { normalizeTicketColumns, STAFF_DEFAULT_COLUMNS } from '../../lib/ticketColumns';
 import { attachViewColumns, viewFiltersToPayload, type TicketView } from '../../lib/ticketViews';
 import SupportShell from './SupportShell';
 import ViewEditorDialog, { type ViewEditorValues } from './ViewEditorDialog';
-
-const API_URL = import.meta.env.VITE_API_URL as string;
 
 const denseTableSx = {
   '& .MuiTableCell-root': {
@@ -84,18 +83,9 @@ export default function AdminViews() {
       return null;
     }
 
-    const response = await fetch(`${API_URL}${path}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        ...options.headers
-      }
-    });
+    const response = await apiFetch(path, options);
 
     if (response.status === 401) {
-      clearAuth();
-      navigate('/');
       return null;
     }
 

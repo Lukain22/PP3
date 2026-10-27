@@ -21,9 +21,8 @@ import {
 import SaveIcon from '@mui/icons-material/Save';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
-import { getToken, clearAuth, type UserRole, refreshAccess, type AccessPermission } from '../../lib/auth';
-
-const API_URL = import.meta.env.VITE_API_URL as string;
+import { getToken, type UserRole, refreshAccess, type AccessPermission } from '../../lib/auth';
+import { apiFetch } from '../../lib/api';
 
 interface GroupOption {
   id: number;
@@ -73,18 +72,9 @@ export default function AdminUserDetail() {
       return null;
     }
 
-    const response = await fetch(`${API_URL}${path}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        ...options.headers
-      }
-    });
+    const response = await apiFetch(path, options);
 
     if (response.status === 401) {
-      clearAuth();
-      navigate('/');
       return null;
     }
 

@@ -22,9 +22,8 @@ import SaveIcon from '@mui/icons-material/Save';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
-import { getToken, clearAuth } from '../../lib/auth';
-
-const API_URL = import.meta.env.VITE_API_URL as string;
+import { getToken } from '../../lib/auth';
+import { apiFetch } from '../../lib/api';
 
 interface Technician {
   id: number;
@@ -61,18 +60,9 @@ export default function AdminGroupDetail() {
       return null;
     }
 
-    const response = await fetch(`${API_URL}${path}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        ...options.headers
-      }
-    });
+    const response = await apiFetch(path, options);
 
     if (response.status === 401) {
-      clearAuth();
-      navigate('/');
       return null;
     }
     if (response.status === 403) {

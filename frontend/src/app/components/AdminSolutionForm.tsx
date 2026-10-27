@@ -13,12 +13,11 @@ import {
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
 import RichTextEditor, { type RichTextEditorHandle } from './richtext/RichTextEditor';
-import { clearAuth, getToken } from '../../lib/auth';
+import { getToken } from '../../lib/auth';
+import { apiFetch } from '../../lib/api';
 import { CATEGORIES, SUBCATEGORIES, type Category } from '../../lib/categories';
 import { descriptionWithoutPending, isDescriptionEmpty } from '../../lib/richText';
 import { fetchSolutionImageUrl, uploadSolutionImage, type SolutionGroup } from '../../lib/solutions';
-
-const API_URL = import.meta.env.VITE_API_URL as string;
 
 export default function AdminSolutionForm() {
   const navigate = useNavigate();
@@ -59,13 +58,8 @@ export default function AdminSolutionForm() {
       navigate('/');
       return null;
     }
-    const response = await fetch(`${API_URL}${path}`, {
-      ...options,
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...options.headers }
-    });
+    const response = await apiFetch(path, options);
     if (response.status === 401) {
-      clearAuth();
-      navigate('/');
       return null;
     }
     const data = await response.json().catch(() => ({}));
