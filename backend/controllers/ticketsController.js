@@ -28,7 +28,7 @@ const { getRequestAccess, resolveTicketViewGrant } = require('../rbac/service');
 const { sanitizeDescription, isEmptyDescription } = require('../utils/richText');
 const { removeScopedAttachments } = require('../utils/attachments');
 const { rejectDirectResolve, missingResolveFields } = require('../utils/resolveRules');
-const { SEEN_SELECT, markTicketRead, initTicketReadsTable } = require('../utils/ticketReads');
+const { SEEN_SELECT, markTicketRead } = require('../utils/ticketReads');
 
 const SLA_SELECT = 'sla_response_due, sla_resolution_due, sla_status, sla_paused_at';
 
@@ -87,58 +87,6 @@ const ticketVisibleByGrant = (grant, groupId) => {
   if (grant.mode === 'all') return true;
   if (grant.mode === 'deny') return id > 0 && !grant.ids.includes(id);
   return grant.ids.includes(id);
-};
-
-const initTicketsTable = () => {
-  const sql = `
-    CREATE TABLE IF NOT EXISTS tickets (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      title VARCHAR(255) NOT NULL,
-      description TEXT NOT NULL,
-      status VARCHAR(50) NOT NULL DEFAULT 'open',
-      priority VARCHAR(50) DEFAULT NULL,
-      type VARCHAR(20) NOT NULL DEFAULT 'incident',
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      user_id INT NOT NULL,
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    )
-  `;
-
-  db.query(sql, (err) => {
-    if (err) {
-      console.log('Error creando tabla tickets:', err);
-    } else {
-      console.log('Tabla tickets lista');
-      db.query(
-        'ALTER TABLE tickets ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP',
-        () => {}
-      );
-      initTicketReadsTable();
-    }
-  });
-};
-
-const initCommentsTable = () => {
-  const sql = `
-    CREATE TABLE IF NOT EXISTS ticket_comments (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      ticket_id INT NOT NULL,
-      user_id INT NOT NULL,
-      content TEXT NOT NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    )
-  `;
-
-  db.query(sql, (err) => {
-    if (err) {
-      console.log('Error creando tabla ticket_comments:', err);
-    } else {
-      console.log('Tabla ticket_comments lista');
-    }
-  });
 };
 
 exports.getTickets = (req, res) => {
@@ -817,8 +765,6 @@ exports.deleteTicket = (req, res) => {
   });
 };
 
-exports.initTicketsTable = initTicketsTable;
-exports.initCommentsTable = initCommentsTable;
 exports.loadTicketWithAccess = loadTicketWithAccess;
 
 const emptyTicketPage = (res, page, limit) => {
