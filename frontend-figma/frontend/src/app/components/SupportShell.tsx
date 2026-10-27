@@ -40,16 +40,6 @@ interface SupportShellProps {
   matchList?: boolean;
 }
 
-export function toggleUiMode() {
-  const current = localStorage.getItem('ui-mode') || 'modern';
-  localStorage.setItem('ui-mode', current === 'classic' ? 'modern' : 'classic');
-  window.location.reload();
-}
-
-export function isClassicUi() {
-  return localStorage.getItem('ui-mode') === 'classic';
-}
-
 export default function SupportShell({
   children,
   title,

@@ -21,29 +21,8 @@ import AdminRoleDetail from './components/AdminRoleDetail';
 import AdminSolutions from './components/AdminSolutions';
 import AdminViews from './components/AdminViews';
 import AdminSolutionForm from './components/AdminSolutionForm';
-import DashboardClassic from './components/legacy/Dashboard.classic';
-import TicketsListClassic from './components/legacy/TicketsList.classic';
-import CreateTicketClassic from './components/legacy/CreateTicket.classic';
-import TicketDetailClassic from './components/legacy/TicketDetail.classic';
-import { isClassicUi } from './components/SupportShell';
 import { getToken, isAdmin, isTechnician, can, refreshAccess, getHomePath } from '../lib/auth';
 import { usePreferences } from './PreferencesProvider';
-
-function DashboardPage() {
-  return isClassicUi() ? <DashboardClassic /> : <Dashboard />;
-}
-
-function TicketsPage() {
-  return isClassicUi() ? <TicketsListClassic /> : <TicketsList />;
-}
-
-function CreateTicketPage() {
-  return isClassicUi() ? <CreateTicketClassic /> : <CreateTicket />;
-}
-
-function TicketDetailPage() {
-  return isClassicUi() ? <TicketDetailClassic /> : <TicketDetail />;
-}
 
 function RequireAuth({ children }: { children: ReactNode }) {
   return getToken() ? <>{children}</> : <Navigate to="/" replace />;
@@ -100,10 +79,10 @@ export default function App() {
           <Route path="/" element={<LoginPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
-          <Route path="/dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
-          <Route path="/tickets" element={<RequireAuth><TicketsPage /></RequireAuth>} />
-          <Route path="/tickets/:id" element={<RequireAuth><TicketDetailPage /></RequireAuth>} />
-          <Route path="/create-ticket" element={<RequireAuth><BlockTechnicianFromUserArea><CreateTicketPage /></BlockTechnicianFromUserArea></RequireAuth>} />
+          <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
+          <Route path="/tickets" element={<RequireAuth><TicketsList /></RequireAuth>} />
+          <Route path="/tickets/:id" element={<RequireAuth><TicketDetail /></RequireAuth>} />
+          <Route path="/create-ticket" element={<RequireAuth><BlockTechnicianFromUserArea><CreateTicket /></BlockTechnicianFromUserArea></RequireAuth>} />
           <Route path="/credits" element={<RequireAuth><Credits /></RequireAuth>} />
           <Route path="/admin" element={<RequireAdmin><AdminPanel /></RequireAdmin>} />
           <Route path="/admin/users" element={<RequirePermission code="admin.users"><AdminUsers /></RequirePermission>} />
