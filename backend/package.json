@@ -1,8 +1,8 @@
 {
-  "name": "prueba",
+  "name": "pp3-backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "API REST del sistema de mesa de ayuda PP3 (Express 5 + MySQL)",
+  "main": "server.js",
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js"

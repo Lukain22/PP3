@@ -6,7 +6,7 @@ node_modules/
 .env.*.local
 
 # Build del frontend
-frontend-figma/frontend/dist/
+frontend/dist/
 
 # Archivos subidos por usuarios
-prueba/uploads/
+backend/uploads/
