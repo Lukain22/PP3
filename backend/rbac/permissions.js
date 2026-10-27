@@ -128,14 +128,14 @@ const PERMISSIONS = [
     sort: 30
   },
   {
-    code: 'admin.categories',
+    code: 'admin.categories', // Reservado: sin endpoint todavía
     module: 'admin',
     name: 'Gestionar categorías',
     description: 'Administrar categorías de tickets',
     sort: 40
   },
   {
-    code: 'admin.subcategories',
+    code: 'admin.subcategories', // Reservado: sin endpoint todavía
     module: 'admin',
     name: 'Gestionar subcategorías',
     description: 'Administrar subcategorías de tickets',

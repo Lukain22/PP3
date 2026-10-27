@@ -35,9 +35,10 @@ const assertTicketMutation = async (req, res, oldTicket, body) => {
     const accountRole = req.user.role;
 
     if (body.status !== undefined && body.status !== oldTicket.status) {
+      // tickets.close queda reservado: está en el catálogo y en el seed, pero
+      // VALID_STATUSES no incluye 'closed', así que ningún cambio de estado lo exige.
       if (body.status === 'resolved') needed.add('tickets.resolve');
       else if (oldTicket.status === 'resolved') needed.add('tickets.reopen');
-      else if (body.status === 'closed') needed.add('tickets.close');
       else needed.add('tickets.edit');
     }
 
