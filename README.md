@@ -94,4 +94,4 @@ La guía completa, con terminal, Workbench y phpMyAdmin, está en [backend/db/CR
 
 ## Autor
 
-Lucho Portu — [completar: materia e institución]
+Luciano Tarizzo — [Analisis de Sistemas]
