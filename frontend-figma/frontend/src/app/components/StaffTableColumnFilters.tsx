@@ -19,7 +19,7 @@ export { hasActiveStaffColumnFilters };
 
 const headerCellSx = {
   fontWeight: 600,
-  bgcolor: '#fafbfc',
+  bgcolor: 'background.tableHeader',
   whiteSpace: 'nowrap',
   py: 0.625,
   '& .col-affordance': { opacity: 0 },
@@ -51,7 +51,7 @@ function CloseFiltersIcon() {
           right: -4,
           bottom: -3,
           fontSize: 13,
-          bgcolor: '#f5f7fa',
+          bgcolor: 'background.paper',
           borderRadius: '50%'
         }}
       />
@@ -191,7 +191,7 @@ function FilterField({
       onChange={(event) => onChange(event.target.value)}
       inputProps={{ 'aria-label': placeholder, inputMode, autoComplete: 'off' }}
       sx={{
-        '& .MuiOutlinedInput-root': { bgcolor: '#fff', fontSize: 13 },
+        '& .MuiOutlinedInput-root': { bgcolor: 'background.paper', fontSize: 13 },
         '& .MuiOutlinedInput-input': { py: 0.7 }
       }}
     />
@@ -307,7 +307,7 @@ export default function StaffTableHeadRow({
 
   return (
     <>
-      <TableRow sx={{ bgcolor: '#fafbfc' }}>
+      <TableRow>
         <PlainHeaderCell width={72}>
           <Checkbox
             size="small"
@@ -336,7 +336,7 @@ export default function StaffTableHeadRow({
       </TableRow>
       {filterRowOpen && (
         <TableRow
-          sx={{ bgcolor: '#f5f7fa' }}
+          sx={{ '& .MuiTableCell-root': { bgcolor: 'background.tableHeader' } }}
           onKeyDown={(event) => {
             if (event.key === 'Escape') onCloseFilterRow();
             if (event.key === 'Enter') {

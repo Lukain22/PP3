@@ -230,7 +230,7 @@ function TicketsTableFooter({
         py: 0.5,
         borderTop: '1px solid',
         borderColor: 'divider',
-        bgcolor: '#fafbfc'
+        bgcolor: 'action.hover'
       }}
     >
       <Typography variant="body2" color="text.secondary">
@@ -999,7 +999,7 @@ export default function TicketsList() {
                 width: { xs: '100%', sm: 280 },
                 maxWidth: 320,
                 flex: { xs: '1 1 160px', sm: '0 1 280px' },
-                '& .MuiInputBase-root': { height: 30, bgcolor: '#fff' }
+                '& .MuiInputBase-root': { height: 30, bgcolor: 'background.paper' }
               }}
               InputProps={{
                 startAdornment: (
@@ -1065,7 +1065,7 @@ export default function TicketsList() {
             border: '1px solid',
             borderColor: 'divider',
             borderRadius: 2,
-            bgcolor: '#fff',
+            bgcolor: 'background.paper',
             boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)',
             overflow: 'hidden'
           }}
@@ -1162,7 +1162,7 @@ export default function TicketsList() {
             border: '1px solid',
             borderColor: 'divider',
             borderRadius: 2,
-            bgcolor: '#fff',
+            bgcolor: 'background.paper',
             boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)',
             overflow: 'hidden'
           }}
@@ -1170,7 +1170,7 @@ export default function TicketsList() {
           <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
           <Table stickyHeader size="small" sx={{ minWidth: Math.max(480, visibleColumns.length * 150), ...denseTableSx }}>
             <TableHead>
-              <TableRow sx={{ bgcolor: '#fafbfc' }}>
+              <TableRow>
                 {visibleColumns.map((column) => {
                   const meta = ticketColumnMeta(column);
                   return (

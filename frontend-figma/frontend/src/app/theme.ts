@@ -1,6 +1,17 @@
 import { createTheme } from '@mui/material/styles';
 
+declare module '@mui/material/styles' {
+  interface TypeBackground {
+    tableHeader: string;
+  }
+}
+
 export type ThemeMode = 'light' | 'dark';
+
+const tableHeader = {
+  light: '#fafbfc',
+  dark: '#162033'
+} as const;
 
 export function createAppTheme(mode: ThemeMode) {
   return createTheme({
@@ -11,12 +22,12 @@ export function createAppTheme(mode: ThemeMode) {
       mode,
       ...(mode === 'light'
         ? {
-            background: { default: '#F8FAFC', paper: '#ffffff' },
+            background: { default: '#F8FAFC', paper: '#ffffff', tableHeader: tableHeader.light },
             divider: '#E2E8F0'
           }
         : {
             primary: { main: '#60a5fa' },
-            background: { default: '#0b1220', paper: '#111827' },
+            background: { default: '#0b1220', paper: '#111827', tableHeader: tableHeader.dark },
             divider: '#243044'
           })
     },
@@ -24,7 +35,10 @@ export function createAppTheme(mode: ThemeMode) {
       MuiTableCell: {
         styleOverrides: {
           head: {
-            backgroundColor: mode === 'dark' ? '#162033' : '#fafbfc'
+            backgroundColor: tableHeader[mode]
+          },
+          stickyHeader: {
+            backgroundColor: tableHeader[mode]
           }
         }
       }

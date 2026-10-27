@@ -106,7 +106,7 @@ export default function TicketSolutions({ ticketId, canApply, onApply }: TicketS
               border: '1px solid',
               borderColor: 'divider',
               transition: 'background-color 160ms ease, border-color 160ms ease',
-              '&:hover': { bgcolor: '#e8f1fb', borderColor: '#90caf9' },
+              '&:hover': { bgcolor: 'action.hover', borderColor: 'primary.light' },
               '& .use-solution': {
                 opacity: 0,
                 maxHeight: 0,

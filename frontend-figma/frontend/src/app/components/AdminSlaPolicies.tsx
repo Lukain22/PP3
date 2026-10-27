@@ -142,7 +142,7 @@ export default function AdminSlaPolicies() {
           <TableContainer>
             <Table>
               <TableHead>
-                <TableRow sx={{ bgcolor: '#fafbfc' }}>
+                <TableRow sx={{ bgcolor: 'action.hover' }}>
                   <TableCell sx={{ fontWeight: 600 }}>Prioridad</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Respuesta (horas)</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Resolución (horas)</TableCell>

@@ -351,7 +351,7 @@ export default function AdminRoleDetail() {
           )}
 
           {transferChecked && (
-            <Box sx={{ mt: 2, p: 2, borderRadius: 2, bgcolor: '#fafbfc', border: '1px solid', borderColor: 'divider' }}>
+            <Box sx={{ mt: 2, p: 2, borderRadius: 2, bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider' }}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Alcance de derivación</Typography>
               {inheritedTransferAll && (
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>

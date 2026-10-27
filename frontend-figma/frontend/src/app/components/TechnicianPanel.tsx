@@ -209,7 +209,7 @@ export default function TechnicianPanel() {
           : `${total} ticket${total === 1 ? '' : 's'} en tus grupos${groups.length ? ` · ${groups.map((g) => g.name).join(', ')}` : ''}`
       }
     >
-      <Paper elevation={0} sx={{ p: 2, mb: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: '#fff', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)' }}>
+      <Paper elevation={0} sx={{ p: 2, mb: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: 'background.paper', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)' }}>
         <TicketViewsBar
           scope="technician"
           groups={groups}
@@ -309,11 +309,11 @@ export default function TechnicianPanel() {
         <TableContainer
           component={Paper}
           elevation={0}
-          sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: '#fff', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)', overflowX: 'auto' }}
+          sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: 'background.paper', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)', overflowX: 'auto' }}
         >
           <Table sx={{ minWidth: 1280 }}>
             <TableHead>
-              <TableRow sx={{ bgcolor: '#fafbfc' }}>
+              <TableRow sx={{ bgcolor: 'action.hover' }}>
                 <TableCell sx={{ fontWeight: 600, width: 64 }}>#</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Ticket</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 110 }}>Tipo</TableCell>

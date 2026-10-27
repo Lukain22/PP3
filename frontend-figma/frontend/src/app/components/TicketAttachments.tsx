@@ -119,7 +119,7 @@ function AttachmentTile({
           border: '1px solid',
           borderColor: 'divider',
           borderRadius: 1,
-          bgcolor: '#fafbfc',
+          bgcolor: 'action.hover',
           textAlign: 'center',
           cursor: 'default',
           '&:hover .attachment-actions': showActions ? { opacity: 1 } : undefined

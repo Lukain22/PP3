@@ -208,3 +208,44 @@
   border-left: 3px solid #cfd8dc;
   color: rgba(0, 0, 0, 0.7);
 }
+
+.dark .rich-text-shell {
+  border-color: rgba(255, 255, 255, 0.23);
+  background: #111827;
+}
+
+.dark .rich-text-shell:focus-within {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 1px #60a5fa;
+}
+
+.dark .rich-text-toolbar {
+  border-bottom-color: #243044;
+  background: #162033;
+}
+
+.dark .rich-text-shell.is-plain,
+.dark .rich-text-shell.is-plain .rich-text-toolbar {
+  background: transparent;
+}
+
+.dark .ProseMirror p.is-editor-empty:first-child::before {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.dark .rich-text-content a,
+.dark .ProseMirror a { color: #93c5fd; }
+
+.dark .rich-text-content th,
+.dark .rich-text-content td,
+.dark .ProseMirror th,
+.dark .ProseMirror td { border-color: rgba(255, 255, 255, 0.2); }
+
+.dark .rich-text-content th,
+.dark .ProseMirror th { background: #162033; }
+
+.dark .rich-text-content blockquote,
+.dark .ProseMirror blockquote {
+  border-left-color: #475569;
+  color: rgba(255, 255, 255, 0.7);
+}

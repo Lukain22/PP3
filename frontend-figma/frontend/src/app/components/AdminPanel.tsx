@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Box,
@@ -12,10 +13,21 @@ import TimerIcon from '@mui/icons-material/Timer';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import ViewListIcon from '@mui/icons-material/ViewList';
+import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import SupportShell from './SupportShell';
 import { can } from '../../lib/auth';
 
-const sections = [
+interface AdminSection {
+  title: string;
+  description: string;
+  icon: ReactNode;
+  to: string;
+  permission: string | string[];
+  soon?: boolean;
+}
+
+const sections: AdminSection[] = [
   {
     title: 'Grupos',
     description: 'Organizá equipos de resolución y asigná técnicos.',
@@ -50,6 +62,22 @@ const sections = [
     icon: <ViewListIcon fontSize="large" color="primary" />,
     to: '/admin/views',
     permission: 'admin.access'
+  },
+  {
+    title: 'Notificaciones',
+    description: 'Avisos y recordatorios del sistema.',
+    icon: <NotificationsNoneIcon fontSize="large" color="primary" />,
+    to: '',
+    permission: 'admin.access',
+    soon: true
+  },
+  {
+    title: 'Plantillas',
+    description: 'Modelos reutilizables para tickets y respuestas.',
+    icon: <DescriptionOutlinedIcon fontSize="large" color="primary" />,
+    to: '',
+    permission: 'admin.access',
+    soon: true
   },
   {
     title: 'Soluciones',
@@ -93,9 +121,12 @@ export default function AdminPanel() {
               </Typography>
               <Button
                 variant="contained"
-                onClick={() => navigate(section.to)}
+                disabled={Boolean(section.soon)}
+                onClick={() => {
+                  if (!section.soon) navigate(section.to);
+                }}
               >
-                Abrir
+                {section.soon ? 'Próximamente' : 'Abrir'}
               </Button>
             </Paper>
           </Grid>

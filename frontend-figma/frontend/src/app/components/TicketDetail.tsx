@@ -191,7 +191,7 @@ function HistoryGroupCard({
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <Box sx={{ p: 1.5, bgcolor: '#fafbfc', borderRadius: 1.5 }}>
+    <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1.5 }}>
       <Box
         onClick={() => setExpanded((prev) => !prev)}
         sx={{
@@ -254,7 +254,7 @@ function CommentCard({
   const showContent = expanded || isEditing;
 
   return (
-    <Box sx={{ p: 1.5, bgcolor: '#fafbfc', borderRadius: 1.5 }}>
+    <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1.5 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <Box
           onClick={() => {
@@ -894,9 +894,9 @@ export default function TicketDetail() {
     p: { xs: 2, md: 2.5 },
     mb: 2,
     border: '1px solid',
-    borderColor: '#E2E8F0',
+    borderColor: 'divider',
     borderRadius: 2,
-    bgcolor: '#fff',
+    bgcolor: 'background.paper',
     boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)'
   };
 
@@ -1433,7 +1433,7 @@ export default function TicketDetail() {
     <Stack spacing={2}>
       {isResolved && resolution ? (
         <>
-          <Box sx={{ p: 2, bgcolor: '#f0f7ff', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+          <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
               <Box component="span" sx={{ fontWeight: 700 }}>Resuelto por</Box>{' '}
               {resolution.resolved_by_email} · {formatDateTime(resolution.updated_at || resolution.created_at)}
@@ -1490,7 +1490,7 @@ export default function TicketDetail() {
       )}
     </Stack>
   ) : isResolved && resolution ? (
-    <Box sx={{ p: 2, bgcolor: '#f0f7ff', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+    <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
         <Box component="span" sx={{ fontWeight: 700 }}>Resuelto por</Box>{' '}
         {resolution.resolved_by_email} · {formatDateTime(resolution.updated_at || resolution.created_at)}
@@ -1531,7 +1531,7 @@ export default function TicketDetail() {
               left: { xs: -16, sm: -24, md: -32, xl: -40 },
               right: { xs: -16, sm: -24, md: -32, xl: -40 },
               height: '1px',
-              bgcolor: '#E2E8F0',
+              bgcolor: 'divider',
               zIndex: 0
             }
           }}
@@ -1686,7 +1686,7 @@ export default function TicketDetail() {
             gap: 1,
             px: 2,
             py: 0.75,
-            bgcolor: '#fff',
+            bgcolor: 'background.paper',
             borderTop: '1px solid',
             borderColor: 'divider'
           }}

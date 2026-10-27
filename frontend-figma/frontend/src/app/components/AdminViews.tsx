@@ -46,7 +46,7 @@ const denseTableSx = {
     py: 0.625,
     fontSize: '0.75rem',
     fontWeight: 600,
-    bgcolor: '#fafbfc'
+    bgcolor: 'background.tableHeader'
   },
   '& .MuiChip-root': {
     height: 22,
@@ -400,7 +400,7 @@ export default function AdminViews() {
                 </TableBody>
               </Table>
             </TableContainer>
-            <Box sx={{ flexShrink: 0, px: 1.5, py: 0.5, borderTop: '1px solid', borderColor: 'divider', bgcolor: '#fafbfc' }}>
+            <Box sx={{ flexShrink: 0, px: 1.5, py: 0.5, borderTop: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
               <Typography variant="body2" color="text.secondary">
                 {search.trim() && visibleViews.length !== views.length
                   ? `${visibleViews.length} de ${views.length} vistas`

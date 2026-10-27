@@ -2,7 +2,7 @@ export type Language = 'es' | 'en';
 
 const messages = {
   es: {
-    'nav.brand': 'Soporte Técnico',
+    'nav.brand': 'Ticketcito ITB',
     'nav.home': 'Inicio',
     'nav.tickets': 'Solicitudes',
     'nav.admin': 'Administración',
@@ -41,7 +41,7 @@ const messages = {
     'login.offline': 'Error conectando con el backend'
   },
   en: {
-    'nav.brand': 'Technical Support',
+    'nav.brand': 'Ticketcito ITB',
     'nav.home': 'Home',
     'nav.tickets': 'Requests',
     'nav.admin': 'Administration',

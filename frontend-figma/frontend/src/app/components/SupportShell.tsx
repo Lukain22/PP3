@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import {
   AppBar,
   Toolbar,
@@ -13,13 +13,13 @@ import {
   Link
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import NotificationBell from './NotificationBell';
 import UserProfileMenu from './UserProfileMenu';
 import { isAdmin, getHomePath, getRole, can } from '../../lib/auth';
 import { getTicketsPath } from '../../lib/ticketViews';
+import { useTheme } from '@mui/material/styles';
 import { usePreferences } from '../PreferencesProvider';
 
 type Crumb = { label: string; to?: string };
@@ -37,6 +37,7 @@ interface SupportShellProps {
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | false;
   compact?: boolean;
   compactTitle?: boolean;
+  matchList?: boolean;
 }
 
 export function toggleUiMode() {
@@ -61,11 +62,27 @@ export default function SupportShell({
   headerActionGrow = false,
   maxWidth = false,
   compact = false,
-  compactTitle = false
+  compactTitle = false,
+  matchList = false
 }: SupportShellProps) {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const theme = useTheme();
   const { t } = usePreferences();
   const canCreateTicket = can('tickets.create');
+  const homeActive = pathname === '/dashboard';
+  const ticketsActive = pathname.startsWith('/tickets');
+  const activeMark = theme.palette.mode === 'dark' ? '#fff' : theme.palette.text.primary;
+
+  const navItemSx = (active: boolean) => ({
+    flexShrink: 0,
+    alignSelf: 'stretch',
+    borderRadius: 0,
+    fontWeight: 500,
+    borderBottom: '2px solid',
+    borderBottomColor: active ? activeMark : 'transparent',
+    '&:hover': { bgcolor: 'transparent' }
+  });
 
   return (
     <Box sx={{
@@ -108,7 +125,7 @@ export default function SupportShell({
             size="small"
             variant="text"
             onClick={() => navigate('/dashboard')}
-            sx={{ flexShrink: 0, fontWeight: 500, ml: { xs: 0, sm: -0.5 } }}
+            sx={{ ...navItemSx(homeActive), ml: { xs: 0, sm: -0.5 } }}
           >
             {t('nav.home')}
           </Button>
@@ -117,7 +134,7 @@ export default function SupportShell({
             size="small"
             variant="text"
             onClick={() => navigate(getTicketsPath(getRole()))}
-            sx={{ flexShrink: 0, fontWeight: 500 }}
+            sx={navItemSx(ticketsActive)}
           >
             {t('nav.tickets')}
           </Button>
@@ -158,12 +175,6 @@ export default function SupportShell({
             </Tooltip>
           )}
 
-          <Tooltip title={t('nav.credits')}>
-            <IconButton onClick={() => navigate('/credits')} size="small" sx={{ flexShrink: 0 }}>
-              <HelpOutlineIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-
           <UserProfileMenu />
         </Toolbar>
       </AppBar>
@@ -172,9 +183,9 @@ export default function SupportShell({
         maxWidth={maxWidth}
         disableGutters={maxWidth === false}
         sx={{
-          py: compact ? 1.25 : 3,
-          ...(compactTitle && !compact ? { pt: 1.25 } : {}),
-          px: maxWidth === false ? (compact ? { xs: 1.5, sm: 2 } : { xs: 2, sm: 3, md: 4, xl: 5 }) : undefined,
+          py: compact || matchList ? 1.25 : 3,
+          ...(compactTitle && !compact && !matchList ? { pt: 1.25 } : {}),
+          px: maxWidth === false ? (compact || matchList ? { xs: 1.5, sm: 2 } : { xs: 2, sm: 3, md: 4, xl: 5 }) : undefined,
           width: '100%',
           ...(compact && {
             flex: 1,

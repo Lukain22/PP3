@@ -11,14 +11,16 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Button,
   CircularProgress,
+  IconButton,
+  Tooltip,
   Paper,
   Typography,
   TextField,
   MenuItem
 } from '@mui/material';
-import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
+import { useTheme } from '@mui/material/styles';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as RechartsTooltip } from 'recharts';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
@@ -59,7 +61,7 @@ const scopeSelectSx = {
   flex: { xs: '1 1 160px', sm: '0 1 260px' },
   '& .MuiInputBase-root': {
     height: 30,
-    bgcolor: '#fff',
+    bgcolor: 'background.paper',
     borderRadius: 1.5,
     fontSize: '0.8125rem'
   },
@@ -101,8 +103,9 @@ function countSlices(
 }
 
 const GROUP_CHART_COLORS = ['#1e3a5f', '#1d4ed8', '#047857', '#b45309', '#7c3aed', '#db2777', '#0891b2', '#0d9488'];
+const GROUP_CHART_COLORS_DARK = ['#93C5FD', '#60A5FA', '#34D399', '#FBBF24', '#A78BFA', '#F472B6', '#22D3EE', '#2DD4BF'];
 
-function countByGroup(tickets: Ticket[]): ChartSlice[] {
+function countByGroup(tickets: Ticket[], palette: string[]): ChartSlice[] {
   const counts: Record<string, number> = {};
 
   for (const ticket of tickets) {
@@ -114,7 +117,7 @@ function countByGroup(tickets: Ticket[]): ChartSlice[] {
     .map(([name, value], index) => ({
       name,
       value,
-      color: name === 'Sin grupo' ? '#94a3b8' : GROUP_CHART_COLORS[index % GROUP_CHART_COLORS.length]
+      color: name === 'Sin grupo' ? '#94a3b8' : palette[index % palette.length]
     }))
     .sort((a, b) => b.value - a.value);
 }
@@ -123,7 +126,7 @@ function DistributionChart({ title, data }: { title: string; data: ChartSlice[] 
   if (data.length === 0) return null;
 
   return (
-    <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: '#fff', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)', p: 2.5, height: '100%' }}>
+    <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: 'background.paper', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)', p: 2.5, height: '100%' }}>
       <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
         {title}
       </Typography>
@@ -158,6 +161,7 @@ function getScopeOptions(): DashboardScope[] {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const dark = useTheme().palette.mode === 'dark';
   const staff = isStaff();
   const scopeOptions = getScopeOptions();
 
@@ -231,11 +235,11 @@ export default function Dashboard() {
   }, [navigate, scope, groupId]);
 
   const stats = useMemo(() => [
-    { label: 'Total', value: tickets.length, color: '#1e3a5f' },
-    { label: 'Abiertos', value: tickets.filter((t) => t.status === 'open').length, color: '#1E40AF' },
-    { label: 'En proceso', value: tickets.filter((t) => t.status === 'in-progress').length, color: '#3730A3' },
-    { label: 'Resueltos', value: tickets.filter((t) => t.status === 'resolved').length, color: '#047857' }
-  ], [tickets]);
+    { label: 'Total', value: tickets.length, color: dark ? '#E2E8F0' : '#1e3a5f' },
+    { label: 'Abiertos', value: tickets.filter((t) => t.status === 'open').length, color: dark ? '#93C5FD' : '#1E40AF' },
+    { label: 'En proceso', value: tickets.filter((t) => t.status === 'in-progress').length, color: dark ? '#A5B4FC' : '#3730A3' },
+    { label: 'Resueltos', value: tickets.filter((t) => t.status === 'resolved').length, color: dark ? '#6EE7B7' : '#047857' }
+  ], [tickets, dark]);
 
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
@@ -276,7 +280,7 @@ export default function Dashboard() {
     { on_track: '#34D399', at_risk: '#FB923C', breached: '#F87171', met: '#60A5FA', paused: '#94A3B8' }
   );
 
-  const groupChartData = scope === 'all' ? countByGroup(tickets) : [];
+  const groupChartData = scope === 'all' ? countByGroup(tickets, dark ? GROUP_CHART_COLORS_DARK : GROUP_CHART_COLORS) : [];
 
   const charts = [
     ...(groupChartData.length > 0 ? [{ title: 'Distribución por grupo', data: groupChartData }] : []),
@@ -307,22 +311,25 @@ export default function Dashboard() {
   };
 
   const exportButton = (
-    <Button
-      size="small"
-      variant="outlined"
-      startIcon={exporting ? <CircularProgress size={14} /> : <PictureAsPdfOutlinedIcon />}
-      disabled={loading || exporting || charts.length === 0}
-      onClick={() => void exportCharts()}
-      sx={{ flexShrink: 0, minHeight: 30, whiteSpace: 'nowrap' }}
-    >
-      Exportar PDF
-    </Button>
+    <Tooltip title="Exportar PDF">
+      <span>
+        <IconButton
+          aria-label="Exportar PDF"
+          color="primary"
+          onClick={() => void exportCharts()}
+          disabled={loading || exporting || charts.length === 0}
+        >
+          {exporting ? <CircularProgress size={18} /> : <FileDownloadIcon />}
+        </IconButton>
+      </span>
+    </Tooltip>
   );
 
   return (
     <SupportShell
       title="Tablero"
       compactTitle
+      matchList
       headerActionGrow
       headerAction={
           <Box sx={{
@@ -331,6 +338,7 @@ export default function Dashboard() {
             gap: 1.5,
             width: '100%',
             minWidth: 0,
+            minHeight: 40,
             '& .MuiInputBase-root': { minHeight: 30 }
           }}>
             {staff && (
@@ -387,7 +395,7 @@ export default function Dashboard() {
           <Grid size={{ xs: 6, md: 3 }} key={stat.label}>
             <Card
               elevation={0}
-              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: '#fff', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)' }}
+              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: 'background.paper', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)' }}
             >
               <CardContent sx={{ py: 2, px: 2.5 }}>
                 <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
@@ -412,8 +420,8 @@ export default function Dashboard() {
         </Grid>
       )}
 
-      <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: '#fff', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)', overflow: 'hidden' }}>
-        <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid', borderColor: 'divider', bgcolor: '#fafbfc' }}>
+      <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: 'background.paper', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)', overflow: 'hidden' }}>
+        <Box sx={{ px: 2.5, py: 2, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
             Actividad reciente
           </Typography>

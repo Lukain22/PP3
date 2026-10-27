@@ -164,13 +164,13 @@ function OptionMenu({
           alignItems: 'center',
           gap: 0.75,
           border: '1px solid',
-          borderColor: error ? 'error.main' : open ? 'primary.main' : '#c5d0dc',
+          borderColor: error ? 'error.main' : open ? 'primary.main' : 'divider',
           boxShadow: open ? '0 0 0 3px rgba(25, 118, 210, 0.12)' : 'none',
           borderRadius: 1,
-          bgcolor: disabled ? '#f3f6f9' : '#fff',
+          bgcolor: disabled ? 'action.disabledBackground' : 'background.paper',
           cursor: disabled ? 'default' : 'pointer',
           transition: 'border-color 120ms ease, box-shadow 120ms ease',
-          '&:hover': disabled ? undefined : { borderColor: error ? 'error.main' : '#7f93a8' }
+          '&:hover': disabled ? undefined : { borderColor: error ? 'error.main' : 'text.secondary' }
         }}
       >
         <Typography
@@ -194,13 +194,13 @@ function OptionMenu({
               mt: 0.5,
               width: Math.max(anchor?.clientWidth || 0, 260),
               borderRadius: 1.5,
-              border: '1px solid #e1e8f0'
+              border: '1px solid', borderColor: 'divider'
             }
           }
         }}
       >
         {showSearch && (
-          <Box sx={{ p: 1, borderBottom: '1px solid #e8eef5' }}>
+          <Box sx={{ p: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
             <TextField
               autoFocus
               fullWidth
@@ -219,7 +219,7 @@ function OptionMenu({
           </Box>
         )}
         {multiple && options.length > 0 && (
-          <Stack direction="row" sx={{ px: 1, py: 0.5, borderBottom: '1px solid #e8eef5' }}>
+          <Stack direction="row" sx={{ px: 1, py: 0.5, borderBottom: '1px solid', borderColor: 'divider' }}>
             <Button
               size="small"
               disabled={allSelected}
@@ -322,10 +322,10 @@ function DateRangeField({
         anchorEl={anchor}
         onClose={() => setAnchor(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        slotProps={{ paper: { sx: { mt: 0.5, borderRadius: 1.5, border: '1px solid #e1e8f0' } } }}
+        slotProps={{ paper: { sx: { mt: 0.5, borderRadius: 1.5, border: '1px solid', borderColor: 'divider' } } }}
       >
         <Stack direction="row" sx={{ alignItems: 'stretch' }}>
-          <Stack spacing={0.25} sx={{ p: 1, width: 168, borderRight: '1px solid #e8eef5' }}>
+          <Stack spacing={0.25} sx={{ p: 1, width: 168, borderRight: '1px solid', borderColor: 'divider' }}>
             {presets.map((preset) => (
               <Button
                 key={preset.label}
@@ -388,11 +388,11 @@ function DateBound({
         display: 'flex',
         alignItems: 'center',
         border: '1px solid',
-        borderColor: active ? 'primary.main' : '#c5d0dc',
+        borderColor: active ? 'primary.main' : 'divider',
         borderRadius: 1,
-        bgcolor: '#fff',
+        bgcolor: 'background.paper',
         cursor: 'pointer',
-        '&:hover': { borderColor: '#7f93a8' }
+        '&:hover': { borderColor: 'text.secondary' }
       }}
     >
       <Typography noWrap sx={{ fontSize: 14, color: label === 'Desde' || label === 'Hasta' ? 'text.secondary' : 'text.primary' }}>
@@ -633,9 +633,9 @@ export default function ViewEditorDialog({
                   display: 'flex',
                   p: '3px',
                   gap: '3px',
-                  border: '1px solid #c5d0dc',
+                  border: '1px solid', borderColor: 'divider',
                   borderRadius: 1,
-                  bgcolor: '#f4f7fb'
+                  bgcolor: 'action.hover'
                 }}
               >
                 {visibilityOptions.map((option) => {
@@ -667,7 +667,7 @@ export default function ViewEditorDialog({
                         fontSize: 13.5,
                         fontWeight: selected ? 600 : 500,
                         color: selected ? 'primary.main' : 'text.secondary',
-                        bgcolor: selected ? '#fff' : 'transparent',
+                        bgcolor: selected ? 'background.paper' : 'transparent',
                         boxShadow: selected ? '0 1px 2px rgba(15, 23, 42, 0.08)' : 'none',
                         '&:hover': { color: selected ? 'primary.main' : 'text.primary' }
                       }}
@@ -736,8 +736,8 @@ export default function ViewEditorDialog({
                       px: 1,
                       py: 0.5,
                       borderRadius: 1.5,
-                      bgcolor: columnDragOver === index ? '#eef5fc' : '#f7f9fc',
-                      border: '1px solid #e6edf5'
+                      bgcolor: columnDragOver === index ? 'action.selected' : 'action.hover',
+                      border: '1px solid', borderColor: 'divider'
                     }}
                   >
                     <Tooltip title="Arrastrá para reordenar">
@@ -778,7 +778,7 @@ export default function ViewEditorDialog({
                 mt: 1.5,
                 px: 1.5,
                 minHeight: 40,
-                border: '1px dashed #b7c4d2',
+                border: '1px dashed', borderColor: 'divider',
                 borderRadius: 1.5,
                 textTransform: 'none',
                 fontWeight: 600,
@@ -803,7 +803,7 @@ export default function ViewEditorDialog({
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.25 }}>
             </Typography>
             {rows.length === 0 && (
-              <Box sx={{ px: 1.5, py: 1.75, mb: 1.25, borderRadius: 1.5, bgcolor: '#f7f9fc', border: '1px dashed #d5dee8' }}>
+              <Box sx={{ px: 1.5, py: 1.75, mb: 1.25, borderRadius: 1.5, bgcolor: 'action.hover', border: '1px dashed', borderColor: 'divider' }}>
                 <Typography variant="body2" color="text.secondary">
                   Todavía no hay filtros. La vista incluye todos los tickets que podés ver.
                 </Typography>
@@ -841,8 +841,8 @@ export default function ViewEditorDialog({
                       sx={{
                         p: 1,
                         borderRadius: 1.5,
-                        bgcolor: dragOver === index ? '#eef5fc' : '#f7f9fc',
-                        border: '1px solid #e6edf5'
+                        bgcolor: dragOver === index ? 'action.selected' : 'action.hover',
+                        border: '1px solid', borderColor: 'divider'
                       }}
                     >
                       <Tooltip title="Arrastrá para reordenar">
@@ -936,7 +936,7 @@ export default function ViewEditorDialog({
                 mt: 1.5,
                 px: 1.5,
                 minHeight: 40,
-                border: '1px dashed #b7c4d2',
+                border: '1px dashed', borderColor: 'divider',
                 borderRadius: 1.5,
                 textTransform: 'none',
                 fontWeight: 600,
@@ -982,10 +982,10 @@ export default function ViewEditorDialog({
 const outlinedFieldSx = {
   '& .MuiOutlinedInput-root': {
     height: 40,
-    bgcolor: '#fff',
+    bgcolor: 'background.paper',
     fontSize: 14,
-    '& fieldset': { borderColor: '#c5d0dc' },
-    '&:hover fieldset': { borderColor: '#7f93a8' },
+    '& fieldset': { borderColor: 'divider' },
+    '&:hover fieldset': { borderColor: 'text.secondary' },
     '&.Mui-focused fieldset': { borderWidth: 1, borderColor: 'primary.main' }
   },
   '& .MuiOutlinedInput-input': { px: 1.5, py: 0 }

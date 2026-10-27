@@ -103,7 +103,7 @@ export default function SearchableSelect({
             '& .MuiOutlinedInput-root': {
               height: 32,
               fontSize: '0.875rem',
-              bgcolor: '#fff'
+              bgcolor: 'background.paper'
             },
             '& .MuiOutlinedInput-input': { py: '0 !important' },
             ...(error ? {

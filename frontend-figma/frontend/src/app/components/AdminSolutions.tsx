@@ -42,7 +42,7 @@ const PAGE_SIZE = 15;
 
 const denseTableSx = {
   '& .MuiTableCell-root': { py: 0.5, px: 1, fontSize: '0.8125rem', lineHeight: 1.3 },
-  '& .MuiTableCell-head': { py: 0.625, fontSize: '0.75rem', fontWeight: 600, bgcolor: '#fafbfc', cursor: 'pointer', whiteSpace: 'nowrap' },
+  '& .MuiTableCell-head': { py: 0.625, fontSize: '0.75rem', fontWeight: 600, bgcolor: 'background.tableHeader', cursor: 'pointer', whiteSpace: 'nowrap' },
   '& .MuiChip-root': { height: 22, fontSize: '0.75rem' }
 };
 

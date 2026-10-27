@@ -71,8 +71,9 @@ interface ResolveTicketDialogProps {
 
 const cardSx = {
   p: 2,
-  bgcolor: '#fff',
-  border: '1px solid #E2E8F0',
+  bgcolor: 'background.paper',
+  border: '1px solid',
+  borderColor: 'divider',
   borderRadius: 2,
   boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)'
 };

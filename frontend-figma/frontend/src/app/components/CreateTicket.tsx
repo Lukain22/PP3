@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Box,
@@ -10,6 +10,11 @@ import {
   ToggleButtonGroup,
   Tooltip
 } from '@mui/material';
+import AssignmentLateOutlinedIcon from '@mui/icons-material/AssignmentLateOutlined';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import KeyboardDoubleArrowUpIcon from '@mui/icons-material/KeyboardDoubleArrowUp';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
 import TicketAttachments from './TicketAttachments';
@@ -22,11 +27,101 @@ import RichTextEditor, { type RichTextEditorHandle } from './richtext/RichTextEd
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
-const priorityOptions = [
-  { value: 'low', label: 'Baja', hint: 'Consulta general' },
-  { value: 'medium', label: 'Media', hint: 'Afecta tu trabajo' },
-  { value: 'high', label: 'Alta', hint: 'Bloqueo crítico' }
+interface ChoiceTone {
+  color: string;
+  background: string;
+  border: string;
+}
+
+interface ChoiceOption {
+  value: string;
+  label: string;
+  hint: string;
+  icon: ReactNode;
+  tone: ChoiceTone;
+}
+
+const priorityOptions: ChoiceOption[] = [
+  { value: 'low', label: 'Baja', hint: 'Consulta general', icon: <ArrowDownwardIcon />, tone: { color: '#0369A1', background: '#F0F9FF', border: '#BAE6FD' } },
+  { value: 'medium', label: 'Media', hint: 'Afecta tu trabajo', icon: <ArrowUpwardIcon />, tone: { color: '#A16207', background: '#FFFBEB', border: '#FDE68A' } },
+  { value: 'high', label: 'Alta', hint: 'Bloqueo crítico', icon: <KeyboardDoubleArrowUpIcon />, tone: { color: '#B91C1C', background: '#FEF2F2', border: '#FECACA' } }
 ];
+
+const typeOptions: ChoiceOption[] = TICKET_TYPE_OPTIONS.map((option) => (
+  option.value === 'incident'
+    ? { ...option, icon: <AssignmentLateOutlinedIcon />, tone: { color: '#B91C1C', background: '#FEF2F2', border: '#FECACA' } }
+    : { ...option, icon: <DescriptionOutlinedIcon />, tone: { color: '#1E3A8A', background: '#F8FAFC', border: '#DBEAFE' } }
+));
+
+function choiceButtonSx(tone: ChoiceTone) {
+  return {
+    height: 24,
+    minWidth: 0,
+    px: 1,
+    py: 0,
+    gap: 0.5,
+    textTransform: 'none',
+    fontWeight: 600,
+    fontSize: 12,
+    lineHeight: 1,
+    color: tone.color,
+    bgcolor: tone.background,
+    border: '1px solid',
+    borderColor: tone.border,
+    '& .MuiSvgIcon-root': { fontSize: 15, color: 'inherit' },
+    '&:hover': { bgcolor: tone.background, opacity: 0.85 },
+    '&.Mui-selected': {
+      color: tone.color,
+      bgcolor: tone.background,
+      borderColor: tone.color,
+      '&:hover': { bgcolor: tone.background }
+    }
+  };
+}
+
+function ChoiceGroup({
+  label,
+  value,
+  options,
+  onChange
+}: {
+  label: string;
+  value: string;
+  options: ChoiceOption[];
+  onChange: (next: string) => void;
+}) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+        {label}
+      </Typography>
+      <ToggleButtonGroup
+        exclusive
+        size="small"
+        value={value}
+        onChange={(_, next: string | null) => next && onChange(next)}
+        sx={{
+          gap: 0.75,
+          '& .MuiToggleButtonGroup-grouped': {
+            borderRadius: '999px !important',
+            '&:not(:first-of-type)': { marginLeft: 0, borderLeft: '1px solid' }
+          }
+        }}
+      >
+        {options.map((option) => (
+          <ToggleButton key={option.value} value={option.value} sx={choiceButtonSx(option.tone)}>
+            <Tooltip title={option.hint}>
+              <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                {option.icon}
+                {option.label}
+              </Box>
+            </Tooltip>
+          </ToggleButton>
+        ))}
+      </ToggleButtonGroup>
+    </Box>
+  );
+}
 
 export default function CreateTicket() {
   const navigate = useNavigate();
@@ -153,37 +248,8 @@ export default function CreateTicket() {
     }
   };
 
-  const choiceSx = {
-    px: 1.5,
-    py: 0.25,
-    textTransform: 'none',
-    fontSize: '0.8125rem',
-    fontWeight: 600,
-    lineHeight: 1.4
-  };
-
   return (
-    <SupportShell
-      compact
-      title="Nueva solicitud"
-      headerAction={
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Button size="small" onClick={() => navigate('/dashboard')} sx={{ height: 32 }}>
-            Cancelar
-          </Button>
-          <Button
-            type="submit"
-            form="create-ticket-form"
-            variant="contained"
-            size="small"
-            disabled={loading}
-            sx={{ height: 32 }}
-          >
-            {loading ? 'Enviando...' : 'Enviar solicitud'}
-          </Button>
-        </Box>
-      }
-    >
+    <SupportShell compact title="Nueva solicitud">
       <Box
         component="form"
         id="create-ticket-form"
@@ -211,43 +277,19 @@ export default function CreateTicket() {
           }}
         >
           <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.25, mb: 1.5, flexShrink: 0 }}>
-            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
-              Tipo
-            </Typography>
-            <ToggleButtonGroup
-              exclusive
-              size="small"
+            <ChoiceGroup
+              label="Tipo"
               value={formData.type}
-              onChange={(_, val) => val && setFormData({ ...formData, type: val, priority: val === 'incident' ? formData.priority : 'medium' })}
-            >
-              {TICKET_TYPE_OPTIONS.map((t) => (
-                <ToggleButton key={t.value} value={t.value} sx={choiceSx}>
-                  <Tooltip title={t.hint}>
-                    <span>{t.label}</span>
-                  </Tooltip>
-                </ToggleButton>
-              ))}
-            </ToggleButtonGroup>
+              options={typeOptions}
+              onChange={(type) => setFormData({ ...formData, type, priority: type === 'incident' ? formData.priority : 'medium' })}
+            />
             {admin && formData.type === 'incident' && (
-              <>
-                <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary', ml: { sm: 1 } }}>
-                  Prioridad
-                </Typography>
-                <ToggleButtonGroup
-                  exclusive
-                  size="small"
-                  value={formData.priority}
-                  onChange={(_, val) => val && setFormData({ ...formData, priority: val })}
-                >
-                  {priorityOptions.map((p) => (
-                    <ToggleButton key={p.value} value={p.value} sx={choiceSx}>
-                      <Tooltip title={p.hint}>
-                        <span>{p.label}</span>
-                      </Tooltip>
-                    </ToggleButton>
-                  ))}
-                </ToggleButtonGroup>
-              </>
+              <ChoiceGroup
+                label="Prioridad"
+                value={formData.priority}
+                options={priorityOptions}
+                onChange={(priority) => setFormData({ ...formData, priority })}
+              />
             )}
           </Box>
 
@@ -282,6 +324,23 @@ export default function CreateTicket() {
             />
           </Box>
         </Paper>
+        <Box
+          sx={{
+            flexShrink: 0,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: 1.5,
+            pt: 1.5
+          }}
+        >
+          <Button size="small" onClick={() => navigate('/dashboard')} sx={{ height: 32 }}>
+            Cancelar
+          </Button>
+          <Button type="submit" variant="contained" size="small" disabled={loading} sx={{ height: 32 }}>
+            {loading ? 'Enviando...' : 'Enviar solicitud'}
+          </Button>
+        </Box>
       </Box>
     </SupportShell>
   );

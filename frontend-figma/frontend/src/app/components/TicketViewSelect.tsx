@@ -334,12 +334,12 @@ export default function TicketViewSelect({
           aria-label="Vista"
           sx={inline ? {
             cursor: 'pointer',
-            bgcolor: '#fff',
+            bgcolor: 'background.paper',
             height: 30,
             borderRadius: 1.5,
             fontSize: '0.8125rem',
             '& .MuiOutlinedInput-input': { py: 0, px: 0.25 }
-          } : { cursor: 'pointer', bgcolor: '#fff' }}
+          } : { cursor: 'pointer', bgcolor: 'background.paper' }}
           startAdornment={
             <StarIcon sx={{ fontSize: inline ? 15 : 18, color: 'primary.main', mr: inline ? 0.5 : 1 }} />
           }
@@ -568,7 +568,7 @@ export default function TicketViewSelect({
               py: 0.5,
               borderTop: '1px solid',
               borderColor: 'divider',
-              bgcolor: '#f4f7fb'
+              bgcolor: 'action.hover'
             }}
           >
             <Button

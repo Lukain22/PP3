@@ -52,7 +52,7 @@ const denseTableSx = {
     py: 0.625,
     fontSize: '0.75rem',
     fontWeight: 600,
-    bgcolor: '#fafbfc'
+    bgcolor: 'background.tableHeader'
   },
   '& .MuiChip-root': {
     height: 22,
@@ -229,7 +229,7 @@ export default function AdminUsers() {
               py: 0.5,
               borderTop: '1px solid',
               borderColor: 'divider',
-              bgcolor: '#fafbfc'
+              bgcolor: 'action.hover'
             }}
           >
             <Typography variant="body2" color="text.secondary">
