@@ -30,7 +30,8 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
 import StatusBadge from './StatusBadge';
-import { getToken, clearAuth, getRole, getEmail, can } from '../../lib/auth';
+import { getToken, getRole, getEmail, can } from '../../lib/auth';
+import { apiFetch } from '../../lib/api';
 import { formatSlaDeadline, getPriorityLabel, getSlaStatusLabel, isIncident } from '../../lib/sla';
 import { columnsForList, ticketColumnMeta, type TicketColumnKey } from '../../lib/ticketColumns';
 import { TICKET_STATUS_OPTIONS, getTicketStatusLabel } from '../../lib/ticketStatus';
@@ -67,8 +68,6 @@ import {
   viewIdToItemKey
 } from '../../lib/ticketViews';
 import { downloadTableExport, type ExportFormat } from '../../lib/tableExport';
-
-const API_URL = import.meta.env.VITE_API_URL as string;
 
 function isTicketUnseen(seen: number | boolean | undefined) {
   return seen === 0 || seen === false;
@@ -314,18 +313,9 @@ export default function TicketsList() {
       return null;
     }
 
-    const response = await fetch(`${API_URL}${path}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        ...options.headers
-      }
-    });
+    const response = await apiFetch(path, options);
 
     if (response.status === 401) {
-      clearAuth();
-      navigate('/');
       return null;
     }
 

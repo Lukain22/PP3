@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import { toast } from 'sonner';
 import { can, getToken, isAdmin, isTechnician } from '../../lib/auth';
+import { apiFetch } from '../../lib/api';
 import { CATEGORIES, SUBCATEGORIES, type Category } from '../../lib/categories';
 import { appendPlainTextToHtml, appendRichHtml, isDescriptionEmpty, isRichHtml } from '../../lib/richText';
 import { isIncident } from '../../lib/sla';
@@ -23,8 +24,6 @@ import StatusBadge from './StatusBadge';
 import TicketAttachments from './TicketAttachments';
 import TicketSolutions from './TicketSolutions';
 import RichTextEditor, { type RichTextEditorHandle } from './richtext/RichTextEditor';
-
-const API_URL = import.meta.env.VITE_API_URL as string;
 
 export interface ResolveTicketSeed {
   id: number;
@@ -148,9 +147,7 @@ export default function ResolveTicketDialog({
     const token = getToken();
     if (!token) return;
     let cancelled = false;
-    fetch(`${API_URL}/tickets/transfer-groups`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    apiFetch('/tickets/transfer-groups')
       .then((response) => response.json().catch(() => []))
       .then((data) => {
         if (!cancelled && Array.isArray(data)) setGroups(data);
@@ -171,9 +168,7 @@ export default function ResolveTicketDialog({
     const token = getToken();
     if (!token) return;
     let cancelled = false;
-    fetch(`${API_URL}/tickets/assignees?group_id=${groupId}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    apiFetch(`/tickets/assignees?group_id=${groupId}`)
       .then((response) => response.json().catch(() => []))
       .then((data) => {
         if (!cancelled && Array.isArray(data)) setTechnicians(data);
@@ -278,18 +273,14 @@ export default function ResolveTicketDialog({
 
       const token = getToken();
       if (!token) return;
-      const headers = {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      };
       const ticketPath = admin ? `/admin/tickets/${ticket.id}` : `/tickets/${ticket.id}`;
 
       if (Object.keys(patch).length > 0) {
-        const response = await fetch(`${API_URL}${ticketPath}`, {
+        const response = await apiFetch(ticketPath, {
           method: 'PATCH',
-          headers,
           body: JSON.stringify(patch)
         });
+        if (response.status === 401) return;
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
           toast.error(data.message || 'No se pudo actualizar el ticket');
@@ -297,11 +288,11 @@ export default function ResolveTicketDialog({
         }
       }
 
-      const response = await fetch(`${API_URL}/tickets/${ticket.id}/resolution`, {
+      const response = await apiFetch(`/tickets/${ticket.id}/resolution`, {
         method: 'POST',
-        headers,
         body: JSON.stringify({ content: resolution })
       });
+      if (response.status === 401) return;
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         toast.error(data.message || 'No se pudo guardar la resolución');

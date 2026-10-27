@@ -6,9 +6,8 @@ import SearchIcon from '@mui/icons-material/Search';
 import InputAdornment from '@mui/material/InputAdornment';
 import { toast } from 'sonner';
 import { getToken } from '../../lib/auth';
+import { apiFetch } from '../../lib/api';
 import { solutionSummary, type SolutionSearchHit } from '../../lib/solutions';
-
-const API_URL = import.meta.env.VITE_API_URL as string;
 
 interface TicketSolutionsProps {
   ticketId: string;
@@ -28,9 +27,7 @@ export default function TicketSolutions({ ticketId, canApply, onApply }: TicketS
     const handle = window.setTimeout(async () => {
       setLoading(true);
       try {
-        const response = await fetch(`${API_URL}/solutions?q=${encodeURIComponent(query.trim())}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const response = await apiFetch(`/solutions?q=${encodeURIComponent(query.trim())}`);
         const data = await response.json().catch(() => []);
         setItems(response.ok && Array.isArray(data) ? data : []);
       } catch {
@@ -47,14 +44,11 @@ export default function TicketSolutions({ ticketId, canApply, onApply }: TicketS
     if (!token || !canApply) return;
     setApplyingId(item.id);
     try {
-      const response = await fetch(`${API_URL}/solutions/${item.id}/apply`, {
+      const response = await apiFetch(`/solutions/${item.id}/apply`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
         body: JSON.stringify({ ticket_id: Number(ticketId) })
       });
+      if (response.status === 401) return;
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         toast.error(data.message || 'No se pudo usar la solución');

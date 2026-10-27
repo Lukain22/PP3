@@ -19,13 +19,12 @@ import { toast } from 'sonner';
 import SupportShell from './SupportShell';
 import TicketAttachments from './TicketAttachments';
 import { isAdmin, getRole } from '../../lib/auth';
+import { apiFetch } from '../../lib/api';
 import { getTicketsPath } from '../../lib/ticketViews';
 import { TICKET_TYPE_OPTIONS } from '../../lib/ticketTypes';
 import { uploadTicketAttachments } from '../../lib/attachments';
 import { descriptionWithoutPending, isDescriptionEmpty } from '../../lib/richText';
 import RichTextEditor, { type RichTextEditorHandle } from './richtext/RichTextEditor';
-
-const API_URL = import.meta.env.VITE_API_URL as string;
 
 interface ChoiceTone {
   color: string;
@@ -196,12 +195,8 @@ export default function CreateTicket() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/tickets`, {
+      const response = await apiFetch('/tickets', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
         body: JSON.stringify(
           admin
             ? formData.type === 'incident'
@@ -221,13 +216,9 @@ export default function CreateTicket() {
         )
       });
 
-      const data = await response.json();
+      if (response.status === 401) return;
 
-      if (response.status === 401) {
-        localStorage.removeItem('token');
-        navigate('/');
-        return;
-      }
+      const data = await response.json();
 
       if (!response.ok) {
         toast.error(data.message || 'No se pudo crear el ticket');
@@ -250,14 +241,11 @@ export default function CreateTicket() {
           navigate(`/tickets/${data.id}`);
           return;
         }
-        const patch = await fetch(`${API_URL}/tickets/${data.id}`, {
+        const patch = await apiFetch(`/tickets/${data.id}`, {
           method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
           body: JSON.stringify({ description: flushed.html })
         });
+        if (patch.status === 401) return;
         if (!patch.ok) {
           toast.error('La solicitud se creó, pero no se pudo guardar la descripción con imágenes');
           navigate(`/tickets/${data.id}`);
