@@ -71,6 +71,123 @@ const initDatabase = () => {
   });
 };
 
+// 1826 = FK con ese nombre ya existe; 1061 = índice duplicado; 1022 = constraint duplicada
+const IGNORABLE_FK_ERRNOS = new Set([1826, 1061, 1022]);
+
+const FOREIGN_KEYS = [
+  {
+    name: 'fk_tickets_group_id',
+    table: 'tickets',
+    column: 'group_id',
+    refTable: 'groups',
+    refColumn: 'id',
+    onDelete: 'SET NULL',
+    orphanSql: `SELECT COUNT(*) AS orphans
+      FROM tickets t
+      LEFT JOIN \`groups\` g ON g.id = t.group_id
+      WHERE t.group_id IS NOT NULL AND g.id IS NULL`
+  },
+  {
+    name: 'fk_tickets_technician_id',
+    table: 'tickets',
+    column: 'technician_id',
+    refTable: 'users',
+    refColumn: 'id',
+    onDelete: 'SET NULL',
+    orphanSql: `SELECT COUNT(*) AS orphans
+      FROM tickets t
+      LEFT JOIN users u ON u.id = t.technician_id
+      WHERE t.technician_id IS NOT NULL AND u.id IS NULL`
+  },
+  {
+    name: 'fk_ticket_attachments_comment_id',
+    table: 'ticket_attachments',
+    column: 'comment_id',
+    refTable: 'ticket_comments',
+    refColumn: 'id',
+    onDelete: 'CASCADE',
+    orphanSql: `SELECT COUNT(*) AS orphans
+      FROM ticket_attachments a
+      LEFT JOIN ticket_comments c ON c.id = a.comment_id
+      WHERE a.comment_id IS NOT NULL AND c.id IS NULL`
+  },
+  {
+    name: 'fk_password_reset_tokens_user_id',
+    table: 'password_reset_tokens',
+    column: 'user_id',
+    refTable: 'users',
+    refColumn: 'id',
+    onDelete: 'CASCADE',
+    orphanSql: `SELECT COUNT(*) AS orphans
+      FROM password_reset_tokens p
+      LEFT JOIN users u ON u.id = p.user_id
+      WHERE u.id IS NULL`
+  }
+];
+
+const addForeignKeyIfClean = ({ name, table, column, refTable, refColumn, onDelete, orphanSql }) => {
+  db.query(
+    `SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND (
+         (TABLE_NAME = ? AND COLUMN_NAME = ?)
+         OR (TABLE_NAME = ? AND COLUMN_NAME = ?)
+       )`,
+    [table, column, refTable, refColumn],
+    (typeErr, typeRows) => {
+      if (typeErr) {
+        console.error(`Error leyendo tipos para ${name}:`, typeErr.code);
+        return;
+      }
+
+      const child = typeRows.find((row) => row.COLUMN_NAME === column && row.TABLE_NAME === table);
+      const parent = typeRows.find((row) => row.COLUMN_NAME === refColumn && row.TABLE_NAME === refTable);
+      if (!child || !parent) {
+        console.warn(`FK ${name} omitida: no está la columna ${table}.${column} o ${refTable}.${refColumn}`);
+        return;
+      }
+
+      const childType = String(child.COLUMN_TYPE).toLowerCase();
+      const parentType = String(parent.COLUMN_TYPE).toLowerCase();
+      if (childType !== parentType) {
+        console.warn(
+          `FK ${name} omitida: tipos distintos (${table}.${column} ${child.COLUMN_TYPE} vs ${refTable}.${refColumn} ${parent.COLUMN_TYPE})`
+        );
+        return;
+      }
+
+      db.query(orphanSql, (orphanErr, orphanRows) => {
+        if (orphanErr) {
+          console.error(`Error contando huérfanos para ${name}:`, orphanErr.code);
+          return;
+        }
+
+        const orphans = Number(orphanRows[0] && orphanRows[0].orphans) || 0;
+        if (orphans > 0) {
+          console.warn(
+            `FK ${name} omitida: ${orphans} fila(s) huérfana(s) en ${table}.${column}. No se modificó ninguna fila.`
+          );
+          return;
+        }
+
+        db.query(
+          `ALTER TABLE \`${table}\` ADD CONSTRAINT \`${name}\` FOREIGN KEY (\`${column}\`) REFERENCES \`${refTable}\`(\`${refColumn}\`) ON DELETE ${onDelete}`,
+          (alterErr) => {
+            if (alterErr && !IGNORABLE_FK_ERRNOS.has(alterErr.errno)) {
+              console.error(`Error creando FK ${name}:`, alterErr.code);
+            }
+          }
+        );
+      });
+    }
+  );
+};
+
+const runForeignKeyMigrations = () => {
+  FOREIGN_KEYS.forEach(addForeignKeyIfClean);
+};
+
 const runTicketMigrations = () => {
   // errno 1060 = columna ya existe, se ignora
   db.query('ALTER TABLE tickets ADD COLUMN category VARCHAR(100) DEFAULT NULL', (err) => {
@@ -114,6 +231,7 @@ const runTicketMigrations = () => {
     if (err && err.errno !== 1060) console.error('Error migrando priority nullable:', err.code);
     backfillSlaData();
   });
+  runForeignKeyMigrations();
 };
 
 const assignDefaultGroupsToTickets = () => {
