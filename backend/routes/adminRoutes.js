@@ -53,7 +53,19 @@ const {
 } = require('../controllers/solutionsController');
 const solutionUpload = require('../middleware/solutionUpload');
 
-router.use(authMiddleware, requirePermission('admin.access'));
+router.use(authMiddleware);
+
+// Las soluciones se autorizan con permisos kb.*, no con el panel de administración.
+router.use((req, res, next) => {
+  const path = req.path || '';
+  const isSolutionRoute =
+    path === '/solutions' ||
+    path.startsWith('/solutions/') ||
+    path === '/admin/solutions' ||
+    path.startsWith('/admin/solutions/');
+  if (isSolutionRoute) return next();
+  return requirePermission('admin.access')(req, res, next);
+});
 
 router.get('/tickets', requirePermission('tickets.view'), getAllTickets);
 router.get('/tickets/:id/history', requirePermission('tickets.view'), getAnyTicketHistory);

@@ -174,7 +174,7 @@ exports.forgotPassword = async (req, res) => {
 
     await sendMail({
       to: user.email,
-      subject: 'Restablecer contraseña — Sistema de Soporte Técnico',
+      subject: 'Restablecer contraseña — TicketcITo',
       text,
       html
     });

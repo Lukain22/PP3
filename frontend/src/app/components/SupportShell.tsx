@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import NotificationBell from './NotificationBell';
 import UserProfileMenu from './UserProfileMenu';
@@ -63,6 +64,8 @@ export default function SupportShell({
   const homeActive = pathname === '/dashboard';
   const ticketsActive = pathname.startsWith('/tickets');
   const activeMark = theme.palette.mode === 'dark' ? '#fff' : theme.palette.text.primary;
+  const logoSrc =
+    theme.palette.mode === 'dark' ? '/logo-ticketcito-dark.png' : '/logo-ticketcito-light.png';
 
   const navItemSx = (active: boolean) => ({
     flexShrink: 0,
@@ -100,18 +103,17 @@ export default function SupportShell({
         <Toolbar sx={{ gap: 1.5, minHeight: { xs: 56, sm: 64 } }}>
           <Box
             component="img"
-            alt="Logo"
-            src="/logo-itb.png?v=2"
-            sx={{ height: 34, width: 34, objectFit: 'contain', cursor: 'pointer', flexShrink: 0 }}
+            alt="TicketcITo"
+            src={logoSrc}
+            sx={{
+              height: { xs: 30, sm: 38 },
+              width: 'auto',
+              objectFit: 'contain',
+              cursor: 'pointer',
+              flexShrink: 0
+            }}
             onClick={() => navigate(isAdmin() ? '/dashboard' : getHomePath())}
           />
-
-          <Typography
-            variant="subtitle1"
-            sx={{ fontWeight: 600, lineHeight: 1.2, flexShrink: 0, display: { xs: 'none', sm: 'block' } }}
-          >
-            {t('nav.brand')}
-          </Typography>
 
           <Button
             size="small"
@@ -145,6 +147,20 @@ export default function SupportShell({
               </IconButton>
             </Tooltip>
           )}
+
+          {!can('admin.access') &&
+            ['kb.create', 'kb.edit', 'kb.delete', 'kb.publish', 'kb.approve'].some((code) => can(code)) && (
+              <Tooltip title={t('nav.solutions')}>
+                <IconButton
+                  onClick={() => navigate('/admin/solutions')}
+                  size="small"
+                  color="primary"
+                  sx={{ flexShrink: 0 }}
+                >
+                  <MenuBookIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
 
           <NotificationBell />
 

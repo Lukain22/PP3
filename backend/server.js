@@ -40,6 +40,9 @@ initDatabase();
 // Arranque del servidor
 const PORT = process.env.PORT || 3000;
 
+const { startDueNotifications } = require('./utils/notifications');
+
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
+  startDueNotifications();
 });

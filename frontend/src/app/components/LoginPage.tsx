@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { TextField, Button, Card, CardContent, Typography, Box, Container, Tabs, Tab } from '@mui/material';
+import { TextField, Button, Card, CardContent, Box, Container, Tabs, Tab } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { toast } from 'sonner';
 import { setAuth, getHomePath, refreshAccess, type UserRole } from '../../lib/auth';
 import { apiFetch } from '../../lib/api';
@@ -8,7 +9,10 @@ import { usePreferences } from '../PreferencesProvider';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const theme = useTheme();
   const { t } = usePreferences();
+  const logoSrc =
+    theme.palette.mode === 'dark' ? '/logo-ticketcito-login-dark.png' : '/logo-ticketcito-login-light.png';
   const [tab, setTab] = useState(0);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -96,16 +100,10 @@ export default function LoginPage() {
         <CardContent sx={{ p: 4 }}>
           <Box
             component="img"
-            alt="Logo"
-            src="/logo-itb.png"
-            sx={{ height: 64, width: 64, display: 'block', mx: 'auto', mb: 1.25 }}
+            alt="TicketcITo"
+            src={logoSrc}
+            sx={{ width: 220, height: 'auto', display: 'block', mx: 'auto', mb: 2 }}
           />
-          <Typography variant="h5" component="h1" align="center" sx={{ mb: 0.5, fontWeight: 500 }}>
-            {t('login.title')}
-          </Typography>
-          <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 2 }}>
-            {t('login.subtitle')}
-          </Typography>
 
           <Tabs
             value={tab}

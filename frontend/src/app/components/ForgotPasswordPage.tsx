@@ -1,11 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { TextField, Button, Card, CardContent, Typography, Box, Container } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { toast } from 'sonner';
 import { apiFetch } from '../../lib/api';
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const logoSrc =
+    theme.palette.mode === 'dark' ? '/logo-ticketcito-login-dark.png' : '/logo-ticketcito-login-light.png';
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -47,9 +51,9 @@ export default function ForgotPasswordPage() {
         <CardContent sx={{ p: 4 }}>
           <Box
             component="img"
-            alt="Logo"
-            src="/logo-itb.png"
-            sx={{ height: 64, width: 64, display: 'block', mx: 'auto', mb: 1.25 }}
+            alt="TicketcITo"
+            src={logoSrc}
+            sx={{ width: 220, height: 'auto', display: 'block', mx: 'auto', mb: 2 }}
           />
           <Typography variant="h5" component="h1" align="center" sx={{ mb: 0.5, fontWeight: 500 }}>
             Recuperar contraseña

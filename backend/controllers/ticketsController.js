@@ -19,6 +19,7 @@ const {
   VALID_SUBCATEGORIES
 } = require('../utils/ticketFilters');
 const {
+  notifyTicketCreated,
   notifyTicketCreatorOnChanges,
   notifyTicketCreatorOnResolution,
   notifyOnComment
@@ -286,6 +287,17 @@ const runCreateTicket = (req, res) => {
           }
 
           const ticketId = result.insertId;
+          notifyTicketCreated(
+            {
+              id: ticketId,
+              title,
+              user_id: req.user.id,
+              group_id: defaultGroupId,
+              technician_id: null,
+              type: ticketType
+            },
+            req.user.id
+          );
           const createdLog = {
             type: ticketType,
             status: ticketStatus,

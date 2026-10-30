@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 27-10-2026 a las 22:57:50
+-- Tiempo de generación: 28-10-2026 a las 02:09:57
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.0.30
 
@@ -352,7 +352,8 @@ INSERT INTO `role_permissions` (`role_id`, `permission_id`, `valid_from`, `valid
 (15, 20, NULL, NULL),
 (15, 27, NULL, NULL),
 (15, 28, NULL, NULL),
-(199, 1, NULL, NULL);
+(199, 1, NULL, NULL),
+(199, 25, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -379,7 +380,7 @@ INSERT INTO `role_permission_scopes` (`id`, `role_id`, `permission_id`, `scope_t
 (2, 2, 10, 'group', 'all', 0, '2026-10-08 04:48:15'),
 (4, 3, 10, 'group', 'all', 0, '2026-10-08 15:54:25'),
 (9, 15, 10, 'group', 'all', 0, '2026-10-08 17:37:07'),
-(11, 199, 1, 'group', 'all', 0, '2026-10-26 20:37:04');
+(12, 199, 1, 'group', 'all', 0, '2026-10-28 00:04:52');
 
 -- --------------------------------------------------------
 
@@ -578,13 +579,17 @@ INSERT INTO `tickets` (`id`, `title`, `description`, `status`, `priority`, `crea
 (45, 'Formateo notebook', '<p>Formateo notebook</p>', 'on-hold', NULL, '2026-10-22 04:05:27', 16, '2026-10-26 03:35:23', 'Hardware', 'Computadora / Notebook', 'requirement', NULL, NULL, NULL, NULL, 2, NULL),
 (46, 'Aumento almacenamiento de VM', '<p style=\"text-align:left\">Aumento almacenamiento de VMAumento almacenamiento de VM</p>', 'open', NULL, '2026-10-22 04:06:04', 16, '2026-10-23 21:24:51', NULL, NULL, 'requirement', NULL, NULL, NULL, NULL, 1, 21),
 (48, 'Agregar disco SSD a notebook', '<p>Agregar disco SSD a notebook</p>', 'resolved', NULL, '2026-10-23 18:12:51', 5, '2026-10-23 20:51:04', 'Hardware', 'Computadora / Notebook', 'requirement', NULL, NULL, NULL, NULL, 1, 9),
-(49, 'Grant en MariaDB', '<p>Grant en MariaDB</p>', 'open', NULL, '2026-10-26 03:54:35', 5, '2026-10-26 03:54:35', NULL, NULL, 'requirement', NULL, NULL, NULL, NULL, 1, NULL),
+(49, 'Grant en MariaDB', '<p>Grant en MariaDB</p>', 'resolved', NULL, '2026-10-26 03:54:35', 5, '2026-10-28 00:27:25', 'Red / Conectividad', 'Red local', 'requirement', NULL, NULL, NULL, NULL, 1, 13),
 (50, 'No me abre el correo', '<p>No me abre el correo</p>', 'on-hold', 'medium', '2026-10-26 03:55:00', 12, '2026-10-27 01:10:11', NULL, NULL, 'incident', 'paused', '2026-10-26 13:55:00', '2026-10-27 09:55:00', '2026-10-27 04:10:11', 1, NULL),
 (51, '123', '<p>132</p>', 'open', 'medium', '2026-10-26 05:58:16', 5, '2026-10-26 05:58:16', NULL, NULL, 'incident', 'on_track', '2026-10-26 12:58:16', '2026-10-27 08:58:16', NULL, 1, NULL),
 (52, 'Todo el edificio sin internet', '<p>Todo el edificiio sin interntet</p>', 'on-hold', 'high', '2026-10-26 18:52:32', 5, '2026-10-27 01:10:01', NULL, NULL, 'incident', 'paused', '2026-10-27 02:52:32', '2026-10-27 08:52:32', '2026-10-27 04:10:01', 1, NULL),
 (53, 'Deploy PRD', '<p>Deploy PRD</p>', 'open', NULL, '2026-10-27 04:10:16', 12, '2026-10-27 04:10:16', NULL, NULL, 'requirement', NULL, NULL, NULL, NULL, 1, NULL),
 (54, 'Heavy Duty', '<p>Heavy Duty</p>', 'open', NULL, '2026-10-27 19:52:23', 29, '2026-10-27 19:52:23', NULL, NULL, 'requirement', NULL, NULL, NULL, NULL, 1, NULL),
-(55, 'Cambio de bateria notebook', '<p>Cambio de bateria notebook</p>', 'open', 'medium', '2026-10-27 20:11:41', 5, '2026-10-27 20:11:41', NULL, NULL, 'incident', 'on_track', '2026-10-28 03:11:41', '2026-10-28 23:11:41', NULL, 1, NULL);
+(55, 'Cambio de bateria notebook', '<p>Cambio de bateria notebook</p>', 'open', 'medium', '2026-10-27 20:11:41', 5, '2026-10-27 20:11:41', NULL, NULL, 'incident', 'on_track', '2026-10-28 03:11:41', '2026-10-28 23:11:41', NULL, 1, NULL),
+(57, '444', '<p>44444444444444444444</p>', 'open', 'medium', '2026-10-27 22:32:22', 12, '2026-10-27 22:32:22', NULL, NULL, 'incident', 'on_track', '2026-10-28 05:32:22', '2026-10-29 01:32:22', NULL, 1, NULL),
+(58, 'Error VPN Forticlient', '<p>Error VPN Forticlient</p>', 'open', 'medium', '2026-10-27 23:03:39', 5, '2026-10-27 23:03:39', NULL, NULL, 'incident', 'on_track', '2026-10-28 06:03:39', '2026-10-29 02:03:39', NULL, 1, NULL),
+(59, 'eeqweasedsa', '<p>easeaseas</p>', 'open', 'medium', '2026-10-27 23:20:07', 5, '2026-10-27 23:20:07', NULL, NULL, 'incident', 'on_track', '2026-10-28 06:20:07', '2026-10-29 02:20:07', NULL, 1, NULL),
+(60, 'fa', '<p>fdsa</p>', 'open', 'medium', '2026-10-27 23:20:21', 12, '2026-10-27 23:20:21', NULL, NULL, 'incident', 'on_track', '2026-10-28 06:20:21', '2026-10-29 02:20:21', NULL, 1, NULL);
 
 -- --------------------------------------------------------
 
@@ -665,7 +670,8 @@ INSERT INTO `ticket_comments` (`id`, `ticket_id`, `user_id`, `content`, `created
 (37, 38, 5, '<p>Pruba nota</p><img data-attachment-id=\"9\" />', '2026-10-15 20:37:59'),
 (38, 36, 5, '<p>comentario1 </p>', '2026-10-22 03:38:00'),
 (39, 36, 5, '<p>comnetario 2</p><p></p>', '2026-10-22 03:38:06'),
-(40, 42, 5, '<p>Detenido por inundación </p>', '2026-10-23 19:33:45');
+(40, 42, 5, '<p>Detenido por inundación </p>', '2026-10-23 19:33:45'),
+(41, 57, 12, '<p>fsdrsdfsdafsdafafsdfa</p>', '2026-10-27 22:32:34');
 
 -- --------------------------------------------------------
 
@@ -1275,7 +1281,28 @@ INSERT INTO `ticket_history` (`id`, `ticket_id`, `user_id`, `action`, `field_nam
 (671, 55, 5, 'created', 'type', NULL, 'incident', '2026-10-27 20:11:41'),
 (672, 55, 5, 'created', 'status', NULL, 'open', '2026-10-27 20:11:41'),
 (673, 55, 5, 'created', 'priority', NULL, 'medium', '2026-10-27 20:11:41'),
-(674, 55, 5, 'created', 'title', NULL, 'Cambio de bateria notebook', '2026-10-27 20:11:41');
+(674, 55, 5, 'created', 'title', NULL, 'Cambio de bateria notebook', '2026-10-27 20:11:41'),
+(679, 57, 12, 'created', 'type', NULL, 'incident', '2026-10-27 22:32:22'),
+(680, 57, 12, 'created', 'status', NULL, 'open', '2026-10-27 22:32:22'),
+(681, 57, 12, 'created', 'priority', NULL, 'medium', '2026-10-27 22:32:22'),
+(682, 57, 12, 'created', 'title', NULL, '444', '2026-10-27 22:32:22'),
+(683, 58, 5, 'created', 'type', NULL, 'incident', '2026-10-27 23:03:39'),
+(684, 58, 5, 'created', 'priority', NULL, 'medium', '2026-10-27 23:03:39'),
+(685, 58, 5, 'created', 'status', NULL, 'open', '2026-10-27 23:03:39'),
+(686, 58, 5, 'created', 'title', NULL, 'Error VPN Forticlient', '2026-10-27 23:03:39'),
+(687, 59, 5, 'created', 'type', NULL, 'incident', '2026-10-27 23:20:07'),
+(688, 59, 5, 'created', 'status', NULL, 'open', '2026-10-27 23:20:07'),
+(689, 59, 5, 'created', 'priority', NULL, 'medium', '2026-10-27 23:20:07'),
+(690, 59, 5, 'created', 'title', NULL, 'eeqweasedsa', '2026-10-27 23:20:07'),
+(691, 60, 12, 'created', 'type', NULL, 'incident', '2026-10-27 23:20:21'),
+(692, 60, 12, 'created', 'status', NULL, 'open', '2026-10-27 23:20:21'),
+(693, 60, 12, 'created', 'title', NULL, 'fa', '2026-10-27 23:20:21'),
+(694, 60, 12, 'created', 'priority', NULL, 'medium', '2026-10-27 23:20:21'),
+(695, 49, 5, 'updated', 'category', NULL, 'Red / Conectividad', '2026-10-28 00:27:25'),
+(696, 49, 5, 'updated', 'technician_id', NULL, '13', '2026-10-28 00:27:25'),
+(697, 49, 5, 'updated', 'subcategory', NULL, 'Red local', '2026-10-28 00:27:25'),
+(698, 49, 5, 'updated', 'status', 'open', 'resolved', '2026-10-28 00:27:25'),
+(699, 49, 5, 'updated', 'resolution', NULL, '<p>dasddsa</p>', '2026-10-28 00:27:25');
 
 -- --------------------------------------------------------
 
@@ -1476,6 +1503,9 @@ INSERT INTO `ticket_reads` (`user_id`, `ticket_id`, `read_at`) VALUES
 (5, 53, '2026-10-27 16:41:31'),
 (5, 54, '2026-10-27 21:55:27'),
 (5, 55, '2026-10-27 20:11:41'),
+(5, 57, '2026-10-27 22:51:35'),
+(5, 58, '2026-10-27 23:03:39'),
+(5, 59, '2026-10-27 23:20:07'),
 (7, 6, '2026-10-26 03:50:53'),
 (7, 7, '2026-10-26 03:50:53'),
 (7, 8, '2026-10-26 03:50:53'),
@@ -1688,6 +1718,8 @@ INSERT INTO `ticket_reads` (`user_id`, `ticket_id`, `read_at`) VALUES
 (12, 48, '2026-10-26 03:50:53'),
 (12, 50, '2026-10-26 03:55:00'),
 (12, 53, '2026-10-27 04:10:16'),
+(12, 57, '2026-10-27 22:32:22'),
+(12, 60, '2026-10-27 23:20:21'),
 (13, 6, '2026-10-26 03:50:53'),
 (13, 7, '2026-10-26 03:50:53'),
 (13, 8, '2026-10-26 03:50:53'),
@@ -1936,6 +1968,7 @@ INSERT INTO `ticket_reads` (`user_id`, `ticket_id`, `read_at`) VALUES
 (24, 46, '2026-10-26 03:50:53'),
 (24, 48, '2026-10-26 03:50:53'),
 (24, 52, '2026-10-27 01:00:57'),
+(24, 54, '2026-10-27 23:40:37'),
 (27, 6, '2026-10-26 06:06:40'),
 (27, 7, '2026-10-26 06:06:40'),
 (27, 8, '2026-10-26 06:06:40'),
@@ -2053,7 +2086,53 @@ INSERT INTO `ticket_reads` (`user_id`, `ticket_id`, `read_at`) VALUES
 (29, 51, '2026-10-27 19:48:26'),
 (29, 52, '2026-10-27 19:48:26'),
 (29, 53, '2026-10-27 19:48:26'),
-(29, 54, '2026-10-27 19:52:23');
+(29, 54, '2026-10-27 19:52:23'),
+(30, 6, '2026-10-27 23:32:16'),
+(30, 7, '2026-10-27 23:32:16'),
+(30, 8, '2026-10-27 23:32:16'),
+(30, 10, '2026-10-27 23:32:16'),
+(30, 11, '2026-10-27 23:32:16'),
+(30, 12, '2026-10-27 23:32:16'),
+(30, 13, '2026-10-27 23:32:16'),
+(30, 15, '2026-10-27 23:32:16'),
+(30, 16, '2026-10-27 23:32:16'),
+(30, 17, '2026-10-27 23:32:16'),
+(30, 19, '2026-10-27 23:32:16'),
+(30, 21, '2026-10-27 23:32:16'),
+(30, 23, '2026-10-27 23:32:16'),
+(30, 24, '2026-10-27 23:32:16'),
+(30, 25, '2026-10-27 23:32:16'),
+(30, 26, '2026-10-27 23:32:16'),
+(30, 28, '2026-10-27 23:32:16'),
+(30, 29, '2026-10-27 23:32:16'),
+(30, 30, '2026-10-27 23:32:16'),
+(30, 31, '2026-10-27 23:32:16'),
+(30, 33, '2026-10-27 23:32:16'),
+(30, 34, '2026-10-27 23:32:16'),
+(30, 35, '2026-10-27 23:32:16'),
+(30, 36, '2026-10-27 23:32:16'),
+(30, 37, '2026-10-27 23:32:16'),
+(30, 38, '2026-10-27 23:32:16'),
+(30, 39, '2026-10-27 23:32:16'),
+(30, 40, '2026-10-27 23:32:16'),
+(30, 41, '2026-10-27 23:32:16'),
+(30, 42, '2026-10-27 23:32:16'),
+(30, 43, '2026-10-27 23:32:16'),
+(30, 44, '2026-10-27 23:32:16'),
+(30, 45, '2026-10-27 23:32:16'),
+(30, 46, '2026-10-27 23:32:16'),
+(30, 48, '2026-10-27 23:32:16'),
+(30, 49, '2026-10-27 23:32:16'),
+(30, 50, '2026-10-27 23:32:16'),
+(30, 51, '2026-10-27 23:32:16'),
+(30, 52, '2026-10-27 23:32:16'),
+(30, 53, '2026-10-27 23:32:16'),
+(30, 54, '2026-10-27 23:32:16'),
+(30, 55, '2026-10-27 23:32:16'),
+(30, 57, '2026-10-27 23:32:16'),
+(30, 58, '2026-10-27 23:32:16'),
+(30, 59, '2026-10-27 23:32:16'),
+(30, 60, '2026-10-27 23:32:16');
 
 -- --------------------------------------------------------
 
@@ -2083,7 +2162,8 @@ INSERT INTO `ticket_resolutions` (`id`, `ticket_id`, `content`, `resolved_by`, `
 (9, 26, 'se resolvio, cambie el coso', 13, '2026-07-20 02:57:29', '2026-07-20 02:57:29'),
 (11, 28, 'resueklto', 13, '2026-10-07 00:26:04', '2026-10-07 00:26:04'),
 (17, 37, '<p>Prueba imagen</p><img data-attachment-id=\"12\" />', 5, '2026-10-15 21:44:45', '2026-10-15 21:44:45'),
-(19, 48, '<p>resuelto</p>', 5, '2026-10-23 20:51:04', '2026-10-23 20:51:04');
+(19, 48, '<p>resuelto</p>', 5, '2026-10-23 20:51:04', '2026-10-23 20:51:04'),
+(22, 49, '<p>dasddsa</p>', 5, '2026-10-28 00:27:25', '2026-10-28 00:27:25');
 
 -- --------------------------------------------------------
 
@@ -2120,7 +2200,8 @@ INSERT INTO `ticket_views` (`id`, `user_id`, `name`, `scope`, `visibility`, `sha
 (9, 5, 'Todos los Resueltos', 'tickets', 'personal', NULL, '{\"filter_group_ids\":[1,6,5,3,7,4,2],\"status\":[\"resolved\"],\"filter_order\":[\"group\",\"status\"]}', 'date-desc', '2026-10-26 05:23:20', '2026-10-26 05:23:20', 0, 0, NULL),
 (12, 5, 'DG Beltrán', 'tickets', 'group', 5, '{\"filter_group_id\":5,\"group_id\":5,\"filter_group_ids\":[5],\"status\":[\"on-hold\",\"in-progress\",\"open\"],\"filter_order\":[\"status\",\"group\"]}', 'date-desc', '2026-10-26 06:06:06', '2026-10-26 06:06:06', 0, 0, NULL),
 (13, 5, 'Incidentes Criticos', 'tickets', 'personal', NULL, '{\"priority\":\"high\",\"priorities\":[\"high\"],\"filter_group_ids\":[1,6,5,3,7,4,2],\"status\":[\"on-hold\",\"in-progress\",\"open\"],\"filter_order\":[\"status\",\"group\",\"priority\"],\"columns\":[\"id\",\"title\",\"created\",\"due\",\"sla_status\",\"assignee\",\"group\",\"status\"]}', 'date-desc', '2026-10-26 06:16:07', '2026-10-26 18:47:18', 0, 0, NULL),
-(17, 13, 'Seguinf resueltos', 'tickets', 'personal', NULL, '{\"filter_group_id\":7,\"group_id\":7,\"filter_group_ids\":[7],\"status\":[\"resolved\"],\"filter_order\":[\"status\",\"group\"],\"columns\":[\"id\",\"title\",\"category\",\"group\",\"status\",\"created\"]}', 'date-desc', '2026-10-26 19:04:49', '2026-10-26 19:04:49', 0, 0, NULL);
+(17, 13, 'Seguinf resueltos', 'tickets', 'personal', NULL, '{\"filter_group_id\":7,\"group_id\":7,\"filter_group_ids\":[7],\"status\":[\"resolved\"],\"filter_order\":[\"status\",\"group\"],\"columns\":[\"id\",\"title\",\"category\",\"group\",\"status\",\"created\"]}', 'date-desc', '2026-10-26 19:04:49', '2026-10-26 19:04:49', 0, 0, NULL),
+(19, 5, 'SegurINF', 'tickets', 'group', 7, '{\"filter_group_id\":7,\"group_id\":7,\"filter_group_ids\":[7],\"status\":[\"on-hold\",\"in-progress\",\"open\"],\"filter_order\":[\"status\",\"group\"],\"columns\":[\"id\",\"title\",\"user\",\"group\",\"assignee\",\"status\",\"category\",\"subcategory\",\"created\"]}', 'date-desc', '2026-10-27 22:17:05', '2026-10-27 22:17:05', 0, 0, NULL);
 
 -- --------------------------------------------------------
 
@@ -2140,7 +2221,8 @@ CREATE TABLE `ticket_view_groups` (
 INSERT INTO `ticket_view_groups` (`view_id`, `group_id`) VALUES
 (5, 1),
 (6, 3),
-(12, 5);
+(12, 5),
+(19, 7);
 
 -- --------------------------------------------------------
 
@@ -2183,7 +2265,8 @@ INSERT INTO `users` (`id`, `email`, `password_hash`, `created_at`, `role`, `ui_t
 (24, 'vista@g.com', '$2b$10$EEzGjuD5sqcoOQPmnavsWOgaB4aIWleV3ePVZ4ovVYDpxHjVSk5S2', '2026-10-09 03:23:41', 'user', 'dark', 'es'),
 (27, 'pao@g.com', '$2b$10$37ynm.3wa38i5on1BDWyTODCclyk6n5bcXuEKDBOK4.bMcD7aNC2C', '2026-10-26 06:06:40', 'technician', 'light', 'es'),
 (28, 'paolacastillofotografia@gmail.com', '$2b$10$Ni0KoDHshnOlutbS2z8Dn.8sZxyOlXPRzDmgTdbBNHBzcnI3vqQoa', '2026-10-26 19:08:20', 'user', 'light', 'es'),
-(29, 'judaspriest@g.com', '$2b$10$nBq8u8iq/2oIKUyOzQn6BODreYLNK6Dm1I7t5mXMFR4yzN1RtMPRa', '2026-10-27 19:48:26', 'user', 'dark', 'es');
+(29, 'judaspriest@g.com', '$2b$10$nBq8u8iq/2oIKUyOzQn6BODreYLNK6Dm1I7t5mXMFR4yzN1RtMPRa', '2026-10-27 19:48:26', 'user', 'dark', 'es'),
+(30, 'eze@g.com', '$2b$10$FpbNGJV4wRUA5PapOXe3Xe5cdVlelPfXlC8cBM5y9xWdVvADcrH2O', '2026-10-27 23:32:16', 'user', 'light', 'es');
 
 -- --------------------------------------------------------
 
@@ -2271,10 +2354,11 @@ INSERT INTO `user_roles` (`user_id`, `role_id`, `assigned_by`, `assigned_at`, `v
 (21, 3, 5, '2026-10-27 04:05:44', NULL, NULL),
 (21, 15, 5, '2026-10-27 04:05:44', NULL, NULL),
 (23, 3, NULL, '2026-10-09 03:10:41', NULL, NULL),
-(24, 199, 5, '2026-10-26 20:40:21', NULL, NULL),
+(24, 199, 5, '2026-10-28 00:03:54', NULL, NULL),
 (27, 3, NULL, '2026-10-26 06:07:01', NULL, NULL),
 (28, 4, NULL, '2026-10-26 19:08:20', NULL, NULL),
-(29, 4, NULL, '2026-10-27 19:48:26', NULL, NULL);
+(29, 4, NULL, '2026-10-27 19:48:26', NULL, NULL),
+(30, 4, NULL, '2026-10-27 23:32:16', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -2329,6 +2413,14 @@ INSERT INTO `user_view_layout` (`user_id`, `item_key`, `sort_order`) VALUES
 (23, 'system:all_my_requests', 2),
 (23, 'system:pending_my_requests', 3),
 (23, 'view:6', 0),
+(24, 'system:all_my_requests', 2),
+(24, 'system:pending_my_requests', 4),
+(24, 'system:resolved_my_requests', 3),
+(24, 'system:watched_requests', 1),
+(24, 'view:12', 5),
+(24, 'view:19', 0),
+(24, 'view:5', 6),
+(24, 'view:6', 7),
 (27, 'system:all_my_groups', 1),
 (27, 'system:all_my_requests', 2),
 (27, 'system:pending_my_requests', 3),
@@ -2440,7 +2532,9 @@ ALTER TABLE `solution_uses`
 --
 ALTER TABLE `tickets`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `user_id` (`user_id`);
+  ADD KEY `user_id` (`user_id`),
+  ADD KEY `fk_tickets_technician_id` (`technician_id`),
+  ADD KEY `fk_tickets_group_id` (`group_id`);
 
 --
 -- Indices de la tabla `ticket_attachments`
@@ -2448,7 +2542,8 @@ ALTER TABLE `tickets`
 ALTER TABLE `ticket_attachments`
   ADD PRIMARY KEY (`id`),
   ADD KEY `ticket_id` (`ticket_id`),
-  ADD KEY `user_id` (`user_id`);
+  ADD KEY `user_id` (`user_id`),
+  ADD KEY `fk_ticket_attachments_comment_id` (`comment_id`);
 
 --
 -- Indices de la tabla `ticket_comments`
@@ -2550,19 +2645,19 @@ ALTER TABLE `password_reset_tokens`
 -- AUTO_INCREMENT de la tabla `permissions`
 --
 ALTER TABLE `permissions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1567;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1857;
 
 --
 -- AUTO_INCREMENT de la tabla `roles`
 --
 ALTER TABLE `roles`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=230;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=280;
 
 --
 -- AUTO_INCREMENT de la tabla `role_permission_scopes`
 --
 ALTER TABLE `role_permission_scopes`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
 
 --
 -- AUTO_INCREMENT de la tabla `sla_policies`
@@ -2592,7 +2687,7 @@ ALTER TABLE `solution_uses`
 -- AUTO_INCREMENT de la tabla `tickets`
 --
 ALTER TABLE `tickets`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=57;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=61;
 
 --
 -- AUTO_INCREMENT de la tabla `ticket_attachments`
@@ -2604,31 +2699,31 @@ ALTER TABLE `ticket_attachments`
 -- AUTO_INCREMENT de la tabla `ticket_comments`
 --
 ALTER TABLE `ticket_comments`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=41;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=42;
 
 --
 -- AUTO_INCREMENT de la tabla `ticket_history`
 --
 ALTER TABLE `ticket_history`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=679;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=700;
 
 --
 -- AUTO_INCREMENT de la tabla `ticket_resolutions`
 --
 ALTER TABLE `ticket_resolutions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=23;
 
 --
 -- AUTO_INCREMENT de la tabla `ticket_views`
 --
 ALTER TABLE `ticket_views`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=20;
 
 --
 -- AUTO_INCREMENT de la tabla `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=30;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
 
 --
 -- Restricciones para tablas volcadas
@@ -2641,6 +2736,12 @@ ALTER TABLE `notifications`
   ADD CONSTRAINT `notifications_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `notifications_ibfk_2` FOREIGN KEY (`ticket_id`) REFERENCES `tickets` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `notifications_ibfk_3` FOREIGN KEY (`actor_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+
+--
+-- Filtros para la tabla `password_reset_tokens`
+--
+ALTER TABLE `password_reset_tokens`
+  ADD CONSTRAINT `fk_password_reset_tokens_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
 --
 -- Filtros para la tabla `roles`
@@ -2697,12 +2798,15 @@ ALTER TABLE `solution_uses`
 -- Filtros para la tabla `tickets`
 --
 ALTER TABLE `tickets`
+  ADD CONSTRAINT `fk_tickets_group_id` FOREIGN KEY (`group_id`) REFERENCES `groups` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_tickets_technician_id` FOREIGN KEY (`technician_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `tickets_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`);
 
 --
 -- Filtros para la tabla `ticket_attachments`
 --
 ALTER TABLE `ticket_attachments`
+  ADD CONSTRAINT `fk_ticket_attachments_comment_id` FOREIGN KEY (`comment_id`) REFERENCES `ticket_comments` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `ticket_attachments_ibfk_1` FOREIGN KEY (`ticket_id`) REFERENCES `tickets` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `ticket_attachments_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`);
 

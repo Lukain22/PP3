@@ -34,7 +34,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { toast } from 'sonner';
 import SupportShell from './SupportShell';
 import RichTextView from './richtext/RichTextView';
-import { can, getToken } from '../../lib/auth';
+import { can, getHomePath, getToken } from '../../lib/auth';
 import { apiFetch } from '../../lib/api';
 import { fetchSolutionImageUrl, type SolutionRecord } from '../../lib/solutions';
 
@@ -182,7 +182,7 @@ export default function AdminSolutions() {
     <SupportShell
       compact
       title="Soluciones"
-      backTo="/admin"
+      backTo={can('admin.access') ? '/admin' : getHomePath()}
       headerActionInline
       headerActionGrow
       headerAction={
